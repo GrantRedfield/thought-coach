@@ -13,6 +13,7 @@ of 3 and 4 (as in the rest of the review), and games without any thoughts record
 from __future__ import annotations
 
 import html
+import re
 
 import chess
 import chess.svg
@@ -142,16 +143,36 @@ def worst_piece(games: list[dict]) -> dict:
             if not fen:
                 continue
             how = {"named": "You named it", "moved it in a candidate": "You considered a move with it"}.get(w.get("you"), "")
-            plan = f"; engine improves it with {w['engine_move']}" if w.get("engine_move") else ""
-            note = (how if hit else "Not mentioned or moved in a candidate") + plan
+            note = (how if hit else "Not mentioned or moved in a candidate") + "."
+            if w.get("engine_line"):
+                note += f" Stockfish: {w['engine_line']}."
+            note += " " + _fate(w)
+            dest = re.findall(r"[a-h][1-8]", w.get("engine_move") or "")
+            arrows = ([chess.svg.Arrow(chess.parse_square(w["square"]), chess.parse_square(dest[-1]), color="#15781bcc")]
+                      if dest else [])
             ex = _example(g, w["move"], fen, hit, f"{w['piece'].capitalize()} {w['square']}: {w['activity'] * 100:.0f}% of its squares",
-                          note, fill=[(chess.parse_square(w["square"]), SEEN if hit else MISSED)], ply=ply)
+                          note, fill=[(chess.parse_square(w["square"]), SEEN if hit else MISSED)], arrows=arrows, ply=ply)
             ex["passive"] = w["activity"]
             (seen if hit else missed).append(ex)
     missed.sort(key=lambda x: x["passive"])
     return {"found": sum(v[0] for v in by_piece.values()), "total": sum(v[1] for v in by_piece.values()),
             "split": [(k.capitalize() + "s", *v) for k, v in sorted(by_piece.items(), key=lambda kv: -kv[1][1])],
             "seen_all": seen, "missed_all": missed}
+
+
+def _fate(w: dict) -> str:
+    """What became of the piece in the game (aagaard.follow)."""
+    f = w.get("fate")
+    if not f:
+        return ""
+    if f["kind"] == "active":
+        if f.get("by"):
+            return f"In the game: active by move {f['move']}, after {f['by']} ({f['activity'] * 100:.0f}% of its squares)."
+        return (f"In the game: it never moved, but by move {f['move']} the position had opened around it "
+                f"({f['activity'] * 100:.0f}% of its squares).")
+    if f["kind"] == "gone":
+        return f"In the game: off the board by move {f['move']}, never active."
+    return f"In the game: still passive at move {f['move']}."
 
 
 def threats(games: list[dict]) -> dict:

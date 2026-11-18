@@ -99,3 +99,16 @@ def test_a_move_that_takes_the_guard_off_a_piece_creates_a_loose_piece():
     made = created(record, chess.BLACK)
     assert [(w["square"], w["kind"], w["created_by"]) for w in made] == [("c5", "loose knight", "b5")]
     assert created({**record, "wp_loss": 0.01}, chess.BLACK) == []  # a move that cost nothing isn't flagged
+
+
+def test_follow_a_worst_piece_until_it_gets_going():
+    from thoughtcoach.aagaard import follow
+    # White's rook on a1 behind its own pawns; Ra1-d1 at move 10 and it is active from move 11.
+    start = chess.Board("4k3/8/8/8/8/8/PPP2PPP/R3K3 w - - 0 10")
+    after = start.copy(); after.push_uci("a1d1"); after.push_uci("e8f8")
+    records = {19: {"ply": 19, "move_number": 10, "fen": start.fen(), "move_uci": "a1d1"},
+               21: {"ply": 21, "move_number": 11, "fen": after.fen(), "move_uci": "e1e2"}}
+    f = follow({"square": "a1", "piece": "rook", "move": 10}, records, chess.WHITE)
+    assert f["kind"] == "active" and f["move"] == 11 and f["by"] == "10. Rd1"
+    stuck = {19: {**records[19], "move_uci": "e1e2"}}
+    assert follow({"square": "a1", "piece": "rook", "move": 10}, stuck, chess.WHITE)["kind"] == "stuck"

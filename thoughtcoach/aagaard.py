@@ -218,6 +218,40 @@ def worst_piece(board: chess.Board, me: chess.Color, pv: list[chess.Move]) -> di
     return worst if worst["engine_move"] else None
 
 
+def follow(worst: dict, records: dict, me: chess.Color) -> dict:
+    """What became of a worst piece in the game: followed through your moves from where it was
+    worst until it stopped being passive ("active", with the move that last moved it), left the
+    board ("gone"), or the game ended with it still passive ("stuck")."""
+    sq = chess.parse_square(worst["square"])
+    last_move, last_no = None, worst["move"]
+    for ply in sorted(records):
+        r = records[ply]
+        if r["move_number"] < worst["move"] or not r.get("fen"):
+            continue
+        b = chess.Board(r["fen"])
+        piece = b.piece_at(sq)
+        if piece is None or piece.color != me or NAME.get(piece.piece_type) != worst["piece"]:
+            return {"kind": "gone", "move": r["move_number"]}
+        a = activity(b, sq)
+        if r["move_number"] > worst["move"] and a > PASSIVE:
+            return {"kind": "active", "move": r["move_number"], "activity": round(a, 2), "by": last_move}
+        last_no = r["move_number"]
+        if not r.get("move_uci"):
+            continue
+        m = chess.Move.from_uci(r["move_uci"])
+        if m.from_square == sq:
+            n = r["move_number"]
+            last_move = f"{n}. {b.san(m)}" if me == chess.WHITE else f"{n}... {b.san(m)}"
+            sq = m.to_square
+        elif b.is_castling(m) and chess.square_rank(sq) == chess.square_rank(m.from_square) and (
+                (b.is_kingside_castling(m) and chess.square_file(sq) == 7)
+                or (b.is_queenside_castling(m) and chess.square_file(sq) == 0)):
+            n = r["move_number"]
+            last_move = f"{n}. {b.san(m)}" if me == chess.WHITE else f"{n}... {b.san(m)}"
+            sq = chess.square(5 if b.is_kingside_castling(m) else 3, chess.square_rank(sq))
+    return {"kind": "stuck", "move": last_no}
+
+
 def main_line(engine, board: chess.Board) -> list[chess.Move]:
     """The engine's best line, at least PV_PLIES long: Stockfish often reports a short PV, so it is
     continued with further short searches from where it stops."""
@@ -434,5 +468,7 @@ def annotate(report: dict, analysis: dict, engine, me: chess.Color) -> None:
     s = report["summary"]
     s["q1_list"] = list(weak_seen.values())
     s["q1_weaknesses"], s["q1_found"] = len(weak_seen), sum(bool(w["you"]) for w in weak_seen.values())
+    for w in worst_seen.values():
+        w["fate"] = follow(w, records, me)
     s["q2_list"] = list(worst_seen.values())
     s["q2_positions"], s["q2_found"] = len(worst_seen), sum(bool(w["you"]) for w in worst_seen.values())
