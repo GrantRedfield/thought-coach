@@ -49,7 +49,8 @@ The image is built in AWS (CodeBuild), not on your PC:
 aws codebuild start-build --project-name thoughtcoach-worker-build
 ```
 
-It takes about 10-15 minutes; the next worker that starts uses the new image.
+It takes about 10-15 minutes; the next worker that starts uses the new image. A worker that is
+already running keeps the old image until it switches itself off (10 idle minutes).
 
 ## Point the extension at it
 
