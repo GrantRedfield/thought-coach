@@ -53,12 +53,13 @@
   @keyframes ping { from { opacity:.9; transform:scale(1); } to { opacity:0; transform:scale(2.6); } }
   .wp .drop { fill:var(--warn); } .curve .empty { color:var(--muted); font-size:14px; padding:40px 0; text-align:center; }
 
-  .cards { display:flex; flex-direction:column; gap:10px; min-height:260px; }
+  .cards { display:flex; flex-direction:column; gap:10px; }
   .card { border:1px solid var(--line); border-left:3px solid var(--glow); border-radius:12px; padding:11px 14px; background:color-mix(in srgb, var(--fg) 3%, var(--card));
     animation:pop .5s cubic-bezier(.2,.9,.3,1.3) both; font-size:14.5px; }
   .card small { display:block; color:var(--muted); font-size:11.5px; text-transform:uppercase; letter-spacing:.06em; margin-bottom:2px; }
   .card q { font-style:italic; }
-  .card.tip { border-left-color:var(--line); color:var(--fg2); }
+  .card.tip { border-left-color:var(--line); color:var(--fg2); margin-top:10px; }
+  body.done #tip { display:none; }
   @keyframes pop { from { opacity:0; transform:translateY(-12px) scale(.96); } to { opacity:1; transform:none; } }
 
   .ready { display:none; text-align:center; padding:30px 20px; }
@@ -111,6 +112,7 @@
     <section class="panel feed">
       <h2>Found so far</h2>
       <div class="cards" id="cards"></div>
+      <div class="card tip" id="tip" hidden></div>
     </section>
   </div>
 </main>
@@ -210,13 +212,13 @@
     const W = 600, H = 220, L = 34, R = 12, T = 12, B = 22;
     const total = Math.max(all.length, s.engine && s.engine[1] > 1 ? Math.ceil(s.engine[1] / 2) : all.length);
     const x = (i) => L + i / Math.max(1, total - 1) * (W - L - R), y = (v) => T + (1 - v) * (H - T - B);
-    const pts = moves.map((m) => `${x(m.i).toFixed(1)},${y(m.wp).toFixed(1)}`).join(' ');
+    const line = moves.map((m) => `${x(m.i).toFixed(1)},${y(m.wp).toFixed(1)}`).join(' ');
     const lastM = moves[moves.length - 1], last = lastM.i;
     const drops = moves.map((m) => m.loss >= 0.1 ? `<circle class="drop" cx="${x(m.i).toFixed(1)}" cy="${y(m.wp).toFixed(1)}" r="5"><title>${esc(label(m))}: −${pts(m.loss)}</title></circle>` : '').join('');
     $('curve').innerHTML = `<svg class="wp" viewBox="0 0 ${W} ${H}" role="img" aria-label="Your win chance after each of your moves">
       <line class="mid50" x1="${L}" x2="${W - R}" y1="${y(0.5)}" y2="${y(0.5)}"/><text class="ax" x="${L - 6}" y="${y(0.5) + 4}" text-anchor="end">50%</text>
       <text class="ax" x="${L - 6}" y="${y(1) + 8}" text-anchor="end">100%</text><text class="ax" x="${L - 6}" y="${y(0)}" text-anchor="end">0%</text>
-      <polygon class="area" points="${x(moves[0].i)},${y(0.5)} ${pts} ${x(last)},${y(0.5)}"/><polyline class="ln" points="${pts}"/>${drops}
+      <polygon class="area" points="${x(moves[0].i)},${y(0.5)} ${line} ${x(last)},${y(0.5)}"/><polyline class="ln" points="${line}"/>${drops}
       ${s.state === 'done' ? '' : `<circle class="head-ring" cx="${x(last)}" cy="${y(lastM.wp)}" r="6"/>`}
       <circle class="head" cx="${x(last)}" cy="${y(lastM.wp)}" r="5"/></svg>`;
     $('curve-note').textContent = s.state === 'done' ? `${all.length} moves` : `move ${lastM.n} so far`;
@@ -255,7 +257,10 @@
   function tip() {
     if (finished || Date.now() - lastTip < 9000) return;
     lastTip = Date.now();
-    card(`tip-${tipI}-${Date.now()}`, 'tip', `<small>While you wait</small>${esc(TIPS[tipI++ % TIPS.length])}`);
+    const el = $('tip');
+    el.hidden = false;
+    el.style.animation = 'none'; void el.offsetWidth; el.style.animation = '';
+    el.innerHTML = `<small>While you wait</small>${esc(TIPS[tipI++ % TIPS.length])}`;
   }
 
   function render() {
@@ -302,7 +307,7 @@
   async function poll() {
     try {
       const r = await fetch(`/api/u/${user}/games/${gid}`, { cache: 'no-store' });
-      if (r.ok) { s = await r.json(); render(); }
+      if (r.ok) { s = await r.json(); try { render(); } catch (e) { console.error(e); if (s.state === 'done') location.href = s.story || `/u/${user}/games/${gid}/story`; } }
       else if (r.status === 404) { $('now').textContent = 'Waiting for your game to arrive…'; }
     } catch (e) { /* try again */ }
     if (!finished && !document.body.classList.contains('error')) setTimeout(poll, 3000);
