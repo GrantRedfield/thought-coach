@@ -18,6 +18,7 @@ import chess.pgn
 import chess.polyglot
 
 from .engine import Engine, win_prob
+from .progress import report as report_progress
 
 PV_LENGTH = 8  # plies of each line kept in the output
 
@@ -183,6 +184,12 @@ def opponent_clocks(game: chess.pgn.Game, me: chess.Color) -> dict[int, float | 
     return out
 
 
+def live_move(rec: dict) -> dict:
+    """One analysed move, as the live page shows it."""
+    return {"ply": rec["ply"], "n": rec["move_number"], "san": rec["move_san"], "wp": rec.get("wp_after"),
+            "loss": rec.get("wp_loss"), "spent": rec.get("time_spent")}
+
+
 def analyse_game(
     game: chess.pgn.Game,
     me: chess.Color,
@@ -222,6 +229,7 @@ def analyse_game(
             }
             rec.update(analyse_position(board, move, me, engine, rules, book))
             records.append(rec)
+            report_progress("engine", done=index + 1, total=len(mainline), move=live_move(rec))
             if progress:
                 progress(index + 1, len(mainline))
         else:

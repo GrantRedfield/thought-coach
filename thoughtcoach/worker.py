@@ -35,8 +35,18 @@ def _aws():
     return boto3.client("s3"), boto3.client("sqs")
 
 
+def _read_status(s3, site: str, user: str, gid: str) -> dict:
+    try:
+        return json.loads(s3.get_object(Bucket=site, Key=f"status/{user}/{gid}.json")["Body"].read())
+    except Exception:  # noqa: BLE001 - none yet
+        return {}
+
+
 def _status(s3, site: str, user: str, gid: str, state: str, **extra) -> None:
-    body = {"game_id": gid, "user": user, "state": state, "updated": time.time(), **extra}
+    """The review's status, keeping what is already there (the game facts the upload API wrote,
+    what the live page has been shown)."""
+    body = {**_read_status(s3, site, user, gid), "game_id": gid, "user": user, "state": state,
+            "updated": time.time(), **extra}
     if state == "done":
         body.update(dashboard=f"/u/{user}/games/{gid}", story=f"/u/{user}/games/{gid}/story")
     s3.put_object(Bucket=site, Key=f"status/{user}/{gid}.json", Body=json.dumps(body).encode(),
@@ -88,11 +98,45 @@ def _strip_audio(s3, data: str, user: str, gid: str, path: Path) -> None:
                       Body=json.dumps(recording).encode())
 
 
+class Live:
+    """Publishes a running review's progress for the live page: the stage, and what each stage has
+    found so far (the win-chance curve move by move, the arrows, what was said)."""
+
+    EVERY = 2.5  # seconds between writes (a stage change writes at once)
+
+    def __init__(self, s3, site: str, user: str, gid: str):
+        self.s3, self.site, self.user, self.gid = s3, site, user, gid
+        self.status = {**_read_status(s3, site, user, gid), "game_id": gid, "user": user, "state": "running",
+                       "started_at": time.time(), "stage": "game", "found": {}, "moves": [], "engine": None}
+        self.last = 0.0
+        self._write()
+
+    def update(self, stage: str, data: dict) -> None:
+        changed = stage != self.status["stage"]
+        self.status["stage"] = stage
+        if "move" in data:
+            self.status["moves"].append(data.pop("move"))
+        if "moves" in data:
+            self.status["moves"] = data.pop("moves")
+        if "done" in data:
+            self.status["engine"] = [data.pop("done"), data.pop("total", None)]
+        self.status["found"].update(data)
+        if changed or time.time() - self.last >= self.EVERY:
+            self._write()
+
+    def _write(self) -> None:
+        self.last = time.time()
+        self.status["updated"] = self.last
+        self.s3.put_object(Bucket=self.site, Key=f"status/{self.user}/{self.gid}.json",
+                           Body=json.dumps(self.status).encode(), ContentType="application/json",
+                           CacheControl="no-store")
+
+
 USER = re.compile(r"^[a-z0-9_-]{2,30}$")  # a lichess id (lowercase username)
 
 
 def review_one(s3, data: str, site: str, user: str, gid: str) -> None:
-    from . import fmt
+    from . import fmt, progress
     from .__main__ import build_parser, cmd_review
 
     if not USER.match(user):
@@ -101,7 +145,7 @@ def review_one(s3, data: str, site: str, user: str, gid: str) -> None:
     rec_dir, out, games = home / "recordings", home / "out", WORK / "games"
     for d in (rec_dir, out, games):
         d.mkdir(parents=True, exist_ok=True)
-    _status(s3, site, user, gid, "running", started_at=time.time())
+    live = Live(s3, site, user, gid)
     path = rec_dir / f"{gid}.json"
     s3.download_file(data, f"recordings/{user}/{gid}.json", str(path))
     _sync_saved(s3, data, user, out)
@@ -109,7 +153,11 @@ def review_one(s3, data: str, site: str, user: str, gid: str) -> None:
         (out / f"{gid}.transcript.json").unlink(missing_ok=True)  # new audio: transcribe it again
     fmt.SITE["base"] = f"/u/{user}"
     args = build_parser().parse_args(["review", str(path), "--out", str(out), "--games", str(games)])
-    cmd_review(args)
+    progress.HOOK = live.update
+    try:
+        cmd_review(args)
+    finally:
+        progress.HOOK = None
     _publish(s3, data, site, user, gid, out, games)
     _strip_audio(s3, data, user, gid, path)
     _status(s3, site, user, gid, "done", finished_at=time.time())

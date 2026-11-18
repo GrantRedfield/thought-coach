@@ -53,6 +53,13 @@ async function showGames() {
     st.textContent = LABEL[h.state] || h.state;
     if (h.error && h.state !== 'done') st.title = h.error;
     li.append(id, st);
+    if (['queued', 'running'].includes(h.state) && h.live) {
+      const a = document.createElement('a');
+      a.href = h.live;
+      a.target = '_blank';
+      a.textContent = 'watch live';
+      li.append(a);
+    }
     if (h.state === 'rejected') {
       const kept = await chrome.storage.local.get(`kept:${h.game_id}`);
       if (kept[`kept:${h.game_id}`]) {

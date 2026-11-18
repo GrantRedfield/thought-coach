@@ -305,17 +305,42 @@ def game_on_lichess(gid: str) -> dict | None:
     if abandoned and (not m or m.group(1) == "*"):
         raise ValueError("lichess says this game was abandoned: there is nothing to review")
     players = {p.lower() for p in re.findall(r'\[(?:White|Black) "([^"]+)"\]', pgn)}
-    return {"over": bool(m) and m.group(1) != "*", "players": players}
+    tags = dict(re.findall(r'\[(\w+) "([^"]*)"\]', pgn))
+    return {"over": bool(m) and m.group(1) != "*", "players": players, "tags": tags}
+
+
+def game_facts(tags: dict, user: str) -> dict:
+    """Who played whom, for the live page while the review runs."""
+    white = tags.get("White", "").lower() == user
+    me, opp = ("White", "Black") if white else ("Black", "White")
+    return {"color": "white" if white else "black", "me": tags.get(me), "opp": tags.get(opp),
+            "my_elo": tags.get(f"{me}Elo"), "opp_elo": tags.get(f"{opp}Elo"), "result": tags.get("Result"),
+            "opening": tags.get("Opening"), "tc": tags.get("TimeControl"), "date": tags.get("UTCDate"),
+            "rating_diff": tags.get(f"{me}RatingDiff")}
 
 
 def status(user: str, gid: str) -> dict | None:
     return _get_json(SITE, f"status/{user}/{gid}.json")
 
 
-def wake_worker() -> None:
+def active(user: str) -> list[dict]:
+    """This player's reviews queued or running now (the newest few statuses)."""
+    objs = s3.list_objects_v2(Bucket=SITE, Prefix=f"status/{user}/").get("Contents", [])
+    found = []
+    for o in sorted(objs, key=lambda o: o["LastModified"], reverse=True)[:5]:
+        s = _get_json(SITE, o["Key"]) or {}
+        if s.get("state") in ("queued", "running") and time.time() - (s.get("updated") or s.get("queued_at") or 0) < 3600:
+            found.append({"game_id": s["game_id"], "state": s["state"], "facts": s.get("facts") or {}})
+    return found
+
+
+def wake_worker() -> bool:
+    """Start the worker if it is switched off; True if it had to be started (a cold start)."""
     group = asg.describe_auto_scaling_groups(AutoScalingGroupNames=[GROUP])["AutoScalingGroups"][0]
     if group["DesiredCapacity"] == 0:
         asg.set_desired_capacity(AutoScalingGroupName=GROUP, DesiredCapacity=1, HonorCooldown=False)
+        return True
+    return False
 
 
 def _body(event: dict) -> str:
@@ -328,8 +353,9 @@ def uploader(event: dict) -> str | None:
     return user_for_key(headers.get("x-thought-coach-key", ""))
 
 
-def _check_game(gid: str, user: str) -> dict | None:
-    """None if lichess says the game is over and this player played it; otherwise the reply to send."""
+def _check_game(gid: str, user: str, facts: dict | None = None) -> dict | None:
+    """None if lichess says the game is over and this player played it; otherwise the reply to send.
+    `facts` (if given) is filled with the game's facts."""
     try:
         game = game_on_lichess(gid)
     except ValueError as err:
@@ -342,6 +368,8 @@ def _check_game(gid: str, user: str) -> dict | None:
         return reply(409, {"error": "lichess says this game is still in progress; try again when it is over"})
     if user not in game["players"]:
         return reply(403, {"error": "you can only send your own games (you are not a player in this one)"})
+    if facts is not None:
+        facts.update(game_facts(game.get("tags") or {}, user))
     return None
 
 
@@ -402,25 +430,36 @@ def accept(raw: str, user: str, expected: str | None, checked: bool) -> dict:
             raise ValueError("the uploaded recording is for a different game")
     except (ValueError, json.JSONDecodeError) as err:
         return reply(400, {"error": str(err)})
-    if not checked:
-        refused = _check_game(gid, user)
-        if refused:
-            return refused
+    facts: dict = {}
+    refused = _check_game(gid, user, facts) if not checked else None
+    if refused:
+        return refused
+    if checked:
+        try:
+            game = game_on_lichess(gid)
+            facts = game_facts(game.get("tags") or {}, user) if game else {}
+        except ValueError:
+            facts = {}
 
     key = f"recordings/{user}/{gid}.json"
     old = _get_json(DATA, key)
     urls = {"status_url": f"/api/u/{user}/games/{gid}", "dashboard_url": f"/u/{user}/games/{gid}",
-            "story_url": f"/u/{user}/games/{gid}/story", "home_url": f"/u/{user}/"}
+            "story_url": f"/u/{user}/games/{gid}/story", "home_url": f"/u/{user}/",
+            "live_url": f"/live?u={user}&g={gid}"}
     if old is not None and richness(rec) < richness(old):
         return reply(202, {**(status(user, gid) or {"game_id": gid, "state": "done"}), **urls,
                            "kept": "earlier recording"})
     if not _count_today(user):
         return reply(429, {"error": f"that's {MAX_PER_DAY} reviews today: the rest wait until tomorrow (UTC)"})
     s3.put_object(Bucket=DATA, Key=key, Body=json.dumps(rec).encode())
-    _put_json(SITE, f"status/{user}/{gid}.json", {"game_id": gid, "user": user, "state": "queued"},
-              CacheControl="no-store")
     sqs.send_message(QueueUrl=QUEUE, MessageBody=json.dumps({"game_id": gid, "user": user}))
-    wake_worker()
+    cold = wake_worker()
+    events = rec.get("events") or []
+    _put_json(SITE, f"status/{user}/{gid}.json", {
+        "game_id": gid, "user": user, "state": "queued", "queued_at": time.time(), "cold_start": cold,
+        "facts": facts, "found": {"arrows": sum(1 for e in events if e.get("type") == "shape_add"),
+                                  "pickups": sum(1 for e in events if e.get("type") == "pick_up"),
+                                  "audio_chunks": len(rec.get("audio") or [])}}, CacheControl="no-store")
     return reply(202, {"game_id": gid, "state": "queued", **urls})
 
 
@@ -443,6 +482,9 @@ def handler(event: dict, context) -> dict:
             return me(event)
         if path == "/api/logout":
             return logout(event)
+        m = re.fullmatch(r"/api/u/([a-z0-9_-]{2,30})/active", path)
+        if m:
+            return reply(200, {"active": active(m.group(1))})
         m = re.fullmatch(r"/api/u/([a-z0-9_-]{2,30})/games/([A-Za-z0-9]{8})", path)
         if m:
             s = status(m.group(1), m.group(2))

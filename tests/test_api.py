@@ -39,8 +39,10 @@ class FakeS3:
         self.objects.pop((Bucket, Key), None)
 
     def list_objects_v2(self, Bucket, Prefix, MaxKeys=1000):
-        n = sum(1 for b, k in self.objects if b == Bucket and k.startswith(Prefix))
-        return {"KeyCount": min(n, MaxKeys)}
+        import datetime
+        keys = [k for b, k in self.objects if b == Bucket and k.startswith(Prefix)][:MaxKeys]
+        now = datetime.datetime.now()
+        return {"KeyCount": len(keys), "Contents": [{"Key": k, "LastModified": now} for k in keys]}
 
     def delete_objects(self, Bucket, Delete):
         for o in Delete["Objects"]:
@@ -87,7 +89,9 @@ def api(monkeypatch):
     spec.loader.exec_module(mod)
     mod.fake_s3, mod.fake_other = s3, other
     # lichess: game AbCd1234 is over, between lucidchess and someone
-    monkeypatch.setattr(mod, "game_on_lichess", lambda gid: {"over": True, "players": {"lucidchess", "someone"}})
+    tags = {"White": "LucidChess", "Black": "someone", "WhiteElo": "2320", "BlackElo": "2326", "Result": "0-1",
+            "Opening": "English Opening", "TimeControl": "600+0", "WhiteRatingDiff": "-6"}
+    monkeypatch.setattr(mod, "game_on_lichess", lambda gid: {"over": True, "players": {"lucidchess", "someone"}, "tags": tags})
     return mod
 
 
@@ -182,3 +186,13 @@ def test_returning_player_goes_to_their_games(api, monkeypatch):
     api.fake_s3.put_object(Bucket="site", Key="status/lucidchess/AbCd1234.json", Body=b"{}")
     r = api.handler(event("GET", "/api/callback", cookies=["tc_oauth=st.v"], query={"code": "c", "state": "st"}), None)
     assert r["headers"]["Location"] == "/u/lucidchess/"
+
+
+def test_queued_status_has_game_facts_and_shows_as_active(api):
+    r = api.handler(event("POST", "/api/recordings", RECORDING, key="owner-secret-key-0123456789"), None)
+    assert json.loads(r["body"])["live_url"] == "/live?u=lucidchess&g=AbCd1234"
+    status = json.loads(api.fake_s3.objects[("site", "status/lucidchess/AbCd1234.json")])
+    assert status["facts"]["opp"] == "someone" and status["facts"]["color"] == "white" and status["facts"]["rating_diff"] == "-6"
+    assert status["cold_start"] is True
+    active = json.loads(api.handler(event("GET", "/api/u/lucidchess/active"), None)["body"])["active"]
+    assert active[0]["game_id"] == "AbCd1234" and active[0]["facts"]["opening"] == "English Opening"

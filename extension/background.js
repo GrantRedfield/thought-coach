@@ -75,8 +75,17 @@ async function upload(gameId) {
   const body = await response.json().catch(() => ({}));
   if (response.status === 202) {
     await chrome.storage.local.remove(key);
+    const live = body.live_url ? server + body.live_url : null;
     await note(gameId, { state: body.state || 'queued', error: null, dashboard: null,
-      status_url: body.status_url || null, story_url: body.story_url || null });
+      status_url: body.status_url || null, story_url: body.story_url || null, live });
+    if (live && !body.kept) {
+      chrome.notifications.create(`live:${gameId}`, {
+        type: 'basic',
+        iconUrl: 'icon128.png',
+        title: 'Thought Coach: reviewing your game',
+        message: 'Your review has started. Click to watch it come together live.',
+      });
+    }
   } else if (response.status === 401) {
     await note(gameId, { state: 'waiting', error: 'not connected: open thoughtcoach.org/start and sign in' });
   } else if (response.status === 409 || response.status === 429 || response.status >= 500) {
@@ -130,6 +139,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 });
 
 chrome.notifications.onClicked.addListener(async (id) => {
+  if (id.startsWith('live:')) {
+    const h = (await history()).find((x) => x.game_id === id.slice(5));
+    if (h && h.live) chrome.tabs.create({ url: h.live });
+    chrome.notifications.clear(id);
+    return;
+  }
   if (!id.startsWith('done:')) return;
   const gameId = id.slice(5);
   const h = (await history()).find((x) => x.game_id === gameId);

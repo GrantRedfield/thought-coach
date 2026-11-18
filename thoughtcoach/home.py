@@ -289,6 +289,11 @@ CSS = """
 section h2 { font-size:13px; text-transform:uppercase; letter-spacing:.08em; color:var(--fg2); margin:34px 0 10px; font-weight:600; }
 .cap { color:var(--muted); font-size:13px; margin:-4px 0 10px; }
 
+#live-banner a { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:0 0 16px; padding:14px 18px; border-radius:14px;
+  text-decoration:none; color:var(--fg); background:color-mix(in srgb, var(--accent) 16%, var(--card)); border:1px solid var(--accent); }
+#live-banner a span:last-child { margin-left:auto; color:var(--accent); font-weight:700; }
+#live-banner .dot { width:10px; height:10px; border-radius:50%; background:var(--accent); animation:pulse-dot .8s infinite alternate; }
+
 /* the latest game */
 .hero { --glow:#3987e5; position:relative; overflow:hidden; display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(0, 1fr);
   gap:28px; padding:30px 32px; border-radius:22px; border:1px solid var(--line);
@@ -393,6 +398,18 @@ JS = """
   document.querySelectorAll('.gplay').forEach((s) => s.addEventListener('click', (e) => {
     e.preventDefault(); e.stopPropagation(); location.href = s.dataset.href;
   }));
+  // Hosted: a review running right now gets a banner to its live page.
+  const banner = document.getElementById('live-banner');
+  if (banner) {
+    const u = banner.dataset.user;
+    fetch(`/api/u/${u}/active`, { cache: 'no-store' }).then((r) => r.json()).then(({ active }) => {
+      if (!active || !active.length) return;
+      const a = active[0], f = a.facts || {};
+      const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+      banner.innerHTML = `<a href="/live?u=${u}&g=${a.game_id}"><span class="dot"></span><b>Your game${f.opp ? ' vs ' + esc(f.opp) : ''} is being reviewed right now.</b><span>Watch it come together &rarr;</span></a>`;
+      banner.hidden = false;
+    }).catch(() => {});
+  }
   // Count the hero's numbers up once.
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
     document.querySelectorAll('[data-count]').forEach((el) => {

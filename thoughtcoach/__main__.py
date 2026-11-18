@@ -20,7 +20,7 @@ import chess.pgn
 
 from .align import align
 from .align import render as render_windows
-from .analyse import Rules, analyse_pgn_game, game_id, opponent_clocks, player_color
+from .analyse import Rules, analyse_pgn_game, game_id, live_move, opponent_clocks, player_color
 from .arrows import load_recordings
 from .dashboard import render as render_dashboard
 from .aagaard import annotate as annotate_aagaard
@@ -30,6 +30,7 @@ from .arrows import summarise as summarise_arrows
 from .engine import WP_MODELS, Engine, EngineSettings, find_stockfish
 from .gaps import Thresholds, build, engine_evaluator
 from .gaps import render as render_gaps
+from .progress import report as report_progress
 from .report import render
 from .voice import ollama_available, transcribe, utterances, voice_events, warm_up
 
@@ -178,16 +179,22 @@ def voice_for(recording: dict, out_dir: Path, args: argparse.Namespace) -> list[
         if llm and ollama_available(args.ollama_url):
             warm_up(llm, args.ollama_url, args.llm_gpu)  # load the model while Whisper runs
         print(f"{gid}: transcribing voice ({args.whisper_model}) ...", file=sys.stderr)
+        report_progress("voice", audio_chunks=len(recording.get("audio") or []))
         transcript = transcribe(recording, args.whisper_model)
         write(path, json.dumps(transcript, indent=2))
     if llm and not ollama_available(args.ollama_url):
         print(f"{gid}: Ollama not running, tagging speech with keyword rules", file=sys.stderr)
     if llm and ollama_available(args.ollama_url):
         print(f"{gid}: tagging speech with {llm} ...", file=sys.stderr)
+    start_t = recording["events"][0]["t"] if recording.get("events") else 0
+    said = [{"s": round((c["t"] - start_t) / 1000), "text": c["text"]} for c in utterances(transcript) if len(c["text"].split()) >= 4]
+    report_progress("voice", said=len(utterances(transcript)), quotes=said[:: max(1, len(said) // 8)][:8])
+    report_progress("tagging")
     tags_path = out_dir / f"{gid}.tags.json"
     cache = json.loads(tags_path.read_text(encoding="utf-8")) if tags_path.exists() else {}  # keyed by the words, so new audio just misses
     started = time.time()
     events = voice_events(transcript, llm, args.ollama_url, args.llm_gpu, cache)
+    report_progress("tagging", mentions=len(events))
     write(tags_path, json.dumps(cache, indent=1))
     if llm:
         print(f"{gid}: speech tagged in {time.time() - started:.0f}s", file=sys.stderr)
@@ -229,6 +236,11 @@ def cmd_review(args: argparse.Namespace) -> int:
             game = read_pgn(pgn_path)
             color = args.color or recording["my_color"]
             me = chess.WHITE if color == "white" else chess.BLACK
+            events = recording.get("events") or []
+            report_progress("game", moves=len(list(game.mainline())),
+                            arrows=sum(1 for e in events if e.get("type") == "shape_add"),
+                            pickups=sum(1 for e in events if e.get("type") == "pick_up"),
+                            audio_chunks=len(recording.get("audio") or []))
 
             # 1. Engine analysis, reused if it exists with the same settings.
             analysis_path = out_dir / f"{gid}.json"
@@ -239,6 +251,8 @@ def cmd_review(args: argparse.Namespace) -> int:
                     cached["settings"].get(k) == v for k, v in {**vars(engine.settings), **vars(rules)}.items()
                 )
                 analysis = cached if same else None
+            if analysis is not None:
+                report_progress("engine", done=1, total=1, moves=[live_move(r) for r in analysis["moves"]])
             if analysis is None:
                 analysis = analyse_pgn_game(game, me, engine, rules, gid, progress_printer(gid))
                 print(file=sys.stderr)
@@ -258,22 +272,27 @@ def cmd_review(args: argparse.Namespace) -> int:
                 spoken = voice_for(recording, out_dir, args)
 
             # 3. Thinking windows (arrows + voice).
+            report_progress("thinking")
             thinking = align(game, recording, me, spoken)
+            report_progress("thinking", moves_with_thoughts=sum(1 for w in thinking["windows"] if w.get("shapes")))
             write(out_dir / f"{gid}.thinking.json", json.dumps(thinking, indent=2))
             write(out_dir / f"{gid}.thinking.txt", render_windows(thinking, dict(game.headers)))
 
             # 4. Gap report (moves you had that aren't engine candidates get their own search).
+            report_progress("report")
             report = build(analysis, thinking, thresholds, engine_evaluator(engine, me, rules.wp_model))
             annotate_aagaard(report, analysis, engine, me)  # Q1 weaknesses, Q2 worst piece
             transcript_path = out_dir / f"{gid}.transcript.json"
             transcript = json.loads(transcript_path.read_text(encoding="utf-8")) if spoken is not None and transcript_path.exists() else None
             report["insights"] = build_insights(game, me, report, thinking, recording, transcript, utterances)
             report["verdict"] = verdict(report, analysis, report["insights"])
+            report_progress("strike")
             report["strike"] = find_strike(game, analysis, me, strike_threats(engine, game, analysis, me, rules.wp_model))
             write(out_dir / f"{gid}.gaps.json", json.dumps(report, indent=2))
             write(out_dir / f"{gid}.gaps.txt", render_gaps(report))
 
             # 5. Dashboard: every observation on one screen, critical moments on boards.
+            report_progress("story", costly=sum(1 for m in report["moves"] if m.get("mistake")))
             page = out_dir / f"{gid}.html"
             def line_for(fen: str, uci: str) -> str:
                 board = chess.Board(fen)
