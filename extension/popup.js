@@ -53,6 +53,25 @@ async function showGames() {
     st.textContent = LABEL[h.state] || h.state;
     if (h.error && h.state !== 'done') st.title = h.error;
     li.append(id, st);
+    if (h.state === 'rejected') {
+      const kept = await chrome.storage.local.get(`kept:${h.game_id}`);
+      if (kept[`kept:${h.game_id}`]) {
+        const a = document.createElement('a');
+        a.href = '#';
+        a.textContent = 'send again';
+        a.onclick = async (e) => {
+          e.preventDefault();
+          st.textContent = 'sending…';
+          await chrome.runtime.sendMessage({ type: 'resend', game_id: h.game_id });
+          showGames();
+        };
+        li.append(a);
+      }
+      const why = document.createElement('div');
+      why.className = 'why';
+      why.textContent = h.error || '';
+      li.append(why);
+    }
     if (h.state === 'done') {
       const a = document.createElement('a');
       a.href = h.dashboard || `${await server()}/`;

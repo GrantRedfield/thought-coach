@@ -82,7 +82,10 @@ async function upload(gameId) {
   } else if (response.status === 409 || response.status === 429 || response.status >= 500) {
     await note(gameId, { state: 'waiting', error: body.error || `server said ${response.status}` });
   } else {
-    await chrome.storage.local.remove(key); // the server will never take it (bad recording)
+    // Not accepted (e.g. an abandoned game). Kept for two weeks, not retried by itself: the popup
+    // can send it again, so a refusal that was a mistake never loses the recording (or the voice).
+    await chrome.storage.local.set({ [`kept:${gameId}`]: { recording, at: Date.now() } });
+    await chrome.storage.local.remove(key);
     await note(gameId, { state: 'rejected', error: body.error || `server said ${response.status}` });
   }
   schedule();
@@ -146,6 +149,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
       });
     return true;
   }
+  if (msg.type === 'resend' && msg.game_id) {
+    const k = `kept:${msg.game_id}`;
+    chrome.storage.local.get(k).then(async ({ [k]: kept }) => {
+      if (!kept) return reply({ ok: false, error: 'no recording kept for this game' });
+      await chrome.storage.local.set({ [`pending:${msg.game_id}`]: kept.recording });
+      await chrome.storage.local.remove(k);
+      await note(msg.game_id, { state: 'uploading', error: null });
+      await upload(msg.game_id);
+      reply({ ok: true });
+    });
+    return true;
+  }
   if (msg.type === 'retry') {
     pendingIds()
       .then((ids) => Promise.all(ids.map(upload)))
@@ -156,6 +171,14 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   return false;
 });
 
+/** Drop refused recordings after two weeks. */
+async function pruneKept() {
+  const all = await chrome.storage.local.get(null);
+  const old = Object.keys(all).filter((k) => k.startsWith('kept:') && Date.now() - (all[k].at || 0) > 14 * 864e5);
+  if (old.length) await chrome.storage.local.remove(old);
+}
+
+chrome.runtime.onStartup.addListener(pruneKept);
 chrome.runtime.onStartup.addListener(schedule);
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   schedule();
