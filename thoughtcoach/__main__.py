@@ -25,7 +25,7 @@ from .arrows import load_recordings
 from .dashboard import render as render_dashboard
 from .aagaard import annotate as annotate_aagaard
 from .insights import build as build_insights, verdict
-from .strike import find as find_strike, threats as strike_threats
+from .strike import find as find_strike, first_break, threats as strike_threats
 from .arrows import summarise as summarise_arrows
 from .engine import WP_MODELS, Engine, EngineSettings, find_stockfish
 from .gaps import Thresholds, build, engine_evaluator
@@ -288,6 +288,10 @@ def cmd_review(args: argparse.Namespace) -> int:
             report["verdict"] = verdict(report, analysis, report["insights"])
             report_progress("strike")
             report["strike"] = find_strike(game, analysis, me, strike_threats(engine, game, analysis, me, rules.wp_model))
+            brk = first_break(game, analysis, me)
+            st = report["strike"]
+            if brk and not (st.get("side") and brk["ply"] <= st["ply"] <= brk["end"]):
+                st["break"] = brk  # a break that runs straight into the strike adds nothing
             write(out_dir / f"{gid}.gaps.json", json.dumps(report, indent=2))
             write(out_dir / f"{gid}.gaps.txt", render_gaps(report))
 

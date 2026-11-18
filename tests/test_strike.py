@@ -3,7 +3,7 @@ import io
 import chess
 import chess.pgn
 
-from thoughtcoach.strike import find
+from thoughtcoach.strike import find, first_break
 
 
 def game(pgn: str) -> chess.pgn.Game:
@@ -39,3 +39,18 @@ def test_an_even_trade_is_not_a_strike():
     analysis = {"moves": [rec(1, 0.5, 0.5), rec(3, 0.5, 0.5), rec(5, 0.5, 0.52)]}
     s = find(g, analysis, chess.WHITE)
     assert s["side"] is None and "never broke open" in s["text"]
+
+
+def test_the_first_break_and_the_trades_after_it():
+    g = game('[Result "*"]\n\n1. Nf3 Nf6 2. g3 g6 3. Bg2 Bg7 4. O-O O-O 5. c4 c5 6. Nc3 Nc6 '
+             '7. b3 b6 8. d4 cxd4 9. Nxd4 Nxd4 10. Qxd4 d6 *')
+    analysis = {"moves": [rec(15, 0.55, 0.55), rec(17, 0.55, 0.56), rec(19, 0.56, 0.54)]}
+    br = first_break(g, analysis, chess.WHITE)
+    assert br["move"] == "8. d4" and br["side"] == "you" and br["centre"]
+    assert br["line"] == "8... cxd4 9. Nxd4 Nxd4 10. Qxd4"
+    assert br["text"] == "You opened the centre with 8. d4; after 8... cxd4 9. Nxd4 Nxd4 10. Qxd4 the balance held (55% → 54%)."
+
+
+def test_opening_pawn_tension_is_not_a_break():
+    g = game('[Result "*"]\n\n1. d4 d5 2. c4 e6 3. Nc3 Nf6 *')
+    assert first_break(g, {"moves": []}, chess.WHITE) is None

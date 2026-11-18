@@ -319,6 +319,8 @@ def strike(c: Ctx) -> list[dict]:
                      for i in m.get("drawn_opponent_ideas") or []}
             if san in ideas or squares in ideas:
                 text += " You saw it coming: you'd drawn it."
+        if s.get("break"):
+            text += " Earlier, " + s["break"]["text"][0].lower() + s["break"]["text"][1:]
         return [_beat("strike", s["ply"], 0.8 if good else 0.6, f"First strike · move {s['move_number']}",
                       "You struck first" if s["side"] == "you" else "They struck first", text,
                       c.quote(s["ply"]) if s["side"] == "you" else None, board, arrows)]

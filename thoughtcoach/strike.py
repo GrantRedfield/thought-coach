@@ -19,6 +19,11 @@ Read from the moves actually played (no extra engine work; the win chances come 
   is measured from before the door (or the strike) to the end of the sequence, from the
   striker's side: up at least OUTCOME = it worked, down at least OUTCOME = it backfired,
   otherwise nothing changed. If the game ended inside the sequence, the result counts.
+
+The first break is separate (`first_break`): the first pawn move from move BREAK_FROM on that
+puts a pawn up against an enemy pawn (8. d4 against a pawn on c5), with the trades that follow
+and the win chance before and after. It is who opened the position, which is often not who
+struck first: a break whose trades are even changes nothing a strike would count.
 """
 
 from __future__ import annotations
@@ -35,6 +40,7 @@ DOOR = 0.08
 OUTCOME = 0.10
 MAX_PLIES = 10
 THREAT = 0.15
+BREAK_FROM = 6  # move number: pawn tension before this is the opening (1. d4 d5 2. c4)
 VALUE = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 0}
 
 
@@ -185,6 +191,67 @@ def find(game: chess.pgn.Game, analysis: dict, me: chess.Color, threat: dict | N
             return out
         i = end + 1
     return _no_strike(wp, boards, moves, me)
+
+
+def first_break(game: chess.pgn.Game, analysis: dict, me: chess.Color) -> dict | None:
+    """The first pawn break: {"ply", "move", "side", "centre", "line", "end", "wp_from", "wp_to", "text"}."""
+    wp: dict[int, float] = {}
+    for r in analysis["moves"]:
+        if r.get("skipped") or r.get("wp_before") is None:
+            continue
+        wp.setdefault(r["ply"] - 1, r["wp_before"])
+        if r.get("wp_after") is not None:
+            wp[r["ply"]] = r["wp_after"]
+    moves = list(game.mainline_moves())
+    b = game.board()
+    boards = [b.copy(stack=False)]
+    for m in moves:
+        b.push(m)
+        boards.append(b.copy(stack=False))
+    for i in range(2 * BREAK_FROM - 1, len(moves) + 1):
+        before, m, after = boards[i - 1], moves[i - 1], boards[i]
+        if before.piece_type_at(m.from_square) != chess.PAWN or before.is_capture(m):
+            continue
+        mover = before.turn
+        to = m.to_square
+        enemy_pawn = chess.Piece(chess.PAWN, not mover)
+        hits = any(after.piece_at(s) == enemy_pawn for s in after.attacks(to))
+        hit = any(after.piece_at(s) == enemy_pawn for s in after.attackers(not mover, to))
+        if not (hits or hit):
+            continue
+        # The trades that follow: captures (one quiet move in between allowed).
+        end, k, quiet = i, i, 0
+        while k < len(moves) and quiet < 2 and k - i < MAX_PLIES:
+            k += 1
+            if boards[k - 1].is_capture(moves[k - 1]):
+                end, quiet = k, 0
+            else:
+                quiet += 1
+        w0 = next((wp[p] for p in range(i - 1, end + 1) if p in wp), None)
+        w1 = next((wp[p] for p in range(end, end + 3) if p in wp), None)
+        if w1 is None:
+            w1 = next((wp[p] for p in range(end - 1, i - 2, -1) if p in wp), None)
+        out = {"ply": i, "move": _label(i, before.san(m)), "side": "you" if mover == me else "them",
+               "centre": chess.square_file(to) in (3, 4), "end": end,
+               "line": boards[i].variation_san(moves[i:end]).replace("...", "... ") if end > i else "",
+               "wp_from": None if w0 is None else round(w0, 3), "wp_to": None if w1 is None else round(w1, 3)}
+        out["text"] = describe_break(out)
+        return out
+    return None
+
+
+def describe_break(br: dict) -> str:
+    """'You opened the centre with 8. d4; after 8... cxd4 9. Qxd4 the balance held (55% -> 54%).'"""
+    who = "You" if br["side"] == "you" else "They"
+    what = "opened the centre" if br["centre"] else "made the first pawn break"
+    head = f"{who} {what} with {br['move']}"
+    if br["wp_from"] is None or br["wp_to"] is None:
+        return f"{head}."
+    after = f"after {br['line']} " if br["line"] else ""
+    wp = f"({pct(br['wp_from'])} → {pct(br['wp_to'])})"
+    d = (br["wp_to"] - br["wp_from"]) * (1 if br["side"] == "you" else -1)
+    how = "it paid off" if d >= OUTCOME else "it backfired" if d <= -OUTCOME else "the balance held"
+    return f"{head}; {after}{how} {wp}."
 
 
 def _no_strike(wp: dict, boards: list, moves: list, me: chess.Color) -> dict:

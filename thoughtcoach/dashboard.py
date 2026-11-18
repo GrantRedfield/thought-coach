@@ -278,7 +278,9 @@ def verdict_html(report: dict, critical_plies: list[int]) -> str:
         attr = f" data-moment='{critical_plies.index(ply)}'" if ply in critical_plies else ""
         cells.append(f"<div class='v-{key}'{attr}><i aria-hidden='true'>{icon}</i><b>{title}</b><p>{_e(item['text'])}</p></div>")
     if st and cells:
-        cells.append(f"<div class='v-strike'><i aria-hidden='true'>&#9889;</i><b>First strike</b><p>{_e(st['text'])}</p></div>")
+        brk = (st.get("break") or {}).get("text")
+        more = f"<p class='v-break'>{_e(brk)}</p>" if brk else ""
+        cells.append(f"<div class='v-strike'><i aria-hidden='true'>&#9889;</i><b>First strike</b><p>{_e(st['text'])}</p>{more}</div>")
     return f"<div class='verdict'>{''.join(cells)}</div>" if cells else ""
 
 
@@ -396,7 +398,7 @@ header h1 { font-size:18px; margin:0; letter-spacing:-0.01em; } header .meta { c
   display:grid; grid-template-columns:auto 1fr; gap:0 10px; align-items:start; font-size:13.5px; }
 .verdict i { font-style:normal; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-weight:700;
   color:#fff; grid-row:span 2; margin-top:2px; }
-.verdict .v-good i { background:var(--good); } .verdict .v-watch i { background:var(--warn); } .verdict .v-strike i { background:var(--fg2); color:var(--bg); }
+.verdict .v-good i { background:var(--good); } .verdict .v-watch i { background:var(--warn); } .verdict .v-strike i { background:var(--fg2); color:var(--bg); } .verdict .v-break { margin-top:6px; color:var(--muted); }
 .strike line { stroke:var(--fg2); stroke-width:1.5; stroke-dasharray:3 3; } .strike text { fill:var(--fg2); font-size:10.5px; font-weight:600; }
 .verdict b { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg2); }
 .verdict p { margin:0; color:var(--fg); } .verdict [data-moment] { cursor:pointer; } .verdict [data-moment]:hover { border-color:var(--accent); }

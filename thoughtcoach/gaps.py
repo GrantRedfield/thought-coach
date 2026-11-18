@@ -324,6 +324,8 @@ def render(report: dict) -> str:
             short.append(f"  Watch out for: {v['watch']['text']}")
         if report.get("strike"):
             short.append(f"  First strike : {report['strike']['text']}")
+            if report["strike"].get("break"):
+                short.append(f"  First break  : {report['strike']['break']['text']}")
         out[-1:-1] = short + [""]
     for gap in GAPS:
         b = s["by_gap"][gap]
