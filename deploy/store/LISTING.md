@@ -28,6 +28,8 @@ Fair play: the extension only reads the board. It shows nothing, adds nothing to
 
 Privacy: signing in only tells us your lichess username. Voice recordings are deleted once they are transcribed. No ads, no tracking, and you can delete your data at any time. Free and open source.
 
+Source code: https://github.com/GrantRedfield/thought-coach
+
 Not affiliated with lichess.org.
 
 **Category:** Productivity → Education (or "Education" if offered at the top level)

@@ -59,10 +59,10 @@ def _sync_saved(s3, data: str, user: str, out: Path) -> None:
 
 def _publish(s3, data: str, site: str, user: str, gid: str, out: Path, games: Path) -> None:
     html = {"html": "text/html; charset=utf-8"}
-    s3.upload_file(str(out / f"{gid}.html"), site, f"u/{user}/games/{gid}/index.html",
-                   ExtraArgs={"ContentType": html["html"]})
-    s3.upload_file(str(out / f"{gid}.story.html"), site, f"u/{user}/games/{gid}/story/index.html",
-                   ExtraArgs={"ContentType": html["html"]})
+    # no-cache: the CDN checks for a newer copy each time, so a game reviewed again shows at once.
+    page = {"ContentType": html["html"], "CacheControl": "no-cache"}
+    s3.upload_file(str(out / f"{gid}.html"), site, f"u/{user}/games/{gid}/index.html", ExtraArgs=page)
+    s3.upload_file(str(out / f"{gid}.story.html"), site, f"u/{user}/games/{gid}/story/index.html", ExtraArgs=page)
     for suffix in SAVED:
         path = out / f"{gid}{suffix}"
         if path.exists():
