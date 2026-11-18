@@ -79,3 +79,18 @@ Certify all three:
 
 - Visibility: **Public** (or **Unlisted** to test with friends first: only people with the link can find it).
 - Regions: all regions.
+
+## Test instructions (Access → Test instructions)
+
+```text
+1. Install the extension. It opens https://thoughtcoach.org/start
+2. Click "Sign in with lichess" and sign in with any lichess.org account (free to create at lichess.org/signup). The setup page then connects the extension to that account by itself (step 3 turns green).
+3. Play a game on lichess.org, e.g. against the computer: lichess.org/setup/ai -> Time control "Real time" (e.g. 5 minutes), then Play. During the game, right-click and drag on the board to draw arrows; the extension records them silently and shows nothing on the page. Resigning after a few moves is fine.
+4. When the game ends, the review appears about 5 minutes later: a notification opens it, or click the extension icon -> "Your games".
+
+The microphone is optional: Chrome asks for permission when a game starts; it can be declined or switched off in the extension popup.
+```
+
+## Account settings (dashboard → Account)
+
+Contact email: required, and must be verified (Google emails a link) before submitting.
