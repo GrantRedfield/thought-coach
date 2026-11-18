@@ -49,6 +49,10 @@
 <script>
 fetch('/api/me').then((r) => r.json()).then((me) => {
   if (!me.signed_in) return;
+  // Coming back to thoughtcoach.org signed in: straight to your games (but not when you clicked "home" on the site).
+  let fromSite = false;
+  try { fromSite = new URL(document.referrer).origin === location.origin; } catch (e) {}
+  if (!fromSite) { location.replace(me.home); return; }
   document.getElementById('cta').innerHTML =
     `<a class="btn primary" href="${me.home}">Your games</a><a class="btn" href="/start">Setup</a>`;
   const g = document.getElementById('nav-games'); g.href = me.home; g.hidden = false;

@@ -175,44 +175,40 @@ a { color:var(--accent); } .state { color:var(--fg2); } .error { color:#c0392b; 
 
 
 def list_page(reviews: Reviews, owner: str | None = None) -> str:
-    """The home page; owner (hosted service): whose games, with links to setup and sign out."""
-    from . import profile
-    from .fmt import THEME_BUTTON, THEME_HEAD, game_url
+    """The home page: your latest game's story up front, your form, every game, the patterns.
+    owner (hosted service): whose games, with links to setup and sign out."""
+    from . import home, profile
+    from .fmt import THEME_BUTTON, THEME_HEAD
 
+    loaded, prof, stories = [], None, {}
     try:
-        prof = profile.compute(profile.load(reviews.out, reviews.games))
-        patterns = profile.render(prof)
-        info = {g["id"]: g for g in prof["games"]}
+        loaded = profile.load(reviews.out, reviews.games)
+        prof = profile.compute(loaded) if loaded else None
+        for g in loaded:
+            path = reviews.out / f"{g['id']}.story.json"
+            if path.exists():
+                stories[g["id"]] = json.loads(path.read_text(encoding="utf-8"))
     except Exception:  # a broken saved review must not take the home page down
         traceback.print_exc()
-        patterns, info = "", {}
-    games = reviews.all()
-    busy = any(g["state"] in ("queued", "running") for g in games)
-    rows = []
-    for g in games:
-        gid = html.escape(g["game_id"])
-        link = (f"<a class='play' href='{game_url(gid, story=True)}'>&#9654; story</a> &middot; <a href='{game_url(gid)}'>dashboard</a>"
-                if g["state"] == "done" else "")
-        err = f"<div class='error'>{html.escape(g.get('error') or '')}</div>" if g["state"] == "error" else ""
-        i = info.get(g["game_id"])
-        facts = (f"<td>{html.escape(str(i['date'] or ''))}</td><td>{html.escape(i['color'])}</td>"
-                 f"<td>{html.escape(i['result'])}</td><td>{i['costly']} costly, {i['per_move'] * 100:.1f}% lost per move</td>"
-                 if i else "<td></td><td></td><td></td><td></td>")
-        rows.append(f"<tr><td><a href='https://lichess.org/{gid}'>{gid}</a></td>{facts}"
-                    f"<td class='state'>{html.escape(g['state'])}{err}</td><td>{link}</td></tr>")
-    body = "".join(rows) or "<tr><td colspan='7'>No games yet. Play a game on lichess with the extension on.</td></tr>"
-    refresh = "<meta http-equiv='refresh' content='5'>" if busy else ""
-    sub = ("Your games, reviewed after they end." if not owner else
-           f"{html.escape(owner)}'s games, reviewed after they end &middot; <a href='/start'>Setup</a> &middot; "
-           f"<a href='https://lichess.org/'>Play on lichess</a> &middot; <a href='/api/logout'>Sign out</a>")
+    reviewed = {g["id"] for g in loaded}
+    waiting = {g["game_id"]: g for g in reviews.all()
+               if g["state"] in ("queued", "running", "error", "done") and g["game_id"] not in reviewed}
+    try:
+        main = home.render(loaded, prof, stories, waiting)
+    except Exception:
+        traceback.print_exc()
+        main = "<p>Your games could not be shown right now.</p>"
+    busy = any(g["state"] in ("queued", "running") for g in waiting.values())
+    refresh = "<meta http-equiv='refresh' content='10'>" if busy else ""
+    nav = ("<a class='nav' href='https://lichess.org/'>Play on lichess</a>" if not owner else
+           f"<span class='who'>{html.escape(owner)}</span><a class='nav' href='https://lichess.org/'>Play on lichess</a>"
+           "<a class='nav' href='/start'>Setup</a><a class='nav' href='/api/logout'>Sign out</a>")
     return f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">{refresh}<title>Thought Coach</title>
-{THEME_HEAD}<style>{LIST_CSS}{profile.CSS}</style></head><body>{THEME_BUTTON}<main><h1>Thought Coach</h1>
-<p class="sub">{sub}</p>
-{patterns}
-<h2 style="font-size:15px;margin:26px 0 8px">Games, newest first</h2>
-<div style="overflow-x:auto"><table><tr><th>Game</th><th>Date</th><th>You</th><th>Result</th><th>Costly</th><th>Review</th><th></th></tr>{body}</table></div>
-</main></body></html>"""
+<link rel="icon" href="/favicon.png">{THEME_HEAD}<style>{LIST_CSS}{profile.CSS}{home.CSS}</style></head><body>{THEME_BUTTON}
+<main class="wrap"><nav class="topbar"><a class="brand" href="/">&#9822; Thought Coach</a><span class="sp"></span>{nav}</nav>
+{main}
+</main><script>{home.JS}</script></body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):

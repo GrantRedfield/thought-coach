@@ -210,7 +210,10 @@ def write_story(report: dict, analysis: dict, thinking: dict | None, game, out_d
         history = story.history_from_profile(profile.compute(profile.load(out_dir, games)))
     except Exception:  # no other games yet, or an old saved review: this game alone
         history = None
-    return story.render(story.build(report, analysis, thinking, game, history))
+    built = story.build(report, analysis, thinking, game, history)
+    # The home page's "latest game" card reads this: the headline, the key position and the focus.
+    write(out_dir / f"{built['id']}.story.json", json.dumps(story.summary(built)))
+    return story.render(built)
 
 
 def cmd_review(args: argparse.Namespace) -> int:

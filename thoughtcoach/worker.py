@@ -26,7 +26,7 @@ import urllib.request
 from pathlib import Path
 
 WORK = Path(os.environ.get("TC_WORK", "/data"))
-SAVED = (".gaps.json", ".json", ".thinking.json", ".transcript.json", ".tags.json")  # kept between games
+SAVED = (".gaps.json", ".json", ".thinking.json", ".transcript.json", ".tags.json", ".story.json")  # kept between games
 
 
 def _aws():

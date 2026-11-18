@@ -502,6 +502,15 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
             "curve": curve, "focus": focus(c, history), "orientation": c.me, "decided_by": decided_by}
 
 
+def summary(story: dict) -> dict:
+    """What the home page needs from a story (saved as <id>.story.json): no animation frames."""
+    keep = ("kind", "ply", "eyebrow", "title", "body", "quote", "fen", "arrows", "fill", "stat")
+    return {**{k: story[k] for k in ("id", "me", "them", "color", "tc", "result", "outcome", "arrows", "said",
+                                     "moves_with_thoughts", "curve", "focus", "decided_by")},
+            "orientation": "white" if story["orientation"] else "black",
+            "beats": [{k: b.get(k) for k in keep} for b in story["beats"]]}
+
+
 def _frames_svg(b: dict, orientation: chess.Color) -> str:
     """A board that plays through moves: the frames are stacked and shown one at a time."""
     svgs = []

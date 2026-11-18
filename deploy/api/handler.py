@@ -237,7 +237,10 @@ def callback(event: dict) -> dict:
     if not USER_ID.match(uid):
         return redirect("/start?signin=failed", [clear])
     get_or_create_user(uid, name or uid)
-    return redirect("/start", [clear, _cookie("tc_session", make_session(uid), "/", SESSION_DAYS * 86400)])
+    # Players with reviews go straight to their games (latest story up front); new ones to setup.
+    has_games = s3.list_objects_v2(Bucket=SITE, Prefix=f"status/{uid}/", MaxKeys=1).get("KeyCount", 0) > 0
+    return redirect(f"/u/{uid}/" if has_games else "/start",
+                    [clear, _cookie("tc_session", make_session(uid), "/", SESSION_DAYS * 86400)])
 
 
 def me(event: dict) -> dict:

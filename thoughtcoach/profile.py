@@ -12,6 +12,7 @@ there is no time to think there, and counted separately.
 from __future__ import annotations
 
 import json
+import re
 import statistics
 from pathlib import Path
 
@@ -40,6 +41,15 @@ def _opp_clocks(pgn: Path, me: chess.Color) -> dict[int, float]:
     return opponent_clocks(game, me) if game else {}
 
 
+def _played(pgn: Path) -> str | None:
+    """When the game started (UTC), from the PGN headers: '2026.11.17 20:16:53'."""
+    if not pgn.exists():
+        return None
+    head = pgn.read_text(encoding="utf-8", errors="replace")[:2000]
+    d, t = re.search(r'\[UTCDate "([^"]+)"\]', head), re.search(r'\[UTCTime "([^"]+)"\]', head)
+    return f"{d.group(1)} {t.group(1) if t else ''}".strip() if d else None
+
+
 def load(out: Path, games: Path) -> list[dict]:
     """Every reviewed game: its report, analysis records and opponent clocks, oldest first."""
     found = []
@@ -52,8 +62,9 @@ def load(out: Path, games: Path) -> list[dict]:
         analysis = json.loads(analysis_path.read_text(encoding="utf-8"))
         me = chess.WHITE if report["game"]["my_color"] == "white" else chess.BLACK
         found.append({"id": gid, "report": report, "analysis": analysis,
-                      "opp": _opp_clocks(games / f"{gid}.pgn", me), "mtime": path.stat().st_mtime})
-    found.sort(key=lambda g: (g["report"]["game"].get("date") or "", g["mtime"]))
+                      "opp": _opp_clocks(games / f"{gid}.pgn", me), "mtime": path.stat().st_mtime,
+                      "played": _played(games / f"{gid}.pgn") or report["game"].get("date") or ""})
+    found.sort(key=lambda g: (g["played"], g["mtime"]))
     return found
 
 

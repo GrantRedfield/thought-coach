@@ -38,6 +38,10 @@ class FakeS3:
     def delete_object(self, Bucket, Key):
         self.objects.pop((Bucket, Key), None)
 
+    def list_objects_v2(self, Bucket, Prefix, MaxKeys=1000):
+        n = sum(1 for b, k in self.objects if b == Bucket and k.startswith(Prefix))
+        return {"KeyCount": min(n, MaxKeys)}
+
     def delete_objects(self, Bucket, Delete):
         for o in Delete["Objects"]:
             self.objects.pop((Bucket, o["Key"]), None)
@@ -170,3 +174,11 @@ def test_delete_account_removes_everything_for_that_player(api):
     assert r["statusCode"] == 200
     left = {k for _, k in api.fake_s3.objects}
     assert left == {"u/someone/index.html"}
+
+
+def test_returning_player_goes_to_their_games(api, monkeypatch):
+    monkeypatch.setattr(api, "_lichess", lambda path, token=None, data=None, method=None:
+                        {"access_token": "t"} if path == "/api/token" else {"id": "lucidchess", "username": "LucidChess"})
+    api.fake_s3.put_object(Bucket="site", Key="status/lucidchess/AbCd1234.json", Body=b"{}")
+    r = api.handler(event("GET", "/api/callback", cookies=["tc_oauth=st.v"], query={"code": "c", "state": "st"}), None)
+    assert r["headers"]["Location"] == "/u/lucidchess/"
