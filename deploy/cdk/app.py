@@ -152,7 +152,8 @@ class ThoughtCoach(Stack):
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC))
         # One server waits stopped (disk only, ~$3/month) with the image and models already pulled:
         # a review starts it in well under a minute instead of building a server from scratch.
-        group.add_warm_pool(min_size=1, pool_state=autoscaling.PoolState.STOPPED, reuse_on_scale_in=True)
+        group.add_warm_pool(min_size=0, max_group_prepared_capacity=1, pool_state=autoscaling.PoolState.STOPPED,
+                            reuse_on_scale_in=True)  # one server in all: reviewing, or parked here
         # The server says when it is ready (image pulled), both entering the pool and leaving it.
         group.add_lifecycle_hook("Ready", lifecycle_hook_name="thoughtcoach-ready",
                                  lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_LAUNCHING,

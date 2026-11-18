@@ -62,6 +62,10 @@ own PC's server is under "Advanced" in its popup.
 
 - Worker: c7i.xlarge, only while reviewing (a few cents per game). Max 1 worker for now
   (`max_capacity` in `cdk/app.py` to allow more at once).
+- Warm pool: between reviews that one server waits **stopped** with the image and models on its
+  disk (about $3/month for the 40 GB disk). A review starts it in about a minute instead of
+  building a new server (about 3). `worker/boot.sh` runs on every start: it pulls any newer image,
+  then runs the worker; when idle the worker scales the group to 0 and the server goes back.
 - Audio is removed from the stored recording once the game is reviewed; the transcript is kept.
 - Failed reviews go to the `FailedReviews` queue for 14 days.
 
