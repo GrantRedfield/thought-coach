@@ -2,11 +2,11 @@ const DEFAULT_SERVER = 'https://thoughtcoach.org';
 const LOCAL = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const $ = (id) => document.getElementById(id);
 const LABEL = {
-  uploading: 'sending…',
+  uploading: 'sendingâ€¦',
   'waiting for server': 'waiting for the server',
   waiting: 'waiting (game not over on lichess yet)',
   queued: 'queued for review',
-  running: 'reviewing…',
+  running: 'reviewingâ€¦',
   done: 'reviewed',
   error: 'review failed',
   rejected: 'not accepted',
@@ -40,7 +40,7 @@ async function checkServer() {
 async function showGames() {
   const { history = [] } = await chrome.storage.local.get('history');
   const list = $('games');
-  if (history.length) list.textContent = '';
+  list.textContent = history.length ? '' : 'No games yet.';
   for (const h of history.slice(0, 8)) {
     const li = document.createElement('li');
     const id = document.createElement('a');
@@ -68,12 +68,22 @@ async function showGames() {
         a.textContent = 'send again';
         a.onclick = async (e) => {
           e.preventDefault();
-          st.textContent = 'sending�';
+          st.textContent = 'sending…';
           await chrome.runtime.sendMessage({ type: 'resend', game_id: h.game_id });
           showGames();
         };
         li.append(a);
       }
+      const x = document.createElement('a');
+      x.href = '#';
+      x.textContent = 'dismiss';
+      x.title = 'Remove this game from the list';
+      x.onclick = async (e) => {
+        e.preventDefault();
+        await chrome.runtime.sendMessage({ type: 'dismiss', game_id: h.game_id });
+        showGames();
+      };
+      li.append(x);
       const why = document.createElement('div');
       why.className = 'why';
       why.textContent = h.error || '';

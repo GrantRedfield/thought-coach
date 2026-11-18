@@ -176,6 +176,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     });
     return true;
   }
+  if (msg.type === 'dismiss' && msg.game_id) {
+    forget([msg.game_id]).then(() => reply({ ok: true }));
+    return true;
+  }
   if (msg.type === 'retry') {
     pendingIds()
       .then((ids) => Promise.all(ids.map(upload)))
@@ -186,6 +190,30 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
   return false;
 });
 
+/** Remove games from the list (and any recording kept for them). */
+async function forget(ids) {
+  const list = await history();
+  await chrome.storage.local.set({ history: list.filter((h) => !ids.includes(h.game_id)) });
+  await chrome.storage.local.remove(ids.map((id) => `kept:${id}`));
+}
+
+/**
+ * Once connected: send what was waiting for it, and drop "not connected" refusals left by older
+ * versions (they did not keep the recording, so there is nothing to send again).
+ */
+async function onConnected() {
+  const all = await chrome.storage.local.get(null);
+  const stale = (all.history || []).filter((h) => h.state === 'rejected' && /^not connected/.test(h.error || '')
+    && !all[`kept:${h.game_id}`]);
+  if (stale.length) await forget(stale.map((h) => h.game_id));
+  for (const id of await pendingIds()) await upload(id);
+  schedule();
+}
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'sync' && changes.key && changes.key.newValue) onConnected();
+});
+
 /** Drop refused recordings after two weeks. */
 async function pruneKept() {
   const all = await chrome.storage.local.get(null);
@@ -194,9 +222,13 @@ async function pruneKept() {
 }
 
 chrome.runtime.onStartup.addListener(pruneKept);
+chrome.runtime.onStartup.addListener(async () => {
+  if ((await chrome.storage.sync.get({ key: '' })).key) onConnected();
+});
 chrome.runtime.onStartup.addListener(schedule);
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
   schedule();
+  if (reason === 'update' && (await chrome.storage.sync.get({ key: '' })).key) onConnected();
   if (reason !== 'install') return;
   // Straight to setup: reload an open setup page (so it sees the extension) or open one.
   const tabs = await chrome.tabs.query({ url: 'https://thoughtcoach.org/start*' }).catch(() => []);
