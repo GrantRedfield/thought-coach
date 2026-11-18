@@ -19,13 +19,14 @@ def _prof(loaded):
 
 def test_latest_game_is_the_hero_with_its_story():
     loaded = [_game("AAAAAAAA", "2026.11.16 10:00:00", "1-0"), _game("BBBBBBBB", "2026.11.17 20:00:00", "0-1")]
-    story = {"decided_by": "29. b5", "beats": [{"title": "t", "body": "the moment", "eyebrow": "Turning point", "fen": None}],
+    story = {"decided_by": "29. b5", "beats": [{"kind": "insight", "title": "x", "body": "other", "fen": None},
+                                            {"kind": "turning", "title": "t", "body": "the moment", "eyebrow": "Turning point", "fen": None}],
              "focus": {"title": "Checks, captures and threats first", "habit": "Look at forcing moves"}, "arrows": 12, "said": 3}
     rows = home.facts(loaded, _prof(loaded))
     page = home.hero(rows[-1], story, 0.02)
     assert "You lost to" in page and "Opp" in page and "It came down to one move: 29. b5" in page
     assert "/games/BBBBBBBB/story" in page and "Checks, captures and threats first" in page
-    assert "worse than your average" in page
+    assert "worse than your average" in page and "the moment" in page and "other" not in page
 
 
 def test_render_without_games_invites_a_first_game():

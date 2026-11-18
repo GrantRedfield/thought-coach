@@ -149,9 +149,12 @@ def hero(last: dict, story: dict | None, avg_before: float | None) -> str:
     s = story or {}
     beats = s.get("beats") or []
     top = beats[0] if beats else None
-    key = next((b for b in beats if b.get("fen")), None)  # the position shown: the first moment with a board
+    turning = next((b for b in beats if b.get("kind") == "turning"), None)
+    # The position shown: the deciding move when one decided it, else the first moment with a board.
+    key = (turning if s.get("decided_by") and turning and turning.get("fen")
+           else next((b for b in beats if b.get("fen")), None))
     if s.get("decided_by"):
-        headline, detail = f"It came down to one move: {s['decided_by']}", (top or {}).get("body")
+        headline, detail = f"It came down to one move: {s['decided_by']}", (turning or {}).get("body")
     elif top:
         headline, detail = top["title"], top.get("body")
     else:
