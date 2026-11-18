@@ -115,29 +115,48 @@ class ThoughtCoach(Stack):
         site.grant_read_write(role)
         jobs.grant_consume_messages(role)
         repo.grant_pull(role)
-        role.add_to_policy(iam.PolicyStatement(actions=["autoscaling:TerminateInstanceInAutoScalingGroup"], resources=["*"]))
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["autoscaling:SetDesiredCapacity", "autoscaling:DescribeAutoScalingInstances",
+                     "autoscaling:CompleteLifecycleAction", "autoscaling:TerminateInstanceInAutoScalingGroup"],
+            resources=["*"]))
 
+        # First boot only: docker, the settings, and a service that runs deploy/worker/boot.sh on EVERY
+        # start (servers wait stopped in the warm pool, so a review starts an existing server).
+        with open(os.path.join(ROOT, "deploy", "worker", "boot.sh"), encoding="utf-8") as f:
+            boot = f.read().replace("\r\n", "\n")
+        env = "\n".join([f"REGION={self.region}", f"REPO={repo.repository_uri}", f"QUEUE={jobs.queue_url}",
+                         f"DATA={data.bucket_name}", f"SITE={site.bucket_name}"])
+        unit = "\n".join(["[Unit]", "Description=Thought Coach worker", "After=network-online.target docker.service",
+                          "Wants=network-online.target", "Requires=docker.service", "", "[Service]", "Type=simple",
+                          "ExecStart=/opt/thoughtcoach/boot.sh", "Restart=no", "", "[Install]", "WantedBy=multi-user.target"])
         user_data = ec2.UserData.for_linux()
         user_data.add_commands(
-            "dnf install -y docker && systemctl start docker",
-            f"aws ecr get-login-password --region {self.region} | docker login --username AWS --password-stdin "
-            f"{self.account}.dkr.ecr.{self.region}.amazonaws.com",
-            f"docker run --rm -e TC_QUEUE_URL={jobs.queue_url} -e TC_DATA_BUCKET={data.bucket_name} "
-            f"-e TC_SITE_BUCKET={site.bucket_name} -e AWS_DEFAULT_REGION={self.region} {repo.repository_uri}:latest worker",
-            "shutdown -h now",  # if the worker stops for any other reason, don't leave the server running
+            "dnf install -y docker && systemctl enable --now docker",
+            "mkdir -p /opt/thoughtcoach",
+            f"cat > /etc/thoughtcoach.env <<'TCENV'\n{env}\nTCENV",
+            f"cat > /opt/thoughtcoach/boot.sh <<'TCBOOT'\n{boot}\nTCBOOT",
+            "chmod +x /opt/thoughtcoach/boot.sh",
+            f"cat > /etc/systemd/system/thoughtcoach.service <<'TCUNIT'\n{unit}\nTCUNIT",
+            "systemctl daemon-reload && systemctl enable thoughtcoach.service && systemctl start --no-block thoughtcoach.service",
         )
         sg = ec2.SecurityGroup(self, "WorkerSg", vpc=vpc, allow_all_outbound=True, description="no inbound")
         template = ec2.LaunchTemplate(
             self, "WorkerTemplate", instance_type=ec2.InstanceType(WORKER_TYPE),
             machine_image=ec2.MachineImage.latest_amazon_linux2023(), role=role, user_data=user_data,
             security_group=sg, associate_public_ip_address=True,
-            instance_initiated_shutdown_behavior=ec2.InstanceInitiatedShutdownBehavior.TERMINATE,
             block_devices=[ec2.BlockDevice(device_name="/dev/xvda",
                                            volume=ec2.BlockDeviceVolume.ebs(40, volume_type=ec2.EbsDeviceVolumeType.GP3))],
             require_imdsv2=True)
         group = autoscaling.AutoScalingGroup(
             self, "Workers", vpc=vpc, launch_template=template, min_capacity=0, max_capacity=1,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC))
+        # One server waits stopped (disk only, ~$3/month) with the image and models already pulled:
+        # a review starts it in well under a minute instead of building a server from scratch.
+        group.add_warm_pool(min_size=1, pool_state=autoscaling.PoolState.STOPPED, reuse_on_scale_in=True)
+        # The server says when it is ready (image pulled), both entering the pool and leaving it.
+        group.add_lifecycle_hook("Ready", lifecycle_hook_name="thoughtcoach-ready",
+                                 lifecycle_transition=autoscaling.LifecycleTransition.INSTANCE_LAUNCHING,
+                                 heartbeat_timeout=Duration.minutes(15), default_result=autoscaling.DefaultResult.CONTINUE)
 
         # ---- upload API
         api_fn = lambda_.Function(
@@ -151,7 +170,8 @@ class ThoughtCoach(Stack):
         site.grant_read_write(api_fn)
         jobs.grant_send_messages(api_fn)
         api_fn.add_to_role_policy(iam.PolicyStatement(
-            actions=["autoscaling:SetDesiredCapacity", "autoscaling:DescribeAutoScalingGroups"], resources=["*"]))
+            actions=["autoscaling:SetDesiredCapacity", "autoscaling:DescribeAutoScalingGroups",
+                     "autoscaling:DescribeWarmPool"], resources=["*"]))
         http = apigw.HttpApi(self, "Http", default_integration=integrations.HttpLambdaIntegration("ApiInt", api_fn))
 
         # ---- website (pages) + /api through one CloudFront distribution

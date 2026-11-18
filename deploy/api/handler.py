@@ -334,13 +334,22 @@ def active(user: str) -> list[dict]:
     return found
 
 
-def wake_worker() -> bool:
-    """Start the worker if it is switched off; True if it had to be started (a cold start)."""
+BOOT_WARM_S, BOOT_COLD_S = 60, 160  # starting the stopped server from the warm pool / building a new one
+
+
+def wake_worker() -> int:
+    """Start the worker if it is switched off. Returns the expected seconds until it is working
+    (0 if it is already running), for the live page's time estimate."""
     group = asg.describe_auto_scaling_groups(AutoScalingGroupNames=[GROUP])["AutoScalingGroups"][0]
-    if group["DesiredCapacity"] == 0:
-        asg.set_desired_capacity(AutoScalingGroupName=GROUP, DesiredCapacity=1, HonorCooldown=False)
-        return True
-    return False
+    if group["DesiredCapacity"] > 0:
+        return 0
+    try:
+        pool = asg.describe_warm_pool(AutoScalingGroupName=GROUP).get("Instances", [])
+        warm = any(i.get("LifecycleState") == "Warmed:Stopped" for i in pool)
+    except Exception:  # noqa: BLE001 - no warm pool: a new server
+        warm = False
+    asg.set_desired_capacity(AutoScalingGroupName=GROUP, DesiredCapacity=1, HonorCooldown=False)
+    return BOOT_WARM_S if warm else BOOT_COLD_S
 
 
 def _body(event: dict) -> str:
@@ -453,10 +462,10 @@ def accept(raw: str, user: str, expected: str | None, checked: bool) -> dict:
         return reply(429, {"error": f"that's {MAX_PER_DAY} reviews today: the rest wait until tomorrow (UTC)"})
     s3.put_object(Bucket=DATA, Key=key, Body=json.dumps(rec).encode())
     sqs.send_message(QueueUrl=QUEUE, MessageBody=json.dumps({"game_id": gid, "user": user}))
-    cold = wake_worker()
+    boot_s = wake_worker()
     events = rec.get("events") or []
     _put_json(SITE, f"status/{user}/{gid}.json", {
-        "game_id": gid, "user": user, "state": "queued", "queued_at": time.time(), "cold_start": cold,
+        "game_id": gid, "user": user, "state": "queued", "queued_at": time.time(), "cold_start": boot_s > 0, "boot_s": boot_s,
         "facts": facts, "found": {"arrows": sum(1 for e in events if e.get("type") == "shape_add"),
                                   "pickups": sum(1 for e in events if e.get("type") == "pick_up"),
                                   "audio_chunks": len(rec.get("audio") or [])}}, CacheControl="no-store")

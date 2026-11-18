@@ -193,6 +193,6 @@ def test_queued_status_has_game_facts_and_shows_as_active(api):
     assert json.loads(r["body"])["live_url"] == "/live?u=lucidchess&g=AbCd1234"
     status = json.loads(api.fake_s3.objects[("site", "status/lucidchess/AbCd1234.json")])
     assert status["facts"]["opp"] == "someone" and status["facts"]["color"] == "white" and status["facts"]["rating_diff"] == "-6"
-    assert status["cold_start"] is True
+    assert status["cold_start"] is True and status["boot_s"] == 160
     active = json.loads(api.handler(event("GET", "/api/u/lucidchess/active"), None)["body"])["active"]
     assert active[0]["game_id"] == "AbCd1234" and active[0]["facts"]["opening"] == "English Opening"

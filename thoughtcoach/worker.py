@@ -164,17 +164,23 @@ def review_one(s3, data: str, site: str, user: str, gid: str) -> None:
 
 
 def _switch_off() -> None:
-    """Leave the Auto Scaling group (desired capacity down by one), which terminates this server."""
+    """Scale the worker group to 0. With the warm pool this server goes back to it, stopped, with the
+    image and models still on its disk (the next review starts it in under a minute). Without a group
+    name (an older launch setup), leave the group the old way: terminate this server."""
     import boto3
 
+    group = os.environ.get("TC_WORKER_GROUP")
+    asg = boto3.client("autoscaling")
+    if group:
+        asg.set_desired_capacity(AutoScalingGroupName=group, DesiredCapacity=0, HonorCooldown=False)
+        return
     token = urllib.request.urlopen(urllib.request.Request(
         "http://169.254.169.254/latest/api/token", method="PUT",
         headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"}), timeout=2).read().decode()
     iid = urllib.request.urlopen(urllib.request.Request(
         "http://169.254.169.254/latest/meta-data/instance-id",
         headers={"X-aws-ec2-metadata-token": token}), timeout=2).read().decode()
-    boto3.client("autoscaling").terminate_instance_in_auto_scaling_group(
-        InstanceId=iid, ShouldDecrementDesiredCapacity=True)
+    asg.terminate_instance_in_auto_scaling_group(InstanceId=iid, ShouldDecrementDesiredCapacity=True)
 
 
 def run() -> int:

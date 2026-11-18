@@ -131,7 +131,7 @@
     ['report', 'Comparing your thinking with the engine'], ['strike', 'Finding who struck first'],
     ['story', 'Writing your game story'],
   ];
-  const BOOT_S = 150;  // a cold start: the server boots and loads Stockfish and the speech models
+  const bootS = () => s.boot_s || 150;  // starting a server: from the warm pool (~1 min) or a new one
   let s = {}, shown = new Set(), etaLeft = null, lastTip = 0, tipI = 0, finished = false;
 
   const fmt = (sec) => sec >= 90 ? `${Math.round(sec / 60)} min` : `${Math.max(5, Math.round(sec / 5) * 5)} s`;
@@ -161,7 +161,7 @@
   function plan() {
     const myMoves = Math.max(10, Math.round(((s.found || {}).moves || 70) / 2));
     const chunks = (s.found || {}).audio_chunks || 0;
-    return { boot: BOOT_S, game: 4, engine: 6 + myMoves * 2.2, voice: 15 + chunks * 0.5, tagging: 10 + chunks * 0.25,
+    return { boot: bootS(), game: 4, engine: 6 + myMoves * 2.2, voice: 15 + chunks * 0.5, tagging: 10 + chunks * 0.25,
              thinking: 3, report: 20 + myMoves * 0.5, strike: 12, story: 8 };
   }
 
@@ -172,7 +172,7 @@
     if (!list.includes(cur)) cur = list[0];
     for (const k of list) { if (k === cur) break; before += p[k]; }
     let within = 0;
-    if (cur === 'boot') within = Math.min(0.95, (Date.now() / 1000 - (s.queued_at || Date.now() / 1000)) / BOOT_S);
+    if (cur === 'boot') within = Math.min(0.95, (Date.now() / 1000 - (s.queued_at || Date.now() / 1000)) / bootS());
     if (cur === 'engine' && s.engine && s.engine[1]) within = s.engine[0] / s.engine[1];
     const done = before + p[cur] * within;
     return { cur, list, frac: Math.min(0.99, done / total), left: total - done };
