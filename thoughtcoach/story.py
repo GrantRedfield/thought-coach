@@ -31,6 +31,7 @@ import chess.pgn
 import chess.svg
 
 from .critical import _said
+from .gametype import classify
 from .fmt import game_url, home_url, pct
 
 MAX_BEATS = 6
@@ -417,6 +418,25 @@ def _thin_input(c: Ctx) -> str | None:
             f"this game went unchecked.")
 
 
+def aagaard_causes(c: Ctx) -> dict[str, list]:
+    """Costly moves where the good move never came up, explained by one of Aagaard's questions:
+    "q2" when the best move was the one that improves your worst piece and you never named it,
+    "q1" when the engine's line went after a weakness you never marked. [(move, weakness/piece)]."""
+    out: dict[str, list] = {"q1": [], "q2": []}
+    for m in c.moves:
+        if not m.get("mistake") or m.get("gap") not in ("missed_candidate", "no_thoughts") or c.in_tt(m):
+            continue
+        best = (m.get("best_move_san") or "").rstrip("+#")
+        worst = (m.get("q2") or {}).get("worst")
+        if worst and not worst.get("you") and best and (worst.get("engine_move") or "").rstrip("+#") == best:
+            out["q2"].append((m, worst))
+            continue
+        weak = [w for w in (m.get("q1") or {}).get("weaknesses", []) if not w.get("you") and not w.get("created_by")]
+        if weak:
+            out["q1"].append((m, weak[0]))
+    return out
+
+
 def focus(c: Ctx, history: dict | None = None) -> dict:
     s = c.report["summary"]
     by = {k: v.get("wp_lost", 0) for k, v in s.get("by_gap", {}).items()}
@@ -429,6 +449,12 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
              "check": 0.8 * sum(i.get("loss", 0) for i in c.report.get("insights") or [] if i["kind"] == "hindsight"),
              "play_on": sum(0.5 * (i["wp"] - 0.15) for i in c.report.get("insights") or [] if i["kind"] == "gave_up"),
              "inner": sum(0.5 * i.get("loss", 0) for i in c.report.get("insights") or [] if i["kind"] == "inner")}
+    # The good move never came up: if one of Aagaard's questions explains why, it is that question's.
+    causes = aagaard_causes(c)
+    for q in ("q1", "q2"):
+        lost = sum(m["wp_loss"] for m, _ in causes[q])
+        score[q] += lost
+        score["candidates"] -= lost
     why = {"q3": f"Threats you didn't see took {_pts(score['q3'])} off your win chance this game.",
            "candidates": f"Moves where the good move never came up took {_pts(score['candidates'])} off your win chance.",
            "trust": f"Good moves you drew and then dropped took {_pts(score['trust'])} off your win chance.",
@@ -452,6 +478,21 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
     title, tag, habit = FOCUS[key]
     across = hist.get("note", {}).get(key)
     reason = why[key]
+    if key in ("q1", "q2") and causes[key]:
+        m, w = max(causes[key], key=lambda x: x[0]["wp_loss"])
+        move, cost = _label(m["ply"], m["move_san"]), _pts(m["wp_loss"])
+        if key == "q2":
+            reason = (f"At {move} the best move was {w['engine_move']}, bringing your {w['piece']} on {w['square']} "
+                      f"into the game. It never came up in your thinking, and {m['move_san']} cost {cost}.")
+        else:
+            whose = "their" if w["side"] == "theirs" else "your"
+            reason = (f"At {move} the engine's best line went after {whose} {w['kind']} on {w['square']}, which you "
+                      f"never marked. {m['move_san']} cost {cost}.")
+            if w["side"] == "theirs":
+                habit = ("Every few moves, circle the weakest point in their camp (a hole, a loose piece, a pawn "
+                         "no pawn can defend) and aim a candidate at it.")
+            else:
+                habit = "Every few moves, circle the weakest point in your own camp, and ask how they would get at it."
     if key == "candidates":
         # Plenty of candidates, but the move that mattered was a forcing one you never looked at:
         # the habit isn't "more moves", it's checking the forcing ones first.
@@ -522,7 +563,13 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
     return {"id": g["id"], "me": me, "them": them, "color": g["my_color"], "tc": g.get("time_control"),
             "result": res, "outcome": outcome, "arrows": arrows, "said": said,
             "moves_with_thoughts": report["summary"].get("moves_with_thoughts", 0), "beats": beats,
-            "curve": curve, "focus": focus(c, history), "orientation": c.me, "decided_by": decided_by}
+            "curve": curve, "focus": focus(c, history), "orientation": c.me, "decided_by": decided_by,
+            "type": classify(analysis, g)}
+
+
+def _type_tag(t: dict | None) -> str:
+    """'A swindle · You were down to 8% and won.' under the result."""
+    return f"<p class='gtype'>{_e(t['label'])}<small>{_e(t['why'])}</small></p>" if t else ""
 
 
 def summary(story: dict) -> dict:
@@ -530,6 +577,7 @@ def summary(story: dict) -> dict:
     keep = ("kind", "ply", "eyebrow", "title", "body", "quote", "fen", "arrows", "fill", "stat")
     return {**{k: story[k] for k in ("id", "me", "them", "color", "tc", "result", "outcome", "arrows", "said",
                                      "moves_with_thoughts", "curve", "focus", "decided_by")},
+            "type": story.get("type"),
             "orientation": "white" if story["orientation"] else "black",
             "beats": [{k: b.get(k) for k in keep} for b in story["beats"]]}
 
@@ -607,7 +655,7 @@ def render(story: dict) -> str:
         lead = "Nothing stood out enough for its own card."
     slides.append(("intro", f"""<p class='eyebrow'>{_e(story['tc'] or '')} · you had {_e(story['color'])} · {_e(story['result'])}</p>
 <h1>{_e(story['me'])}<span>vs</span>{_e(story['them'])}</h1>
-<p class='verdict'>{verdict}</p><div class='visual wide'>{_curve_svg(story['curve'], marks)}</div>
+<p class='verdict'>{verdict}</p>{_type_tag(story.get('type'))}<div class='visual wide'>{_curve_svg(story['curve'], marks)}</div>
 <p class='lead'>Your win chance, move by move. {lead}</p>
 <div class='stats'><div><b>{story['arrows']}</b>arrows drawn</div><div><b>{story['said']}</b>things said aloud</div>
 <div><b>{story['moves_with_thoughts']}</b>moves with thoughts</div></div>"""))
@@ -671,6 +719,9 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
 .stats div { background:#ffffff12; border-radius:12px; padding:12px 10px; font-size:13px; color:#ffffffb3; }
 .stats b { display:block; font-size:30px; color:#fff; line-height:1.1; }
 .habit { margin:0; font-size:22px; font-weight:600; padding:14px 16px; border-radius:12px; background:#ffffff14; }
+.gtype { display:inline-block; margin:8px 0 0; padding:4px 12px; border-radius:20px; font-size:14px; font-weight:700;
+  background:color-mix(in srgb, var(--accent) 22%, transparent); color:#fff; }
+.gtype small { font-weight:400; opacity:.8; margin-left:6px; font-size:13px; }
 .verdict { margin:0; font-size:clamp(26px, 7vw, 38px); font-weight:800; color:var(--accent); filter:brightness(1.6); }
 .curve { width:100%; height:auto; display:block; } .curve polyline { fill:none; stroke:#fff; stroke-width:3; }
 .curve .ax { fill:#ffffff80; font-size:12px; font-weight:400; text-anchor:end; }

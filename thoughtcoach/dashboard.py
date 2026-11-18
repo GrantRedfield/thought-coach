@@ -19,6 +19,7 @@ import chess
 from .critical import CSS as REEL_CSS
 from .critical import _last_move, pick, player_html, reel, sharpness
 from .gaps import GAP_LABEL, GAPS
+from .gametype import classify
 from .fmt import game_url, pct
 from .fmt import THEME_BUTTON, THEME_HEAD
 from . import questions
@@ -398,7 +399,13 @@ header h1 { font-size:18px; margin:0; letter-spacing:-0.01em; } header .meta { c
   display:grid; grid-template-columns:auto 1fr; gap:0 10px; align-items:start; font-size:13.5px; }
 .verdict i { font-style:normal; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; font-weight:700;
   color:#fff; grid-row:span 2; margin-top:2px; }
-.verdict .v-good i { background:var(--good); } .verdict .v-watch i { background:var(--warn); } .verdict .v-strike i { background:var(--fg2); color:var(--bg); } .verdict .v-break { margin-top:6px; color:var(--muted); }
+.verdict .v-good i { background:var(--good); } .verdict .v-watch i { background:var(--warn); } .verdict .v-strike i { background:var(--fg2); color:var(--bg); } .gtype { display:inline-block; margin:8px 0 0; padding:3px 11px; border-radius:20px; font-size:13px; font-weight:700;
+  background:rgba(127,127,127,.15); }
+.gtype small { font-weight:400; opacity:.8; margin-left:8px; font-size:12.5px; }
+.gtype.swindle, .gtype.stomp { background:color-mix(in srgb, #2f9e44 28%, transparent); }
+.gtype.swindled, .gtype.stomped { background:color-mix(in srgb, #e03131 26%, transparent); }
+.gtype.crazy { background:color-mix(in srgb, #f08c00 30%, transparent); }
+.verdict .v-break { margin-top:6px; color:var(--muted); }
 .strike line { stroke:var(--fg2); stroke-width:1.5; stroke-dasharray:3 3; } .strike text { fill:var(--fg2); font-size:10.5px; font-weight:600; }
 .verdict b { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg2); }
 .verdict p { margin:0; color:var(--fg); } .verdict [data-moment] { cursor:pointer; } .verdict [data-moment]:hover { border-color:var(--accent); }
@@ -581,6 +588,8 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
                                title="Aagaard's questions, this game", link="lichess",
                                sub="Every position where the engine found something to see, and whether your arrows "
                                    "and words saw it. Click a board to open that position on lichess.")
+    t = classify(analysis, g)
+    gtype = (f"<p class='gtype {t['kind']}'>{_e(t['label'])}<small>{_e(t['why'])}</small></p>" if t else "")
     verdict = verdict_html(report, plies)  # when there is a summary it replaces the takeaways strip
     take = "".join(f"<p>{t}</p>" for t in takeaways(report, dots)) or "<p>No costly moves this game.</p>"
 
@@ -591,7 +600,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
   <header>
     <div><h1>Thought Coach &middot; {_e(g['white'])} vs {_e(g['black'])} <a class="playstory" href="{_e(game_url(g['id'], story=True))}">&#9654; Watch your game story</a></h1>
     <div class="meta">{_e(g['result'])} &middot; {_e(g.get('time_control') or '?')} &middot; you played {_e(g['my_color'])}
-      &middot; {s['moves_reviewed']} moves reviewed, {s['moves_with_thoughts']} with thoughts</div></div>
+      &middot; {s['moves_reviewed']} moves reviewed, {s['moves_with_thoughts']} with thoughts</div>{gtype}</div>
     <div class="kpis">{kpi_html}</div>
   </header>
   {verdict if verdict else f'<section class="takeaways">{take}</section>'}

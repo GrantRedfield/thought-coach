@@ -16,6 +16,7 @@ import chess
 import chess.svg
 
 from . import profile
+from .gametype import classify
 from .fmt import game_url
 
 RECENT = 5  # "your form": the last few games against the ones before
@@ -52,6 +53,7 @@ def facts(loaded: list[dict], prof: dict) -> list[dict]:
             "curve": [(m["ply"], 1.0 if m["move_san"].endswith("#") else m["wp_after"])
                       for m in g["analysis"].get("moves", []) if m.get("wp_after") is not None],
             "strike": (p.get("strike") or {}).get("side"),
+            "type": classify(g["analysis"], r),
         })
     return out
 
@@ -145,6 +147,14 @@ def _board(beat: dict | None, orientation: str) -> str:
     return chess.svg.board(board, orientation=orientation == "white", arrows=arrows, fill=fill, coordinates=False, size=360)
 
 
+def _type_chip(t: dict | None, big: bool = False) -> str:
+    """The kind of game (gametype.py): a swindle, a crazy game, a stomp..."""
+    if not t:
+        return ""
+    why = f"<small>{_e(t['why'])}</small>" if big else ""
+    return f"<p class='gtype {t['kind']}{' big' if big else ''}' title='{_e(t['why'])}'>{_e(t['label'])}{why}</p>"
+
+
 def hero(last: dict, story: dict | None, avg_before: float | None) -> str:
     s = story or {}
     beats = s.get("beats") or []
@@ -178,7 +188,7 @@ def hero(last: dict, story: dict | None, avg_before: float | None) -> str:
     meta = " · ".join(_e(x) for x in (last["date"], last["tc"], f"you had {last['color']}", last.get("opening")) if x)
     return f"""<section class="hero {last['outcome']}">
   <div class="htext">
-    <p class="eyebrow">Your latest game · {meta}</p>
+    <p class="eyebrow">Your latest game · {meta}</p>{_type_chip(last.get('type'), True)}
     <h1><span class="verdict">{VERDICT[last['outcome']]}</span> {_e(last['opp'])}{elo}</h1>
     <p class="headline">{_e(headline)}</p>{f'<p class="detail">{_e(_short(detail))}</p>' if detail else ''}
     <div class="hcurve">{_spark(last['curve'], 520, 90, 'spark big')}<span>your win chance, move by move</span></div>
@@ -250,7 +260,7 @@ def cards(rows: list[dict], statuses: dict[str, dict]) -> str:
     for r in reversed(rows):
         res = {"won": "W", "lost": "L", "draw": "D"}[r["outcome"]]
         out.append(f"""<a class='gcard {r['outcome']}' href='{_e(game_url(r['id']))}'>
-<p class='gtop'><span class='res'>{res}</span><b>vs {_e(r['opp'])}</b><span class='gdate'>{_e(r['date'] or '')}</span></p>
+<p class='gtop'><span class='res'>{res}</span><b>vs {_e(r['opp'])}</b><span class='gdate'>{_e(r['date'] or '')}</span></p>{_type_chip(r.get('type'))}
 {_spark(r['curve'])}
 <p class='gmeta'>{_e(r['tc'] or '')} · {_e(r['color'])} · {r['costly']} costly · {_pct1(r['per_move'])}/move</p>
 <span class='gplay' data-href='{_e(game_url(r['id'], story=True))}'>&#9654; story</span></a>""")
@@ -370,6 +380,13 @@ svg.games { width:100%; height:auto; display:block; } .games .ax { fill:var(--mu
 .gtop b { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .gdate { color:var(--muted); font-size:12px; }
 .res { width:24px; height:24px; border-radius:7px; display:grid; place-items:center; font-weight:800; font-size:12px; color:#fff; background:var(--glow); }
 .gmeta { margin:6px 0 0; font-size:12px; color:var(--fg2); }
+.gtype { display:inline-block; margin:4px 0 2px; padding:2px 9px; border-radius:20px; font-size:11.5px; font-weight:700;
+  letter-spacing:.02em; background:var(--soft, rgba(127,127,127,.15)); color:var(--fg); }
+.gtype.big { font-size:14px; padding:4px 12px; margin:0 0 12px; }
+.gtype.big small { font-weight:400; color:var(--fg2); margin-left:8px; font-size:13px; }
+.gtype.swindle, .gtype.stomp { background:color-mix(in srgb, #2f9e44 28%, transparent); }
+.gtype.swindled, .gtype.stomped { background:color-mix(in srgb, #e03131 26%, transparent); }
+.gtype.crazy { background:color-mix(in srgb, #f08c00 30%, transparent); }
 .gplay { position:absolute; right:12px; bottom:10px; font-size:12px; font-weight:700; color:var(--glow); }
 .gcard.pending .res { background:var(--muted); } .gcard .wait { color:var(--fg2); font-size:13px; margin:8px 0 0; }
 .gcard.running .wait::after { content:""; display:inline-block; width:8px; height:8px; margin-left:8px; border-radius:50%;

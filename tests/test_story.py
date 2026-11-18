@@ -55,3 +55,21 @@ def test_a_game_with_little_thinking_shown_asks_for_more_first():
     assert "How to show your thinking" in story.render(s)
     r["summary"]["moves_with_thoughts"] = 6  # enough to judge: back to what cost the most
     assert story.build(r, {"moves": []}, None, None)["focus"]["key"] == "candidates"
+
+
+def test_a_missed_worst_piece_move_makes_aagaard_q2_the_focus():
+    m = move(21, "h3", 0.25, best_move_san="Rd1")
+    m["gap"] = "missed_candidate"
+    m["q2"] = {"worst": {"piece": "rook", "square": "f1", "engine_move": "Rd1", "you": None}}
+    r = report([m], {"missed_candidate": {"wp_lost": 0.25}})
+    f = story.build(r, {"moves": []}, None, None)["focus"]
+    assert f["key"] == "q2" and "bringing your rook on f1 into the game" in f["why"]
+
+
+def test_a_missed_weakness_makes_aagaard_q1_the_focus():
+    m = move(21, "h3", 0.25, best_move_san="Nxe6")
+    m["gap"] = "missed_candidate"
+    m["q1"] = {"weaknesses": [{"square": "e6", "kind": "hole", "side": "theirs", "you": None}], "found": []}
+    r = report([m], {"missed_candidate": {"wp_lost": 0.25}})
+    f = story.build(r, {"moves": []}, None, None)["focus"]
+    assert f["key"] == "q1" and "their hole on e6" in f["why"] and "aim a candidate" in f["habit"]

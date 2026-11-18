@@ -4,7 +4,9 @@ Read from the moves actually played (no extra engine work; the win chances come 
 
   A forcing sequence is a run of forcing moves: captures, checks, and moves that create a real
   threat (what that side could win if it could move again, the null-move threat, is worth THREAT
-  or more: 15. g4 hitting the knight on f5). It starts with one that isn't a recapture (a capture
+  or more: 15. g4 hitting the knight on f5). The threat has to come from the move itself: made
+  by the piece that moved, or by a piece it uncovered. A quiet move while some other threat is
+  hanging in the air (12... a5 with ...dxe4 possible since 11. e4) is not forcing. It starts with one that isn't a recapture (a capture
   on the square just captured on is an exchange in progress) and ends after two quiet moves in a
   row, or MAX_PLIES. Their threats come from the review (the threat in your next position, if it
   is new); yours take one short search after each of your moves (`threats`, from an engine).
@@ -62,19 +64,22 @@ def threats(engine, game: chess.pgn.Game, analysis: dict, me: chess.Color, wp_mo
 
     out: dict[int, tuple[float, str]] = {}
     records = sorted((r for r in analysis["moves"] if not r.get("skipped")), key=lambda r: r["ply"])
-    prev = None
-    for r in records:
-        t = r.get("threat") or {}
-        if t.get("swing", 0) >= THREAT and (not prev or prev.get("move_san") != t.get("move_san")):
-            out[r["ply"] - 1] = (t["swing"], t["move_san"])  # their move just before your position
-        prev = t
-    if engine is None:
-        return out
+    moves = list(game.mainline_moves())
     boards = [game.board()]
-    for mv in game.mainline_moves():
+    for mv in moves:
         b = boards[-1].copy(stack=False)
         b.push(mv)
         boards.append(b)
+    prev = None
+    for r in records:
+        t = r.get("threat") or {}
+        p = r["ply"] - 1  # their move just before your position
+        if (t.get("swing", 0) >= THREAT and (not prev or prev.get("move_san") != t.get("move_san"))
+                and 1 <= p <= len(moves) and made_by(boards[p], moves[p - 1], t.get("move_san"))):
+            out[p] = (t["swing"], t["move_san"])
+        prev = t
+    if engine is None:
+        return out
     for r in records:
         if r.get("wp_after") is None or r["ply"] >= len(boards):
             continue
@@ -89,9 +94,24 @@ def threats(engine, game: chess.pgn.Game, analysis: dict, me: chess.Color, wp_mo
             # A new threat: moving again is worth more than your best move was before this one
             # (castling with ...b5 already possible creates nothing).
             swing = win_prob(info, me, wp_model) - max(r["wp_after"], r.get("wp_before") or 0)
-            if swing >= THREAT:
+            if swing >= THREAT and made_by(after, moves[r["ply"] - 1], passed.san(info["pv"][0])):
                 out[r["ply"]] = (round(swing, 3), passed.san(info["pv"][0]))
     return out
+
+
+def made_by(after: chess.Board, move: chess.Move, threat_san: str | None) -> bool:
+    """Does `move` (already played: `after` is the position it led to) make this threat? The threat
+    (the mover's move if they could go again) has to be played by the piece that moved, or run
+    through the square it left (a discovered attack)."""
+    if not threat_san:
+        return False
+    again = after.copy(stack=False)
+    again.push(chess.Move.null())
+    try:
+        t = again.parse_san(threat_san)
+    except ValueError:
+        return False
+    return t.from_square == move.to_square or move.from_square in chess.SquareSet.between(t.from_square, t.to_square)
 
 
 def find(game: chess.pgn.Game, analysis: dict, me: chess.Color, threat: dict | None = None) -> dict:

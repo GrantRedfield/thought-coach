@@ -3,7 +3,7 @@ import io
 import chess
 import chess.pgn
 
-from thoughtcoach.strike import find, first_break
+from thoughtcoach.strike import find, first_break, made_by
 
 
 def game(pgn: str) -> chess.pgn.Game:
@@ -54,3 +54,17 @@ def test_the_first_break_and_the_trades_after_it():
 def test_opening_pawn_tension_is_not_a_break():
     g = game('[Result "*"]\n\n1. d4 d5 2. c4 e6 3. Nc3 Nf6 *')
     assert first_break(g, {"moves": []}, chess.WHITE) is None
+
+
+def test_a_threat_counts_only_when_the_move_makes_it():
+    b = chess.Board("r1bqkb1r/pppp1ppp/2n2n2/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 0 4")
+    a3, nc3 = b.parse_san("a3"), b.parse_san("Nc3")
+    after = b.copy(); after.push(a3)
+    assert not made_by(after, a3, "Nxe5")  # the knight on f3 hit e5 before a3
+    after = b.copy(); after.push(nc3)
+    assert made_by(after, nc3, "Nd5")  # the knight that moved
+    # a discovered attack: the bishop on b2 sees h8 once the knight on e5 moves off the diagonal
+    d = chess.Board("7k/8/8/4N3/8/8/1B6/K7 w - - 0 1")
+    ng4 = d.parse_san("Ng4")
+    after = d.copy(); after.push(ng4)
+    assert made_by(after, ng4, "Bh8")
