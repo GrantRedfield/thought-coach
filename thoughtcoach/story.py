@@ -395,7 +395,24 @@ FOCUS = {
               "Before you release the piece, ask one question: what does this move allow?"),
     "time": ("Bank time early", "Time usage",
              "Move faster in quiet positions before move 20, and spend the time where the game is sharp."),
+    "input": ("Show your thinking", "Getting started",
+              "Draw an arrow for each move you consider, theirs and yours, and say one sentence a move: a line, "
+              "an opinion or how you feel."),
 }
+GUIDE = "https://thoughtcoach.org/play"  # how to draw and talk while you play
+INPUT_MIN_MOVES, INPUT_SHARE = 10, 0.3  # under 30% of your moves with a thought: that comes first
+
+
+def _thin_input(c: Ctx) -> str | None:
+    """Why the review saw too little of your thinking to judge it, or None if it saw enough."""
+    calm = [m for m in c.moves if not c.in_tt(m)]
+    n = c.report["summary"].get("moves_with_thoughts", 0)
+    if len(calm) < INPUT_MIN_MOVES or n >= INPUT_SHARE * len(calm):
+        return None
+    if not n:
+        return "No arrows or words came through this game, so only your moves could be judged, not your thinking."
+    return (f"Only {n} of your {len(calm)} moves had an arrow or words behind them, so most of your thinking "
+            f"this game went unchecked.")
 
 
 def focus(c: Ctx, history: dict | None = None) -> dict:
@@ -422,6 +439,10 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
            "check": "You found the right idea, out loud, just after moving: " + next(
                (f"{i['count']} time{'s' * (i['count'] != 1)}, worth {_pts(i['loss'])} of win chance." for i in
                 c.report.get("insights") or [] if i["kind"] == "hindsight"), "")}
+    thin = _thin_input(c)
+    if thin:
+        title, tag, habit = FOCUS["input"]
+        return {"key": "input", "title": title, "tag": tag, "habit": habit, "why": thin, "across": None}
     hist = history or {}
     for k, share in hist.get("share", {}).items():
         score[k] = score.get(k, 0) + 0.15 * share
@@ -600,7 +621,7 @@ def render(story: dict) -> str:
     f = story["focus"]
     slides.append(("focus", f"""<p class='eyebrow'>Your focus for the next game · {_e(f['tag'])}</p><h2>{_e(f['title'])}</h2>
 <p class='habit'>{_e(f['habit'])}</p><p class='body'>{_e(f['why'])}{(' ' + _e(f['across'])) if f.get('across') else ''}</p>
-<div class='end'><a href='{_e(game_url(story['id']))}'>See the full review</a><a href='{_e(home_url())}'>All your games</a>
+<div class='end'>{f"<a href='{GUIDE}'>How to show your thinking</a>" if f['key'] == 'input' else ''}<a href='{_e(game_url(story['id']))}'>See the full review</a><a href='{_e(home_url())}'>All your games</a>
 <button type='button' class='replay'>Watch again</button></div>"""))
     body = "".join(f"<section class='slide' style='--accent:{ACCENT.get(k, '#495057')}'><div class='inner'>{h}</div></section>"
                    for k, h in slides)

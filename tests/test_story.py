@@ -44,3 +44,14 @@ def test_a_game_decided_by_one_move_gets_a_short_story():
     s = story.build(r, {"moves": []}, None, None)
     assert s["decided_by"] == "3. Bc4" and len(s["beats"]) <= 2
     assert "It came down to one move: 3. Bc4." in story.render(s)
+
+
+def test_a_game_with_little_thinking_shown_asks_for_more_first():
+    moves = [move(p, "a3", 0.0) for p in range(3, 27, 2)] + [move(27, "Bc4", 0.30)]
+    r = report(moves, {"missed_candidate": {"wp_lost": 0.30}})
+    r["summary"]["moves_with_thoughts"] = 2
+    s = story.build(r, {"moves": []}, None, None)
+    assert s["focus"]["key"] == "input" and "Only 2 of your 13 moves" in s["focus"]["why"]
+    assert "How to show your thinking" in story.render(s)
+    r["summary"]["moves_with_thoughts"] = 6  # enough to judge: back to what cost the most
+    assert story.build(r, {"moves": []}, None, None)["focus"]["key"] == "candidates"

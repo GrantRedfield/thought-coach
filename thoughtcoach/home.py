@@ -266,8 +266,9 @@ def render(loaded: list[dict], prof: dict | None, stories: dict[str, dict], stat
         waiting = cards([], statuses)
         return f"""<section class="hero empty"><div class="htext"><p class="eyebrow">Thought Coach</p>
 <h1>Your first review is on its way</h1><p class="headline">Play a game on lichess with the extension on: about five
-minutes after it ends, its story shows up here.</p><div class="cta"><a class="btn play" href="https://lichess.org/">Play on lichess</a>
-<a class="btn ghost" href="/start">Setup</a></div></div></section>{f"<div class='grid'>{waiting}</div>" if waiting else ''}"""
+minutes after it ends, its story shows up here. Draw an arrow for each move you consider and think out
+loud: the more the review sees, the more it can tell you.</p><div class="cta"><a class="btn play" href="https://lichess.org/">Play on lichess</a>
+<a class="btn ghost" href="https://thoughtcoach.org/play">Tips for your first games</a></div></div></section>{f"<div class='grid'>{waiting}</div>" if waiting else ''}"""
     last = rows[-1]
     before = [r["per_move"] for r in rows[:-1] if r["moves"]]
     patterns = profile.render(prof) if len(rows) >= 2 else ""

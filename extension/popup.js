@@ -40,7 +40,7 @@ async function checkServer() {
 async function showGames() {
   const { history = [] } = await chrome.storage.local.get('history');
   const list = $('games');
-  list.textContent = history.length ? '' : 'No games yet.';
+  if (history.length) list.textContent = '';
   for (const h of history.slice(0, 8)) {
     const li = document.createElement('li');
     const id = document.createElement('a');

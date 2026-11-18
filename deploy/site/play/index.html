@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your first games · Thought Coach</title>
+<meta name="description" content="How to play with Thought Coach: draw your ideas, think out loud, and get through the first few awkward games.">
+<script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="icon" href="/favicon.png">
+<link rel="stylesheet" href="/site.css">
+<style>
+  .why { font-size:17px; color:var(--fg2); margin:0 0 8px; }
+  .habits { list-style:none; padding:0; margin:26px 0; display:grid; gap:14px; }
+  .habit { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:20px 22px; }
+  .habit h2 { margin:0 0 6px; font-size:21px; } .habit > p { margin:0 0 12px; color:var(--fg2); }
+  .habit .n { font:700 14px ui-monospace, Consolas, monospace; color:var(--accent); margin-right:10px; }
+  .say { display:flex; flex-wrap:wrap; gap:8px; margin:0; padding:0; list-style:none; }
+  .say li { border:1px solid var(--line); border-radius:20px; padding:5px 12px; font-size:14px; color:var(--fg); background:var(--soft); }
+  .say li small { color:var(--muted); margin-right:6px; font-size:11px; text-transform:uppercase; letter-spacing:.05em; }
+  .ramp { list-style:none; padding:0; margin:14px 0 0; display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; }
+  @media (max-width:640px) { .ramp { grid-template-columns:1fr 1fr; } }
+  .ramp li { border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .ramp b { display:block; color:var(--accent); font-size:13px; margin-bottom:4px; }
+  .ramp span { font-size:14.5px; color:var(--fg2); }
+  .fine { color:var(--fg2); padding-left:20px; } .fine li { margin:6px 0; } .fine b { color:var(--fg); }
+</style>
+</head>
+<body>
+<main class="narrow">
+  <nav class="top"><p class="brand"><a href="/"><span class="mark"></span>Thought Coach</a></p><span class="sp"></span>
+    <a class="link" href="/questions">The four questions</a><a class="link" href="/start">Setup</a></nav>
+
+  <h1>Your first games</h1>
+  <p class="lead">Thought Coach can only review the thinking it can see. Every arrow you draw and everything you say
+    during a game gives it something to check. A game with no arrows and no words can only be judged on its moves,
+    which lichess already does.</p>
+
+  <ol class="habits">
+    <li class="habit">
+      <h2><span class="n">01</span>Draw your ideas</h2>
+      <p>Right-click and drag to draw an arrow for each move you think about. Right-click a square to circle it. Left-click
+        anywhere on the board clears them. <b>Your opponent never sees your arrows.</b></p>
+      <ul class="say">
+        <li><small>from your piece</small>a move you're considering</li>
+        <li><small>from their piece</small>what they want to play</li>
+        <li><small>circle</small>a weak square, a target, a piece in trouble</li>
+      </ul>
+    </li>
+    <li class="habit">
+      <h2><span class="n">02</span>Think out loud</h2>
+      <p>Talk the way a streamer does. Half sentences are fine and nothing is too small. Say the lines you calculate,
+        your opinion of the position and how you feel. Feelings count too: the review looks at how your mood and your
+        moves go together.</p>
+      <ul class="say">
+        <li><small>a line</small>"if knight takes e5, queen d4 forks"</li>
+        <li><small>an opinion</small>"my bishop is terrible here"</li>
+        <li><small>their idea</small>"he wants to push f5"</li>
+        <li><small>a feeling</small>"I'm nervous about my king"</li>
+        <li><small>a verdict</small>"this is probably lost"</li>
+        <li><small>being stuck</small>"no idea what to do"</li>
+      </ul>
+    </li>
+    <li class="habit">
+      <h2><span class="n">03</span>Ask the four questions</h2>
+      <p>Where are the weaknesses? Which is my worst piece? What does my opponent want? Is the best move on my list?
+        Arrows and words are how you answer them. <a href="/questions">What each question means</a></p>
+    </li>
+  </ol>
+
+  <h2>Expect a few awkward games</h2>
+  <p class="why">Drawing and talking while you play feels strange at first. You'll be slower, and you may play a bit worse
+    for a few games. That's normal, and it passes quickly. Build it up one habit at a time:</p>
+  <ol class="ramp">
+    <li><b>Game 1</b><span>Only draw their threat after each of their moves.</span></li>
+    <li><b>Game 2</b><span>Add an arrow for every move of yours you consider.</span></li>
+    <li><b>Game 3</b><span>Start talking: one sentence a move is plenty.</span></li>
+    <li><b>Game 4 on</b><span>All of it, and the four questions when the position changes.</span></li>
+  </ol>
+
+  <h2 style="margin-top:30px">Make it easier on yourself</h2>
+  <ul class="fine">
+    <li><b>Play slower games.</b> 10+5 or 15+10 rapid leaves time to draw and talk. Bullet and fast blitz don't.</li>
+    <li><b>Start with casual games</b>, or against the lichess computer, so your rating isn't on the line while you get used to it.</li>
+    <li><b>Use a headset or a quiet room</b> so the speech model hears you clearly. Speak at normal volume, in English.</li>
+    <li><b>Don't clean up your thinking.</b> Bad ideas, doubts and gut feelings are just as useful to the review as good ones.</li>
+    <li><b>In time trouble, just play.</b> Moves made with under 30 seconds left aren't judged on your thinking.</li>
+  </ul>
+
+  <p class="note"><b>Fair play.</b> Nothing is shown to you during the game. Arrows and talking are only your own notes;
+    the review happens after lichess says the game is over.</p>
+
+  <div class="row" style="margin-top:26px">
+    <a class="btn primary" href="https://lichess.org/" target="_blank" rel="noopener">Play on lichess</a>
+    <a class="btn" href="/start">Set up Thought Coach</a>
+  </div>
+  <footer>Thought Coach · <a href="/privacy">Privacy</a> · not affiliated with lichess.org</footer>
+</main>
+<button class="theme-toggle" type="button" aria-label="Switch light or dark" title="Light / dark"
+  onclick="var r=document.documentElement, t=r.dataset.theme==='light'?'dark':'light'; r.dataset.theme=t; try{localStorage.setItem('tc-theme',t)}catch(e){}">&#9680;</button>
+</body>
+</html>
