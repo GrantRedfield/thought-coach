@@ -1,4 +1,4 @@
-"""Your game as a story: a short run of full-screen cards, like a year-in-review, that you tap
+"""Your game as a story: a short run of full-screen cards, like a year-in-review, that you step
 through. Only the moments that stand out in this game make it in, in the order they happened,
 and it ends with one thing to focus on next game.
 
@@ -680,8 +680,9 @@ def render(story: dict) -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Your game · {_e(story['id'])}</title>
 <style>{CSS}</style></head><body><main class="story" aria-live="polite">
 <div class="bars">{bars}</div><button class="close" type="button" onclick="location.href='{_e(game_url(story['id']))}'" aria-label="Close">×</button>
-{body}<div class="tap prev" aria-hidden="true"></div><div class="tap next" aria-hidden="true"></div>
-<p class="hint">Tap or → for next · ← back · space to pause</p></main>
+{body}<button class="nav prev" type="button" aria-label="Previous card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+<button class="nav next" type="button" aria-label="Next card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+<p class="hint"><span class="count"></span><span class="keys"> · use ← → to move between cards</span></p></main>
 <script>{JS}</script></body></html>"""
 
 
@@ -730,7 +731,8 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
 /* Desktop: the board (or chart) on the left, the words on the right. */
 @media (min-width: 900px) and (min-height: 520px) {
   .story { max-width:1180px; }
-  .slide { padding:64px 48px 44px; }
+  .slide { padding:64px 104px 44px; }
+  .hint { bottom:12px; }
   .inner { max-width:1080px; margin:0 auto; }
   .inner:has(> .visual:not(.wide)) { display:grid; grid-template-columns:minmax(0, 1.05fr) minmax(0, 1fr); column-gap:56px;
     align-items:center; align-content:center; }
@@ -740,29 +742,42 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
   h1 { font-size:58px; } h2 { font-size:46px; } .body, .lead { font-size:20px; } blockquote { font-size:21px; }
   .stats b { font-size:36px; } .habit { font-size:26px; }
   .inner:not(:has(> .visual:not(.wide))) { max-width:820px; }
-  .tap.prev { width:25%; } .tap.next { width:75%; }
+  .nav { top:50%; bottom:auto; transform:translateY(-50%); width:56px; height:56px; }
+  .nav:hover { transform:translateY(-50%) scale(1.07); }
+  .nav.prev { left:24px; } .nav.next { right:24px; }
 }
 .curve circle { fill:#f08c00; stroke:#0b0b0c; stroke-width:2; } .curve text { fill:#fff; font-size:14px; font-weight:700; text-anchor:middle; }
 .end { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; position:relative; z-index:5; }
 .end a, .end button { font:inherit; font-size:15px; color:#000; background:#fff; border:0; border-radius:999px; padding:10px 16px;
   text-decoration:none; cursor:pointer; } .end button { background:#ffffff26; color:#fff; }
 .bars { position:absolute; top:12px; left:12px; right:48px; display:flex; gap:4px; z-index:4; }
-.bars i { flex:1; height:3px; background:#ffffff40; border-radius:2px; overflow:hidden; } .bars b { display:block; height:100%; width:0; background:#fff; }
+.bars i { flex:1; height:3px; background:#ffffff40; border-radius:2px; overflow:hidden; }
+.bars b { display:block; height:100%; width:0; background:#fff; transition:width .35s ease; }
 .close { position:absolute; top:4px; right:8px; z-index:6; background:none; border:0; color:#fff; font-size:28px; cursor:pointer; }
-.tap { position:absolute; top:40px; bottom:0; z-index:3; } .tap.prev { left:0; width:30%; } .tap.next { right:0; width:70%; }
-.hint { position:absolute; bottom:6px; width:100%; text-align:center; font-size:11.5px; color:#ffffff66; margin:0; z-index:4; }
-.paused .hint::after { content:" · paused"; }
+.nav { position:absolute; bottom:22px; z-index:5; width:48px; height:48px; border-radius:50%; display:grid; place-items:center;
+  color:#fff; background:#ffffff1a; border:1px solid #ffffff38; box-shadow:0 6px 24px #0006; cursor:pointer;
+  -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px); transition:background .2s, transform .2s, opacity .25s; }
+.nav svg { width:24px; height:24px; fill:none; stroke:currentColor; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; }
+.nav:hover { background:#ffffff33; transform:scale(1.07); } .nav:active { background:#ffffff4d; }
+.nav:focus-visible { outline:2px solid #fff; outline-offset:3px; }
+.nav.prev { left:18px; } .nav.next { right:18px; }
+.nav[disabled] { opacity:0; pointer-events:none; }
+.nav.next.invite { animation:invite 1.6s ease-in-out 1.2s 3; }
+@keyframes invite { 0%, 100% { box-shadow:0 6px 24px #0006, 0 0 0 0 #ffffff55; } 50% { box-shadow:0 6px 24px #0006, 0 0 0 10px #ffffff00; } }
+@media (prefers-reduced-motion: reduce) { .nav.next.invite { animation:none; } }
+.slide { padding-bottom:92px; }
+.hint { position:absolute; bottom:8px; width:100%; text-align:center; font-size:11.5px; color:#ffffff73; margin:0; z-index:4;
+  pointer-events:none; }
+@media (hover: none) { .hint .keys { display:none; } }
 """
 
 JS = """
 (() => {
   const slides = [...document.querySelectorAll('.slide')], bars = [...document.querySelectorAll('.bars b')];
-  const root = document.querySelector('.story');
+  const prev = document.querySelector('.nav.prev'), next = document.querySelector('.nav.next');
+  const count = document.querySelector('.hint .count');
   const FRAME_MS = 2200;  // a board that plays through moves shows each frame this long
-  // Time to look, plus reading time (about 3 words a second), up to 30 s; animated boards play through once.
-  const SECS = s => Math.max(Math.min(30, 10 + s.innerText.split(/\\s+/).length / 3),
-                             s.querySelectorAll('.fr').length * FRAME_MS / 1000 + 3);
-  let i = 0, t0 = 0, dur = 0, paused = false, raf = 0, held = 0, frameTimer = 0;
+  let i = 0, frameTimer = 0;
   function frames(slide) {
     clearInterval(frameTimer);
     const fr = [...slide.querySelectorAll('.fr')], cap = slide.querySelector('.framecap');
@@ -770,35 +785,37 @@ JS = """
     let k = 0;
     const step = () => { fr.forEach((f, j) => f.classList.toggle('on', j === k)); cap.textContent = fr[k].dataset.cap; };
     step();
-    frameTimer = setInterval(() => { if (!paused) { k = (k + 1) % fr.length; step(); } }, FRAME_MS);
+    frameTimer = setInterval(() => { k = (k + 1) % fr.length; step(); }, FRAME_MS);
   }
   function show(n) {
     i = Math.max(0, Math.min(slides.length - 1, n));
     slides.forEach((s, k) => s.classList.toggle('on', k === i));
-    bars.forEach((b, k) => b.style.width = k < i ? '100%' : '0');
-    dur = SECS(slides[i]) * 1000; t0 = performance.now(); held = 0;
+    bars.forEach((b, k) => b.style.width = k <= i ? '100%' : '0');
+    prev.disabled = i === 0;
+    next.disabled = i === slides.length - 1;
+    count.textContent = `${i + 1} / ${slides.length}`;
     frames(slides[i]);
   }
-  function tick(now) {
-    if (!paused) {
-      const p = Math.min(1, (now - t0) / dur);
-      bars[i].style.width = (p * 100) + '%';
-      if (p >= 1 && i < slides.length - 1) show(i + 1);
-    } else { t0 = now - held; }
-    held = now - t0;
-    raf = requestAnimationFrame(tick);
-  }
-  function pause(on) { paused = on; root.classList.toggle('paused', on); }
-  document.querySelector('.tap.next').onclick = () => show(i + 1);
-  document.querySelector('.tap.prev').onclick = () => show(i - 1);
-  document.querySelector('.replay').onclick = () => show(0);
+  prev.onclick = () => show(i - 1);
+  next.onclick = () => { next.classList.remove('invite'); show(i + 1); };
+  const replay = document.querySelector('.replay');
+  if (replay) replay.onclick = () => show(0);
   document.addEventListener('keydown', e => {
-    if (e.key === 'ArrowRight') show(i + 1); else if (e.key === 'ArrowLeft') show(i - 1);
-    else if (e.key === ' ') { e.preventDefault(); pause(!paused); }
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); next.classList.remove('invite'); show(i + 1); }
+    else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
+    else if (e.key === 'Home') show(0); else if (e.key === 'End') show(slides.length - 1);
   });
-  root.addEventListener('pointerdown', e => { if (e.target.closest('.tap')) pause(true); });
-  root.addEventListener('pointerup', () => pause(false));
-  show(0); raf = requestAnimationFrame(tick);
+  // Swipe on a touch screen: left for the next card, right to go back.
+  let x0 = null, y0 = null;
+  document.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (x0 === null) return;
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) show(i + (dx < 0 ? 1 : -1));
+    x0 = null;
+  });
+  next.classList.add('invite');
+  show(0);
 })();
 """
 

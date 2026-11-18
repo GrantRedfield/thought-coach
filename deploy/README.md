@@ -46,11 +46,13 @@ hosted zone (created when the domain is registered in Route 53).
 The image is built in AWS (CodeBuild), not on your PC:
 
 ```bash
-aws codebuild start-build --project-name thoughtcoach-worker-build
+deploy/worker/rollout.sh                          # build the image, then park the running worker
+deploy/worker/rollout.sh lucidchess ID1 ID2       # ...and re-review those games of that player
 ```
 
-It takes about 10-15 minutes; the next worker that starts uses the new image. A worker that is
-already running keeps the old image until it switches itself off (10 idle minutes).
+It builds the image (about 5-15 minutes), then parks any running worker, because a running worker
+keeps the image it started with. The next review starts the parked server, which pulls the new
+image first. Run `cdk deploy` before it: the build uses the source that deploy uploads.
 
 ## Point the extension at it
 

@@ -129,8 +129,8 @@ piece. Time-trouble moves are kept out of the thinking patterns and counted on t
 Everything comes from the saved reviews (`thoughtcoach/profile.py`), no new engine work.
 
 **Your game story** (`/games/<id>/story`, `thoughtcoach/story.py`): each game as a short run of
-full-screen cards you tap through (tap or → for next, ← back, space to pause; they also play on
-their own). It opens with the matchup and how much you drew and said, then shows only the moments
+full-screen cards you step through with the arrow buttons at the sides, the ← → keys, or a swipe
+on a phone. It opens with the matchup and how much you drew and said, then shows only the moments
 that stand out in that game, at most six, in the order they happened. They are picked from the
 turning point, a good move you drew and dropped, a threat you missed or saw (Aagaard 3), a weakness
 your move made, you found or missed (Aagaard 1), a stuck or named worst piece (Aagaard 2), your
