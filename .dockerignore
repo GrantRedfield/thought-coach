@@ -1,0 +1,11 @@
+# Only the code goes into the image: no games, recordings, reviews or local environments.
+.venv/
+out/
+out_3b/
+games/
+recordings/
+extension/
+userscript/
+tests/
+**/__pycache__/
+.pytest_cache/

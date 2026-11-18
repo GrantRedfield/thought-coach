@@ -1,0 +1,25 @@
+{
+  "format": "thoughtcoach-arrows/2",
+  "script_version": "0.3.0",
+  "game_id": "AbCd1234",
+  "url": "https://lichess.org/AbCd1234",
+  "my_color": "white",
+  "started_at": "2026-11-15T14:30:00.000Z",
+  "ended_at": "2026-11-15T14:31:10.000Z",
+  "exported": true,
+  "positions_seen": 4,
+  "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R",
+  "events": [
+    {"t": 1794753000000, "type": "position", "clock_white": "3:00", "clock_black": "3:00", "running": null, "positions_seen": 1, "placement": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"},
+    {"t": 1794753001000, "type": "position", "clock_white": "3:00", "clock_black": "3:00", "running": "black", "positions_seen": 2, "placement": "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"},
+    {"t": 1794753003000, "type": "position", "clock_white": "3:00", "clock_black": "2:58", "running": "white", "positions_seen": 3, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR"},
+    {"t": 1794753004500, "type": "shape_add", "from": "g1", "to": "f3", "brush": "green", "positions_seen": 3, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR"},
+    {"t": 1794753006000, "type": "shape_add", "from": "d8", "to": "h4", "brush": "green", "positions_seen": 3, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR"},
+    {"t": 1794753007000, "type": "shape_add", "from": "f7", "to": null, "brush": "green", "positions_seen": 3, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR"},
+    {"t": 1794753008000, "type": "shape_remove", "from": "g1", "to": "f3", "brush": "green", "positions_seen": 3, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR"},
+    {"t": 1794753008000, "type": "shape_remove", "from": "d8", "to": "h4", "brush": "green", "positions_seen": 3, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR"},
+    {"t": 1794753008000, "type": "shape_remove", "from": "f7", "to": null, "brush": "green", "positions_seen": 3, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR"},
+    {"t": 1794753008100, "type": "position", "clock_white": "2:54", "clock_black": "2:58", "running": "black", "positions_seen": 4, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R"},
+    {"t": 1794753070000, "type": "game_end", "positions_seen": 4, "placement": "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R"}
+  ]
+}

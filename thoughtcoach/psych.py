@@ -1,0 +1,185 @@
+"""The mental game: what your voice and arrows say about how you were playing, set against the
+engine. Four kinds of insight (same shape as insights.py, so they flow into the review and story):
+
+  gave_up   "I'm lost", "busted", "white's winning"... said while the engine still gave you a real
+            chance (GAVE_UP_WP or more). With what came next: did the game come back to you?
+  tide      the opponent's move that handed the game back (your win chance up TIDE or more from
+            behind), whether anything you said showed you noticed, and whether you took it.
+  instinct  System 1 against System 2 (fast, intuitive against slow, deliberate): where your first
+            arrow was already a good move, how often you talked yourself out of it; and how often
+            more thinking rescued a poor first idea.
+  inner     the "Inner Game" idea that a judging voice ("stupid", "why did I...") gets in the way
+            and plain noticing ("this weakens my knight") doesn't: your judging remarks, and how
+            your next FOLLOW moves went against your game average.
+
+Nothing here decides what a good move is: that is always the engine's verdict.
+"""
+
+from __future__ import annotations
+
+import re
+import statistics
+
+from .align import match_positions
+from .fmt import pct
+
+GAVE_UP_WP = 0.25
+TIDE = 0.15
+FOLLOW = 3
+NOTICE_S = 30
+
+DEFEAT = re.compile(r"\b(i'?m lost|i am lost|lost here|busted|it'?s over|game over|i'?m done|resign|hopeless|"
+                    r"(white|black|he|she|they)('s| is| are)( probably| just| clearly)? winning|"
+                    r"no moves|not finding a single move|completely losing|this (just )?loses|just losing|i'?m losing)\b")
+NOTICED = re.compile(r"\b(oh wait|wait|nice|interesting|what|chance|free|blunder|now i|good for me|"
+                     r"i'?m (back|fine|better|winning)|he missed|she missed|they missed|lucky|let'?s go)\b")
+JUDGING = re.compile(r"\b(stupid|idiot|dumb|terrible|awful|horrible|why did i|so bad|what am i doing|"
+                     r"i suck|trash|embarrassing|unbelievable|come on|ridiculous|pathetic)\b")
+
+
+class Voice:
+    """What was said, and which position was on the board when it was said."""
+
+    def __init__(self, g, recording: dict, transcript: dict, utterances):
+        events = sorted(recording["events"], key=lambda e: e["t"])
+        _, self.on_screen = match_positions(events, [b.board_fen() for b in g.boards])
+        self.times = [e["t"] for e in events]
+        self.landed: dict[int, int] = {}
+        for t, pos in zip(self.times, self.on_screen):
+            if pos is not None:
+                self.landed.setdefault(pos, t)
+        self.clauses = utterances(transcript)
+
+    def position_at(self, t: int) -> int | None:
+        index = None
+        for i, et in enumerate(self.times):
+            if et > t:
+                break
+            index = i
+        return None if index is None else self.on_screen[index]
+
+    def said_between(self, t0: int, t1: int) -> list[dict]:
+        return [c for c in self.clauses if t0 <= c["t"] <= t1]
+
+
+def _clean(text: str) -> str:
+    return text.strip().rstrip(",.")
+
+
+def _next_moves(g, position: int) -> list[dict]:
+    return [g.mine[p] for p in sorted(g.mine) if p > position][:FOLLOW]
+
+
+def _pace(g) -> float:
+    times = [m.get("own_time_s") or m.get("time_spent_pgn") or 0 for m in g.mine.values()]
+    return statistics.mean(times) if times else 0
+
+
+def gave_up(g, v: Voice) -> list[dict]:
+    for c in v.clauses:
+        if not DEFEAT.search(c["text"].lower()):
+            continue
+        pos = v.position_at(c["t"])
+        now = None if pos is None else g.wp(pos)
+        if now is None or now < GAVE_UP_WP:
+            continue
+        later = [(p, m["wp_before"]) for p, m in sorted(g.mine.items()) if p > pos]
+        peak = max(later, key=lambda x: x[1], default=None)
+        nxt = _next_moves(g, pos)
+        lost = sum(m["wp_loss"] for m in nxt)
+        secs = statistics.mean([m.get("own_time_s") or m.get("time_spent_pgn") or 0 for m in nxt]) if nxt else 0
+        body = f"Around move {g.move_number(pos)} you said '{_clean(c['text'])}'. The engine still had you at {pct(now)}."
+        if peak and peak[1] >= now + 0.1:
+            body += f" Before {g.label(peak[0])} you were back to {pct(peak[1])}: the game wasn't over."
+        if nxt:
+            body += f" Your next {len(nxt)} moves took {secs:.0f}s each (game average {_pace(g):.0f}s) and lost {pct(lost)}."
+        return [{"kind": "gave_up", "ply": pos, "weight": 0.6 + now + (0.2 if peak and peak[1] >= now + 0.1 else 0),
+                 "head": "You called it lost too early", "body": body, "wp": round(now, 3)}]
+    return []
+
+
+def tide(g, v: Voice | None) -> list[dict]:
+    mine = sorted(g.mine.items())
+    best = None
+    for (p0, a), (p1, b) in zip(mine, mine[1:]):
+        if a.get("wp_after") is None or b.get("wp_before") is None or p1 != p0 + 2:
+            continue
+        swing = b["wp_before"] - a["wp_after"]
+        if swing >= TIDE and a["wp_after"] <= 0.45 and (best is None or swing > best[2]):
+            best = (p1 - 1, p1, swing, a["wp_after"], b)
+    if not best:
+        return []
+    their_ply, my_ply, swing, before, nxt = best
+    heard = []
+    if v is not None and their_ply in v.landed:
+        t0 = v.landed[their_ply]
+        heard = [_clean(c["text"]) for c in v.said_between(t0, t0 + NOTICE_S * 1000) if NOTICED.search(c["text"].lower())]
+    took = nxt["wp_loss"] < 0.05
+    body = (f"{g.label(their_ply)} handed the game back: your win chance went from {pct(before)} to {pct(nxt['wp_before'])}. "
+            + (f"You said '{heard[0]}'. " if heard else "Nothing you said showed you'd noticed. ")
+            + ("You took it." if took else f"Then {g.label(my_ply)} gave {pct(nxt['wp_loss'])} back."))
+    return [{"kind": "tide", "ply": their_ply, "weight": 0.5 + swing + (0.2 if not took else 0),
+             "head": "The tide turned", "body": body, "noticed": bool(heard), "took": took}]
+
+
+def instinct(g) -> list[dict]:
+    talked_out, rescued = [], []
+    for p, m in sorted(g.mine.items()):
+        cands = [d for d in m.get("drawn_candidates", []) if d.get("legal") and d.get("first_drawn_s") is not None]
+        if len(cands) < 2:
+            continue
+        first = min(cands, key=lambda d: d["first_drawn_s"])
+        played = next((d for d in cands if d.get("played")), None)
+        good_first = bool(first.get("engine_candidate"))
+        if good_first and not first.get("played") and m["wp_loss"] >= 0.05:
+            talked_out.append((p, m, first))
+        elif not good_first and played and played.get("engine_candidate"):
+            rescued.append((p, m, first))
+    if not talked_out and not rescued:
+        return []
+    lost = sum(m["wp_loss"] for _, m, _ in talked_out)
+    parts = [f"{g.label(p)} (your first idea was {f['move_san']})" for p, m, f in talked_out[:3]]
+    body = "System 1 (your first, fast idea) against System 2 (where calculation took you): "
+    if talked_out:
+        body += (f"{len(talked_out)} time{'s' * (len(talked_out) != 1)} your first arrow was already a good move and you "
+                 f"talked yourself out of it, costing {pct(lost)}: {', '.join(parts)}. ")
+    if rescued:
+        body += f"Calculation rescued a poor first idea {len(rescued)} time{'s' * (len(rescued) != 1)}."
+    head = "Your instinct was right" if len(talked_out) > len(rescued) else "Thinking it through paid off"
+    return [{"kind": "instinct", "ply": (talked_out or rescued)[0][0], "weight": 0.45 + lost + 0.05 * len(talked_out),
+             "head": head, "body": body.strip(), "talked_out": len(talked_out), "rescued": len(rescued),
+             "loss": round(lost, 3)}]
+
+
+def inner(g, v: Voice) -> list[dict]:
+    remarks = []
+    for c in v.clauses:
+        if JUDGING.search(c["text"].lower()):
+            pos = v.position_at(c["t"])
+            if pos is not None:
+                remarks.append((pos, _clean(c["text"])))
+    if not remarks:
+        return []
+    per_move = statistics.mean(m["wp_loss"] for m in g.mine.values()) if g.mine else 0
+    after = []
+    for pos, _ in remarks:
+        after += _next_moves(g, pos)
+    after_rate = statistics.mean(m["wp_loss"] for m in after) if after else 0
+    pos, text = remarks[0]
+    body = (f"The judging voice spoke up {len(remarks)} time{'s' * (len(remarks) != 1)}, first around move "
+            f"{g.move_number(pos)}: '{text}'. In the {FOLLOW} moves after it you lost {pct(after_rate)} per move, "
+            f"against {pct(per_move)} over the whole game. Noticing what happened ('this drops the knight') helps; "
+            "a verdict on yourself doesn't.")
+    return [{"kind": "inner", "ply": pos, "weight": 0.4 + max(0.0, after_rate - per_move) * 5,
+             "head": "The inner game", "body": body, "count": len(remarks),
+             "loss": round(max(0.0, after_rate - per_move) * FOLLOW * len(remarks), 3)}]
+
+
+def build(g, recording: dict | None, transcript: dict | None, utterances) -> list[dict]:
+    out = instinct(g)
+    if recording and transcript and utterances is not None:
+        v = Voice(g, recording, transcript, utterances)
+        out += gave_up(g, v) + tide(g, v) + inner(g, v)
+    else:
+        out += tide(g, None)
+    return out

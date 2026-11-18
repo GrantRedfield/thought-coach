@@ -1,0 +1,23 @@
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Your own data: reviews, downloaded games, recordings (they contain your voice)
+out/
+out_*/
+games/
+recordings/
+*.transcript.json
+
+# Secrets and per-account deploy state
+deploy/.upload-key
+deploy/cdk/cdk.context.json
+deploy/cdk/outputs.json
+deploy/cdk/cdk.out/
+deploy/cdk/.venv/
+deploy/cdk/.last-build
+
+# Built at deploy time
+deploy/site/thoughtcoach-extension.zip
+deploy/store/thoughtcoach-*.zip

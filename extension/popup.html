@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thought Coach</title>
+<style>
+  :root { color-scheme: light; --bg:#fcfcfb; --fg:#0b0b0b; --fg2:#52514e; --line:#e4e3dd; --accent:#2a78d6; --bad:#c0392b; --ok:#1e8e3e; }
+  @media (prefers-color-scheme: dark) { :root:where(:not([data-theme="light"])) { color-scheme: dark; --bg:#1a1a19; --fg:#f0efec; --fg2:#c3c2b7; --line:#2e2e2b; --accent:#3987e5; --bad:#e5675a; --ok:#4cbb6c; } }
+  :root[data-theme="dark"] { color-scheme: dark; --bg:#1a1a19; --fg:#f0efec; --fg2:#c3c2b7; --line:#2e2e2b; --accent:#3987e5; --bad:#e5675a; --ok:#4cbb6c; }
+  body { background:var(--bg); color:var(--fg); font:13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; margin:0; width:340px; }
+  header { display:flex; align-items:center; gap:8px; padding:12px 14px; border-bottom:1px solid var(--line); }
+  header img { width:20px; height:20px; } header h1 { font-size:15px; margin:0; flex:1; }
+  header a { color:var(--accent); text-decoration:none; font-weight:600; }
+  section { padding:10px 14px; border-bottom:1px solid var(--line); }
+  h2 { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg2); margin:0 0 6px; font-weight:600; }
+  .row { display:flex; align-items:center; gap:8px; margin:4px 0; }
+  input[type=text] { flex:1; font:inherit; padding:4px 6px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--fg); }
+  button { font:inherit; padding:4px 10px; border:1px solid var(--line); border-radius:6px; background:transparent; color:var(--fg); cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  .dot { width:8px; height:8px; border-radius:50%; background:var(--fg2); display:inline-block; }
+  .dot.ok { background:var(--ok); } .dot.bad { background:var(--bad); }
+  .muted { color:var(--fg2); } .err { color:var(--bad); font-size:12px; }
+  ul { list-style:none; margin:0; padding:0; } li { display:flex; gap:8px; padding:4px 0; border-top:1px solid var(--line); align-items:baseline; }
+  li:first-child { border-top:0; } li .id { font-family:ui-monospace, Consolas, monospace; } li .st { flex:1; color:var(--fg2); }
+  li a { color:var(--accent); }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  details { margin-top:6px; } summary { cursor:pointer; font-size:12px; }
+</style>
+</head>
+<body>
+  <header><img src="icon48.png" alt=""><h1>Thought Coach</h1><a id="open" href="#">Your games &rarr;</a></header>
+
+  <section>
+    <h2>This tab</h2>
+    <div id="tab" class="muted">Open a lichess game to record it.</div>
+    <div class="row" id="tab-actions" hidden>
+      <button id="send">Send this game again</button><button id="download">Download file</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recent games</h2>
+    <ul id="games"><li class="muted">None yet. Play a game with the extension on.</li></ul>
+    <div class="row" id="retry-row" hidden><span class="muted" id="pending"></span><button id="retry">Try now</button></div>
+  </section>
+
+  <section>
+    <h2>Account</h2>
+    <div class="row"><span class="dot" id="conn"></span><span id="account" class="muted">Checking…</span></div>
+    <div class="row" id="setup-row" hidden><button id="setup" class="primary">Sign in &amp; connect</button></div>
+  </section>
+
+  <section>
+    <h2>Settings</h2>
+    <label class="row"><input type="checkbox" id="voice"> Record my voice while I play</label>
+    <details>
+      <summary class="muted">Advanced: a server on this PC</summary>
+      <div class="row"><input type="text" id="server" spellcheck="false"><button id="save">Save</button></div>
+      <div id="server-msg" class="muted"></div>
+      <div class="row"><input type="password" id="key" placeholder="Upload key" spellcheck="false"><button id="save-key">Save</button></div>
+    </details>
+  </section>
+<script src="popup.js"></script>
+</body>
+</html>

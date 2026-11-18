@@ -1,0 +1,8 @@
+[Event "Test game"]
+[Site "https://lichess.org/AbCd1234"]
+[White "Tester"]
+[Black "Opponent"]
+[Result "*"]
+[TimeControl "180+0"]
+
+1. e4 { [%clk 0:03:00] } 1... e5 { [%clk 0:02:58] } 2. Nf3 { [%clk 0:02:54] } *

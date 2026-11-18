@@ -1,0 +1,15 @@
+[Event "Test game"]
+[Site "https://lichess.org/AbCd1234"]
+[Date "2026.11.14"]
+[White "Tester"]
+[Black "Opponent"]
+[Result "0-1"]
+[WhiteElo "1500"]
+[BlackElo "1500"]
+[TimeControl "180+2"]
+[Opening "Italian Game: Blackburne-Kostic Gambit"]
+
+1. e4 { [%clk 0:03:00] } 1... e5 { [%clk 0:03:00] } 2. Nf3 { [%clk 0:02:59] } 2... Nc6 { [%clk 0:02:58] }
+3. Bc4 { [%clk 0:02:57] } 3... Nd4 { [%clk 0:02:55] } 4. Nxe5 { [%clk 0:02:40] } 4... Qg5 { [%clk 0:02:52] }
+5. Nxf7 { [%clk 0:02:30] } 5... Qxg2 { [%clk 0:02:50] } 6. Rf1 { [%clk 0:02:20] } 6... Qxe4+ { [%clk 0:02:48] }
+7. Be2 { [%clk 0:02:15] } 7... Nf3# { [%clk 0:02:47] } 0-1

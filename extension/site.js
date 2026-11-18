@@ -1,0 +1,25 @@
+/*
+ * Thought Coach - on thoughtcoach.org only: lets the setup page see that the extension is
+ * installed, and connects it to the signed-in player (saves their upload key and the server).
+ * Nothing here runs on lichess.
+ */
+(() => {
+  const version = chrome.runtime.getManifest().version;
+
+  async function answer(type) {
+    const { user = null } = await chrome.storage.sync.get({ user: null });
+    window.postMessage({ tc: 'ext', type, version, user }, location.origin);
+  }
+
+  window.addEventListener('message', async (e) => {
+    if (e.source !== window || e.origin !== location.origin || !e.data || e.data.tc !== 'site') return;
+    const m = e.data;
+    if (m.type === 'hello') return answer('hello');
+    if (m.type === 'connect' && typeof m.key === 'string' && m.key.length >= 20 && /^[a-z0-9_-]{2,30}$/.test(m.user || '')) {
+      await chrome.storage.sync.set({ server: location.origin, key: m.key, user: m.user, name: m.name || m.user,
+        home: `${location.origin}${m.home || `/u/${m.user}/`}` });
+      answer('connected');
+    }
+  });
+  answer('hello');
+})();
