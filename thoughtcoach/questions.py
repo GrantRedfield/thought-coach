@@ -21,6 +21,7 @@ from .fmt import game_url, pct
 
 BOARD = 168
 SEEN, MISSED = "#2a78d6", "#eb6834"
+GUIDE = "https://thoughtcoach.org/questions"  # what each question means and how to answer it while you play
 EXAMPLES = 3  # per question on the home page (a game's dashboard shows more): worst misses first, then seen
 
 
@@ -284,7 +285,7 @@ def render(qs: list[dict], title: str = "Aagaard's questions", link: str = "game
 </div>""")
     return f"""<section class="aagaard" id="aagaard">
 <h2>{_e(title)}</h2>
-<p class="sub">{_e(sub)}
+<p class="sub">{_e(sub)} <a href="{GUIDE}">What the questions mean</a>
 <span class="qkey"><i style="background:{SEEN}"></i>seen <i style="background:{MISSED}"></i>missed
 <i style="background:#c0392b"></i>their threat <i style="background:#15781b"></i>best move <i style="background:#1f4fa8"></i>your move</span></p>
 <div class="qgrid">{''.join(panels)}</div>

@@ -177,7 +177,7 @@ a { color:var(--accent); } .state { color:var(--fg2); } .error { color:#c0392b; 
 def list_page(reviews: Reviews, owner: str | None = None) -> str:
     """The home page: your latest game's story up front, your form, every game, the patterns.
     owner (hosted service): whose games, with links to setup and sign out."""
-    from . import home, profile
+    from . import home, profile, questions
     from .fmt import THEME_BUTTON, THEME_HEAD
 
     loaded, prof, stories = [], None, {}
@@ -200,9 +200,10 @@ def list_page(reviews: Reviews, owner: str | None = None) -> str:
         main = "<p>Your games could not be shown right now.</p>"
     busy = any(g["state"] in ("queued", "running") for g in waiting.values())
     refresh = "<meta http-equiv='refresh' content='10'>" if busy else ""
-    nav = ("<a class='nav' href='https://lichess.org/'>Play on lichess</a>" if not owner else
+    guide = f"<a class='nav' href='{questions.GUIDE}'>The four questions</a>"
+    nav = (guide + "<a class='nav' href='https://lichess.org/'>Play on lichess</a>" if not owner else
            f"<span class='who'>{html.escape(owner)}</span><a class='nav' href='https://lichess.org/'>Play on lichess</a>"
-           "<a class='nav' href='/start'>Setup</a><a class='nav' href='/api/logout'>Sign out</a>")
+           f"{guide}<a class='nav' href='/start'>Setup</a><a class='nav' href='/api/logout'>Sign out</a>")
     return f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">{refresh}<title>Thought Coach</title>
 <link rel="icon" href="/favicon.png">{THEME_HEAD}<style>{LIST_CSS}{profile.CSS}{home.CSS}</style></head><body>{THEME_BUTTON}
