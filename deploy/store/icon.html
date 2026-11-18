@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Thought Coach icon</title>
+<style>
+  /* ?size=128&pad=16 : the tile is (size - 2*pad) wide, centred, on a transparent background */
+  html, body { margin:0; background:transparent; overflow:hidden; }
+  .tile { position:absolute; border-radius:22%; background:linear-gradient(155deg, #4a95ec 0%, #2a6fc9 100%);
+    display:grid; place-items:center; overflow:hidden; }
+  .knight { color:#ffffff; font-family:"Segoe UI Symbol", "Noto Sans Symbols 2", serif; line-height:1;
+    transform:translate(2%, -3%); filter:drop-shadow(0 2px 0 rgba(0,0,0,.18)); }
+  .bubble { position:absolute; background:#3fa95c; border-radius:50%; border:3px solid #2a6fc9; }
+</style>
+</head>
+<body>
+<div class="tile" id="t"><span class="knight" id="k">&#9822;</span></div>
+<script>
+  const q = new URLSearchParams(location.search), size = +q.get('size') || 128, pad = +(q.get('pad') ?? 16);
+  const w = size - 2 * pad, t = document.getElementById('t');
+  Object.assign(t.style, { left: pad + 'px', top: pad + 'px', width: w + 'px', height: w + 'px' });
+  document.getElementById('k').style.fontSize = (w * 0.78) + 'px';
+  document.body.style.width = document.body.style.height = size + 'px';
+</script>
+</body>
+</html>
