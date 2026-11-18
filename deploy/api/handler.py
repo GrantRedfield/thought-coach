@@ -458,7 +458,7 @@ def accept(raw: str, user: str, expected: str | None, checked: bool) -> dict:
     if old is not None and richness(rec) < richness(old):
         return reply(202, {**(status(user, gid) or {"game_id": gid, "state": "done"}), **urls,
                            "kept": "earlier recording"})
-    if not _count_today(user):
+    if user != OWNER and not _count_today(user):  # the person running the site has no daily limit
         return reply(429, {"error": f"that's {MAX_PER_DAY} reviews today: the rest wait until tomorrow (UTC)"})
     s3.put_object(Bucket=DATA, Key=key, Body=json.dumps(rec).encode())
     sqs.send_message(QueueUrl=QUEUE, MessageBody=json.dumps({"game_id": gid, "user": user}))

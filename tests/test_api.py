@@ -164,7 +164,12 @@ def test_daily_limit(api, monkeypatch):
     key = "owner-secret-key-0123456789"
     assert api.handler(event("POST", "/api/recordings", RECORDING, key=key), None)["statusCode"] == 202
     richer = {**RECORDING, "events": [{"type": "shape_add"}]}
-    assert api.handler(event("POST", "/api/recordings", richer, key=key), None)["statusCode"] == 429
+    assert api.handler(event("POST", "/api/recordings", richer, key=key), None)["statusCode"] == 202  # the owner: no limit
+    monkeypatch.setattr(api, "OWNER", "someone-else")  # a player who isn't running the site
+    mine = api.get_or_create_user("lucidchess", "LucidChess")["key"]
+    richest = {**RECORDING, "events": [{"type": "shape_add"}] * 2}
+    assert api.handler(event("POST", "/api/recordings", richer, key=mine), None)["statusCode"] == 202
+    assert api.handler(event("POST", "/api/recordings", richest, key=mine), None)["statusCode"] == 429
 
 
 def test_delete_account_removes_everything_for_that_player(api):

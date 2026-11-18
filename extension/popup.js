@@ -4,7 +4,7 @@ const $ = (id) => document.getElementById(id);
 const LABEL = {
   uploading: 'sendingâ€¦',
   'waiting for server': 'waiting for the server',
-  waiting: 'waiting (game not over on lichess yet)',
+  waiting: 'waiting to send',
   queued: 'queued for review',
   running: 'reviewingâ€¦',
   done: 'reviewed',
@@ -59,6 +59,12 @@ async function showGames() {
       a.target = '_blank';
       a.textContent = 'watch live';
       li.append(a);
+    }
+    if (h.state === 'waiting' && h.error) {
+      const why = document.createElement('div');
+      why.className = 'why wait';
+      why.textContent = `${h.error.replace(/\.$/, '')}. It will be sent again by itself.`;
+      li.append(why);
     }
     if (h.state === 'rejected') {
       const kept = await chrome.storage.local.get(`kept:${h.game_id}`);
