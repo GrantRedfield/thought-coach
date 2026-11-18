@@ -2,11 +2,11 @@ const DEFAULT_SERVER = 'https://thoughtcoach.org';
 const LOCAL = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/;
 const $ = (id) => document.getElementById(id);
 const LABEL = {
-  uploading: 'sendingâ€¦',
+  uploading: 'sending\u2026',
   'waiting for server': 'waiting for the server',
   waiting: 'waiting to send',
   queued: 'queued for review',
-  running: 'reviewingâ€¦',
+  running: 'reviewing\u2026',
   done: 'reviewed',
   error: 'review failed',
   rejected: 'not accepted',
@@ -35,6 +35,23 @@ async function checkServer() {
   $('account').textContent = local ? (ok ? 'Using the server on this PC.' : 'The server on this PC is not running.')
     : connected ? `Connected as ${name || user}.` : ok ? 'Not connected yet.' : `Can't reach ${new URL(url).host}.`;
   $('setup-row').hidden = local || connected;
+  if (connected && (await dropStale())) showGames();
+}
+
+/** Remove games from the list, and any recording kept for them. */
+async function forget(ids) {
+  const { history = [] } = await chrome.storage.local.get('history');
+  await chrome.storage.local.set({ history: history.filter((h) => !ids.includes(h.game_id)) });
+  await chrome.storage.local.remove(ids.map((id) => `kept:${id}`));
+}
+
+/** Once connected, "not connected" refusals with no recording kept can't be sent again: drop them. */
+async function dropStale() {
+  const all = await chrome.storage.local.get(null);
+  const stale = (all.history || []).filter((h) => h.state === 'rejected' && /^not connected/.test(h.error || '')
+    && !all[`kept:${h.game_id}`]);
+  if (stale.length) await forget(stale.map((h) => h.game_id));
+  return stale.length;
 }
 
 async function showGames() {
@@ -74,7 +91,7 @@ async function showGames() {
         a.textContent = 'send again';
         a.onclick = async (e) => {
           e.preventDefault();
-          st.textContent = 'sending…';
+          st.textContent = 'sending\u2026';
           await chrome.runtime.sendMessage({ type: 'resend', game_id: h.game_id });
           showGames();
         };
@@ -86,7 +103,7 @@ async function showGames() {
       x.title = 'Remove this game from the list';
       x.onclick = async (e) => {
         e.preventDefault();
-        await chrome.runtime.sendMessage({ type: 'dismiss', game_id: h.game_id });
+        await forget([h.game_id]);
         showGames();
       };
       li.append(x);
