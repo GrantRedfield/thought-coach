@@ -73,3 +73,26 @@ def test_a_missed_weakness_makes_aagaard_q1_the_focus():
     r = report([m], {"missed_candidate": {"wp_lost": 0.25}})
     f = story.build(r, {"moves": []}, None, None)["focus"]
     assert f["key"] == "q1" and "their hole on e6" in f["why"] and "aim a candidate" in f["habit"]
+
+
+def test_a_rushed_critical_move_makes_time_the_focus():
+    fen = "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq - 2 3"
+    moves, records = [], []
+    for n in range(3, 13):  # quiet moves: three good options each, ten seconds a move
+        moves.append(move(n, "a3", 0.0, fen=fen))
+        records.append({"ply": 2 * n - 1, "move_number": n, "move_san": "a3", "fen": fen, "time_spent": 10,
+                        "wp_loss": 0.0, "clock_before": 300, "best_move_san": "a3", "opponent_move_san": "Nc6",
+                        "candidates": [{"move_uci": "a2a3"}, {"move_uci": "h2h3"}, {"move_uci": "d2d3"}]})
+    records[2]["time_spent"] = 70  # a long think where anything was fine
+    m = move(13, "Bc4", 0.40, fen=fen, gap="missed_candidate")
+    moves.append(m)
+    records.append({"ply": 25, "move_number": 13, "move_san": "Bc4", "fen": fen, "time_spent": 4, "wp_loss": 0.40,
+                    "clock_before": 300, "best_move_san": "Bb5", "opponent_move_san": "Nc6",
+                    "candidates": [{"move_uci": "f1b5"}]})
+    r = report(moves, {"missed_candidate": {"wp_lost": 0.40}})
+    r["summary"]["moves_with_thoughts"] = 11
+    s = story.build(r, {"moves": records}, None, None)
+    assert s["focus"]["key"] == "sharp"
+    assert "only Bb5 held, and you took 4 s" in s["focus"]["why"] and "70 s on 5. a3" in s["focus"]["why"]
+    turning = next(b for b in s["beats"] if b["kind"] == "turning")
+    assert "Only Bb5 held, and you took 4 s" in turning["body"]

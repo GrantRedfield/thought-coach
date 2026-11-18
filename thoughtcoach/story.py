@@ -32,6 +32,7 @@ import chess.svg
 
 from .critical import _said
 from .gametype import classify
+from . import timing
 from .fmt import game_url, home_url, pct
 
 MAX_BEATS = 6
@@ -72,6 +73,8 @@ class Ctx:
         self.moves = [m for m in report["moves"] if not m.get("skipped")]
         self.by_ply = {m["ply"]: m for m in self.moves}
         self.windows = {w["ply"]: w for w in (thinking or {}).get("windows", [])}
+        self.timing = timing.game(analysis, report) or {"rushed": [], "lingered": [], "usual": 0}
+        self.white = report["game"]["my_color"] == "white"
         tt = report["thresholds"].get("time_trouble", 30)
         self.tt = tt
         self.in_tt = lambda m: m.get("clock_before") is not None and m["clock_before"] < tt  # noqa: E731
@@ -145,6 +148,20 @@ def move_frames(c: Ctx, plies: list[int], predicted: bool) -> list[dict]:
 # ---------------------------------------------------------------- beats
 
 
+def _rushed_note(c: Ctx, ply: int) -> str:
+    """' Only Nb6 held, and you took 12 s (your usual think: 21 s). Earlier you spent 64 s on 20... Ne6,
+    where three moves were about equal.' for a critical position you rushed, else ''."""
+    p = next((p for p in c.timing["rushed"] if p["ply"] == ply), None)
+    if not p:
+        return ""
+    note = f" Only {p['best']} held, and you took {p['time']:.0f} s (your usual think: {c.timing['usual']:.0f} s)."
+    long = next((q for q in c.timing["lingered"] if q["ply"] < ply), None)
+    if long:
+        note += (f" Earlier you spent {long['time']:.0f} s on {timing.label(long, c.white)}, where {long['good']} moves "
+                 f"were about equally good.")
+    return note
+
+
 def turning_point(c: Ctx) -> list[dict]:
     costly = [m for m in c.moves if m["mistake"] and not c.in_tt(m)]
     if not costly:
@@ -166,12 +183,33 @@ def turning_point(c: Ctx) -> list[dict]:
         w = made[0]
         kind = w["kind"].replace("loose ", "") + " loose" if w["kind"].startswith("loose") else w["kind"]
         why += f" It also left your {kind} on {w['square']}."
+    why += _rushed_note(c, m["ply"])
     arrows = [_arrow(board, x, BLUE) for x in cands if x not in (m["move_san"], best)][:3]
     arrows += [_arrow(board, m["move_san"], DARK_BLUE), _arrow(board, best, GREEN)]
     return [_beat("turning", m["ply"], m["wp_loss"] * 3 + 0.3, f"The turning point · move {m['move_number']}",
                   f"{_label(m['ply'], m['move_san'])}", f"Your win chance went from {pct(m['wp_before'])} to "
                   f"{pct(m['wp_after'])}. {why}", c.quote(m["ply"]), board, arrows,
                   stat=f"−{pct(m['wp_loss'])}")]
+
+
+def rushed(c: Ctx) -> list[dict]:
+    """Critical positions you played fast and lost in (timing.py), other than the turning point,
+    which already says so."""
+    costly = [m for m in c.moves if m["mistake"] and not c.in_tt(m)]
+    turning = max(costly, key=lambda m: m["wp_loss"])["ply"] if costly else None
+    out = []
+    for p in c.timing["rushed"]:
+        if p["ply"] == turning or p["ply"] not in c.by_ply:
+            continue
+        m = c.by_ply[p["ply"]]
+        board = chess.Board(m["fen"])
+        out.append(_beat("rushed", p["ply"], p["wp_loss"] * 2.6, f"Time where it mattered · move {p['move_number']}",
+                         f"One move held, and you took {p['time']:.0f} s",
+                         f"{_label(m['ply'], m['move_san'])} took your win chance from {pct(m['wp_before'])} to "
+                         f"{pct(m['wp_after'])}.{_rushed_note(c, p['ply'])}", c.quote(m["ply"]), board,
+                         [_arrow(board, m["move_san"], DARK_BLUE), _arrow(board, p["best"], GREEN)],
+                         stat=f"{p['time']:.0f} s"))
+    return out
 
 
 def trust(c: Ctx) -> list[dict]:
@@ -344,7 +382,7 @@ def clock(c: Ctx) -> list[dict]:
                   f"those {len(tt_moves)} moves.", c.quote(first["ply"]), stat=f"{first['clock_before']:.0f}s")]
 
 
-SOURCES = (turning_point, trust, threats, weaknesses, worst_piece, insights, strike, clock)
+SOURCES = (turning_point, rushed, trust, threats, weaknesses, worst_piece, insights, strike, clock)
 
 
 def decisive(c: Ctx) -> bool:
@@ -396,6 +434,9 @@ FOCUS = {
               "back to the board. No verdicts on yourself."),
     "check": ("Look once more before you let go", "Blunder check",
               "Before you release the piece, ask one question: what does this move allow?"),
+    "sharp": ("Slow down when it's sharp", "Time usage",
+              "After a capture, a check or a surprise, ask before you move: is there only one move here? "
+              "If there is, that's where your time goes."),
     "time": ("Bank time early", "Time usage",
              "Move faster in quiet positions before move 20, and spend the time where the game is sharp."),
     "input": ("Show your thinking", "Getting started",
@@ -455,10 +496,23 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
         lost = sum(m["wp_loss"] for m, _ in causes[q])
         score[q] += lost
         score["candidates"] -= lost
+    # A costly move played fast where only one move held: the time is the cause (an unseen threat
+    # or a missed weakness / worst piece stays with its question).
+    explained = {m["ply"] for q in causes.values() for m, _ in q}
+    score["sharp"] = 0.0
+    for p in c.timing["rushed"]:
+        if p["ply"] in explained or p["gap"] in ("opponent_idea", "time_trouble"):
+            continue
+        score["sharp"] += p["wp_loss"]
+        if p["gap"] == "wrongly_rejected":
+            score["trust"] -= p["wp_loss"]
+        elif p["gap"] in ("missed_candidate", "no_thoughts"):
+            score["candidates"] -= p["wp_loss"]
     why = {"q3": f"Threats you didn't see took {_pts(score['q3'])} off your win chance this game.",
            "candidates": f"Moves where the good move never came up took {_pts(score['candidates'])} off your win chance.",
            "trust": f"Good moves you drew and then dropped took {_pts(score['trust'])} off your win chance.",
            "time": f"Moves in time trouble took {_pts(score['time'])} off your win chance.",
+           "sharp": "",
            "q1": f"Weaknesses your own moves created took {_pts(score['q1'])} off your win chance.",
            "q2": f"{worst_missed} passive piece{'s' * (worst_missed != 1)} never came up in your thinking.",
            "play_on": next((f"You called it lost while the engine still gave you {pct(i['wp'])}." for i in
@@ -478,6 +532,13 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
     title, tag, habit = FOCUS[key]
     across = hist.get("note", {}).get(key)
     reason = why[key]
+    if key == "sharp" and c.timing["rushed"]:
+        p = c.timing["rushed"][0]
+        reason = (f"At {timing.label(p, c.white)} only {p['best']} held, and you took {p['time']:.0f} s. "
+                  f"It cost {_pts(p['wp_loss'])}.")
+        long = next((q for q in c.timing["lingered"] if q["ply"] < p["ply"]), None)
+        if long:
+            reason += f" You'd spent {long['time']:.0f} s on {timing.label(long, c.white)}, where several moves were fine."
     if key in ("q1", "q2") and causes[key]:
         m, w = max(causes[key], key=lambda x: x[0]["wp_loss"])
         move, cost = _label(m["ply"], m["move_san"]), _pts(m["wp_loss"])

@@ -22,7 +22,7 @@ from .gaps import GAP_LABEL, GAPS
 from .gametype import classify
 from .fmt import game_url, pct
 from .fmt import THEME_BUTTON, THEME_HEAD
-from . import questions
+from . import questions, timing
 
 SHORT = {
     "time_trouble": "time trouble",
@@ -123,6 +123,7 @@ def game_chart(report: dict, analysis: dict, critical_plies: list[int], dots: st
     y_t = scale("time", tmax)
     tt = report["thresholds"].get("time_trouble", 30)
     by_ply = {m["ply"]: m for m in moves}
+    good = {p["ply"]: p for p in timing.positions(analysis, report)}
     parts = []
 
     # Time trouble, shaded through all three panels.
@@ -180,6 +181,9 @@ def game_chart(report: dict, analysis: dict, critical_plies: list[int], dots: st
         cls = "bar-t costly" if m and m["mistake"] else "bar-t"
         parts.append(f"<rect class='{cls}' x='{x(r['move_number']) - bw / 2:.1f}' y='{top:.1f}' width='{bw:.1f}' "
                      f"height='{P['time'][1] - top:.1f}' rx='1.5'/>")
+    for p in good.values():  # positions where only one move held: a mark under the bar
+        if p["critical"]:
+            parts.append(f"<path class='crit' d='M{x(p['move_number']):.1f},{P['time'][1] + 3:.1f} l4,6 l-8,0 z'/>")
 
     # The first strike: where the game broke open into tactics (strike.py).
     st = report.get("strike") or {}
@@ -235,12 +239,44 @@ def game_chart(report: dict, analysis: dict, critical_plies: list[int], dots: st
         rows.append([_mmss(r.get("clock_before")), "your clock", "you"])
         rows.append([_mmss(r.get("opp_clock")), "their clock", "opp"])
         rows.append([f"{r.get('time_spent') or 0:.0f}s", "think time", ""])
+        p = good.get(r["ply"])
+        if p and p["critical"]:
+            rows.append(["only", f"{p['best']} held (critical)", ""])
+        elif p and not p["obvious"]:
+            rows.append([str(p["good"]), f"good move{'s' * (p['good'] != 1)}", ""])
         points.append({"x": round(x(r["move_number"]), 1), "label": f"{r['move_number']}{dots} {r['move_san']}", "rows": rows})
     parts.append(f"<line class='xh' x1='0' x2='0' y1='{P['wp'][0]}' y2='{P['time'][1]}' visibility='hidden'/>")
     data = json.dumps(points).replace("</", "<\\/")
     return (f"<svg class='timeline' viewBox='0 0 {W} {H}' preserveAspectRatio='xMidYMid meet' role='img' "
             f"aria-label='Your win percentage, both clocks and your think time for each move'>{''.join(parts)}</svg>"
             f"<script type='application/json' class='chart-data'>{data}</script>")
+
+
+def time_card(report: dict, analysis: dict) -> str:
+    """Time where it mattered (timing.py): your think time where only one move held against the rest,
+    the critical positions you rushed, and the long thinks where several moves were fine."""
+    t = timing.game(analysis, report)
+    if not t:
+        return ""
+    white = report["game"]["my_color"] == "white"
+    hi = max(t["crit_median"], t["other_median"], 1)
+    bars = "".join(
+        f"<div class='tc-row'><span>{name}</span><span class='tc-track'><span class='tc-bar {cls}' "
+        f"style='width:{v / hi * 100:.1f}%'></span></span><b>{v:.0f} s</b></div>"
+        for name, cls, v in ((f"Only one move held ({t['critical']})", "crit", t["crit_median"]),
+                             (f"Everything else ({t['positions'] - t['critical']})", "", t["other_median"])))
+    items = []
+    for p in t["rushed"][:3]:
+        items.append(f"<li class='rushed'><b>{_e(timing.label(p, white))}</b> {p['time']:.0f} s. Only {_e(p['best'])} held, "
+                     f"and this cost {pct(p['wp_loss'])} (your usual think: {t['usual']:.0f} s).</li>")
+    for p in t["lingered"][:2]:
+        items.append(f"<li class='lingered'><b>{_e(timing.label(p, white))}</b> {p['time']:.0f} s, with {p['good']} moves "
+                     f"about equally good.</li>")
+    note = (f"<ul class='tc-list'>{''.join(items)}</ul>" if items else
+            "<p class='more'>No critical position was rushed this game.</p>")
+    return (f"<section class='card timecard'><h3>Time where it mattered</h3><p class='tc-lead'>{_e(timing.sentence(t))}</p>"
+            f"<div class='tc-bars'>{bars}</div><p class='more'>Median think time. Recaptures and moves in time trouble "
+            f"are left out.</p>{note}</section>")
 
 
 def gap_bars(report: dict) -> str:
@@ -435,6 +471,18 @@ header h1 { font-size:18px; margin:0; letter-spacing:-0.01em; } header .meta { c
 .thoughts p { margin:0; font-size:12.5px; line-height:1.35; color:var(--fg2); border-left:3px solid var(--s1-soft); padding-left:8px; }
 .thoughts p b { color:var(--fg); display:block; font-size:12px; }
 .thoughts p[data-moment] { cursor:pointer; } .thoughts p[data-moment]:hover { border-left-color:var(--accent); }
+.timeline .crit { fill:var(--s2); }
+.legend-row .tri { display:inline-block; width:0; height:0; background:none; border-left:5px solid transparent;
+  border-right:5px solid transparent; border-bottom:7px solid var(--s2); border-radius:0; }
+.timecard { margin:22px 0 6px; } .timecard h3 { margin-top:0; }
+.tc-lead { margin:0 0 10px; color:var(--fg); font-size:14px; }
+.tc-bars { display:grid; gap:6px; max-width:620px; }
+.tc-row { display:grid; grid-template-columns:minmax(0, 210px) 1fr 52px; gap:10px; align-items:center; font-size:13px; color:var(--fg2); }
+.tc-row b { text-align:right; color:var(--fg); font-variant-numeric:tabular-nums; }
+.tc-track { height:10px; border-radius:4px; background:var(--s1-soft); overflow:hidden; display:flex; }
+.tc-bar { background:var(--s1); border-radius:0 4px 4px 0; } .tc-bar.crit { background:var(--s2); }
+.tc-list { margin:10px 0 0; padding-left:18px; font-size:13.5px; color:var(--fg2); } .tc-list li { margin:4px 0; }
+.tc-list li b { color:var(--fg); } .tc-list li.rushed::marker { color:var(--s2); }
 .bottom { display:grid; grid-template-columns:1fr; gap:10px; min-height:0; }
 .gapbars { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:0 18px; align-items:end; } .gapbars .bar-label { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; } .gapbars .more { margin:0; align-self:center; }
 .timeline { width:100%; flex:1; min-height:0; }
@@ -612,7 +660,8 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
         <span><i class="k" style="border-color:var(--s2)"></i>them (clock)</span>
         <span><i style="background:var(--s1)"></i>costly move (number = moment)</span>
         <span><i class="sq" style="background:var(--s1-light)"></i><i class="sq" style="background:var(--s1)"></i>think time, dark = costly</span>
-        <span><i class="sq" style="background:var(--tt);width:14px"></i>time trouble</span></div></div>
+        <span><i class="sq" style="background:var(--tt);width:14px"></i>time trouble</span>
+        <span><i class="tri"></i>only one move held</span></div></div>
       {thoughts}
       <div class="bottom">
         <div class="card"><h3>Where the WP went</h3><div class="gapbars">{gap_bars(report)}</div></div>
@@ -620,7 +669,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
     </div>
   </div>
 </div>
-<div class="below">{aagaard}</div>
+<div class="below">{time_card(report, analysis)}{aagaard}</div>
 <div id="tip"></div>
 <script>{JS}</script>
 </body></html>"""

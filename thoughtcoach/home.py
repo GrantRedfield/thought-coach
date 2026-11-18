@@ -17,6 +17,7 @@ import chess.svg
 
 from . import profile
 from .gametype import classify
+from . import timing
 from .fmt import game_url
 
 RECENT = 5  # "your form": the last few games against the ones before
@@ -54,6 +55,7 @@ def facts(loaded: list[dict], prof: dict) -> list[dict]:
                       for m in g["analysis"].get("moves", []) if m.get("wp_after") is not None],
             "strike": (p.get("strike") or {}).get("side"),
             "type": classify(g["analysis"], r),
+            "timing": timing.game(g["analysis"], g["report"]),
         })
     return out
 
@@ -231,6 +233,15 @@ def form(rows: list[dict], prof: dict) -> str:
         delta, tone = "", ""
     tile(_pct1(statistics.mean(per)), "Win chance lost per move", _trend(per), delta, tone)
     tile(f"{statistics.mean(r['costly'] for r in rows):.1f}", "Costly moves per game", _trend([r["costly"] for r in rows]))
+    tm = [r["timing"] for r in rows if r.get("timing")]
+    if tm:
+        crit = statistics.median([x for t in tm for x in t["crit_times"]])
+        other = statistics.median([x for t in tm for x in t["other_times"]])
+        cc, costly = sum(t["costly_critical"] for t in tm), sum(t["costly"] for t in tm)
+        rushed = sum(len(t["rushed"]) for t in tm)
+        tile(f"{crit:.0f}s<small> vs {other:.0f}s</small>", "Think time when only one move holds",
+             "", f"{cc} of {costly} costly moves came there · {rushed} played fast",
+             "down" if crit <= other else "up")
     q = prof["questions"]
     if q["q3"][1]:
         tile(f"{q['q3'][0] / q['q3'][1] * 100:.0f}%", "Their threats you saw coming", "", f"{q['q3'][0]} of {q['q3'][1]}")
