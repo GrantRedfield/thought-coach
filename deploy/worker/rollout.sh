@@ -27,16 +27,22 @@ done
 echo "build: $STATUS"
 [ "$STATUS" = SUCCEEDED ] || exit 1
 
-# Park the worker: scale to 0 and wait until no server is in service (a review in progress goes
-# back on the queue and is picked up again by the next start).
-aws autoscaling set-desired-capacity --auto-scaling-group-name "$GROUP" --desired-capacity 0
-for _ in $(seq 60); do
-  N=$(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$GROUP" \
-    --query 'length(AutoScalingGroups[0].Instances)' --output text)
+# Park every worker, the warm one and any spot servers still about from an earlier backlog: a
+# running worker keeps the image it started with. Scale both to 0 and wait until none is in service
+# (a review in progress goes back on the queue and is picked up again by the next start).
+for G in "$GROUP" "$BURST"; do
+  aws autoscaling set-desired-capacity --auto-scaling-group-name "$G" --desired-capacity 0
+done
+for _ in $(seq 90); do
+  N=0
+  for G in "$GROUP" "$BURST"; do
+    N=$(( N + $(aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names "$G" \
+      --query 'length(AutoScalingGroups[0].Instances)' --output text) ))
+  done
   [ "$N" = 0 ] && break
   sleep 10
 done
-echo "worker parked"
+echo "workers parked"
 
 if [ $# -ge 2 ]; then
   USER_ID=$1; shift
