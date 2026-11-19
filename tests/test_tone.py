@@ -34,3 +34,29 @@ def test_hybrid_asks_the_model_only_about_mood_sentences(monkeypatch):
     assert tone.mood("Knight again,")[0] == 0 and asked == []          # plain move talk: no model, neutral
     assert tone.mood("the king is more exposed than mine")[0] == 1     # needs context: the model reads it
     assert tone.mood("this is not good")[0] == 1 and len(asked) == 2  # a mood word: the model decides which way
+
+
+
+def test_analyse_runs_on_a_real_recording():
+    """End to end on a saved game with voice (skipped where the local games aren't present)."""
+    import json
+    from pathlib import Path
+
+    import chess
+    import chess.pgn
+    import pytest
+
+    from thoughtcoach import tone
+    from thoughtcoach.voice import utterances
+
+    gid = "WTQkEYK9"
+    paths = [Path(f"out/{gid}.gaps.json"), Path(f"recordings/{gid}.json"), Path(f"out/{gid}.transcript.json"),
+             Path(f"games/{gid}.pgn")]
+    if not all(p.exists() for p in paths):
+        pytest.skip("local game files not present")
+    report = json.loads(paths[0].read_text(encoding="utf-8"))
+    game = chess.pgn.read_game(open(paths[3], encoding="utf-8"))
+    me = chess.WHITE if report["game"]["my_color"] == "white" else chess.BLACK
+    out = tone.analyse(game, me, report, json.loads(paths[1].read_text(encoding="utf-8")),
+                       json.loads(paths[2].read_text(encoding="utf-8")), utterances)
+    assert out["moves"] and {r["mood"] for r in out["moves"]} <= {"upbeat", "worried", "neutral", "quiet"}

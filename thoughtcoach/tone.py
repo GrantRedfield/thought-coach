@@ -167,12 +167,12 @@ def analyse(game, me, report: dict, recording: dict | None, transcript: dict | N
         clauses = said.get(ply - 2, []) + said.get(ply - 1, [])  # their turn before it, then yours
         scored = [(mood(c["text"], c.get("prev", "")), c["text"].strip()) for c in clauses]
         total = sum(s for (s, _), _ in scored)
-        mood = "quiet" if not clauses else "upbeat" if total > 0 else "worried" if total < 0 else "neutral"
+        feeling = "quiet" if not clauses else "upbeat" if total > 0 else "worried" if total < 0 else "neutral"
         # The quote: a clear mood, said plainly ("I have a good position" over "not back rank problems").
         plain = lambda text: not (set(_words(text).split()) & NEGATIONS)  # noqa: E731
         strongest = max(scored, key=lambda x: (abs(x[0][0]), plain(x[1]), len(x[1])), default=None)
         quote = strongest[1].rstrip(",.") if strongest and strongest[0][0] else None
-        rows.append({"ply": ply, "move_number": m["move_number"], "move_san": m["move_san"], "mood": mood,
+        rows.append({"ply": ply, "move_number": m["move_number"], "move_san": m["move_san"], "mood": feeling,
                      "quote": quote, "phrases": sorted({p for (_, ps), _ in scored for p in ps}),
                      "wp_before": m["wp_before"], "wp_after": m["wp_after"], "wp_loss": m["wp_loss"],
                      "costly": bool(m["mistake"]), "best": m.get("best_move_san"),
