@@ -382,6 +382,7 @@
 
   window.addEventListener('pagehide', () => {
     if (voice.recorder) voice.recorder.requestData(); // keep the last few seconds on reload
+    if (pendingSave) save(pendingSave.rec);  // and whatever was drawn since the last save
   });
 
   // ------------------------------------------------------------------ recording
@@ -402,14 +403,26 @@
     };
   }
 
+  // Saving rewrites the whole recording, and Chrome's main process does the writing: batch it (at
+  // most every SAVE_MS), and save at once when it matters (game over, leaving the page).
+  const SAVE_MS = 2000;
+  let pendingSave = null;
+
   function save(rec) {
+    clearTimeout(pendingSave && pendingSave.timer);
+    pendingSave = null;
     store.set(STORE_PREFIX + rec.data.game_id, JSON.stringify(rec.data));
+  }
+
+  function saveSoon(rec) {
+    if (pendingSave) return;
+    pendingSave = { rec, timer: setTimeout(() => save(rec), SAVE_MS) };
   }
 
   function push(rec, event) {
     const d = rec.data;
     d.events.push({ t: Date.now(), ...event, positions_seen: d.positions_seen, placement: d.placement });
-    save(rec);
+    saveSoon(rec);
   }
 
   /** Compare the board with what we saw last time and log any differences. */
@@ -463,6 +476,8 @@
     }
   }
 
+  let tracking = false, trackRec = null;
+
   function attach(rec) {
     const wrap = findBoardWrap();
     if (!wrap || wrap === rec.wrap) return;
@@ -492,7 +507,13 @@
     });
     rec.observer.observe(wrap, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'cgHash'] });
     // While a piece is held (dragged, or clicked and pointed with), follow the square under the pointer.
+    trackRec = rec;
+    if (tracking) return;  // the listeners stay; they follow whichever game this page shows
+    tracking = true;
     const track = (e) => {
+      const rec = trackRec;
+      if (!rec) return;
+      const wrap = rec.wrap;
       if (!rec.selected) { rec.hover = null; return; }
       const square = squareAt(wrap, e.clientX, e.clientY);
       if (rec.hover && rec.hover.square === square) return;
