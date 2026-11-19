@@ -17,7 +17,7 @@ def test_a_focus_measured_before_and_since():
 def test_one_game_is_too_early():
     games = [game("a", 2, 10), game("b", 3, 10)]
     [e] = habits.compute(games, {"a": {"focus": {"key": "q3", "title": "t"}}})
-    assert "Too early to tell" in e["text"]
+    assert "Too early to tell after one game" in e["text"]
 
 
 def test_this_game_line():

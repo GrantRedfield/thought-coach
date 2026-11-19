@@ -295,7 +295,7 @@ def focus_check(loaded: list[dict], stories: dict[str, dict]) -> str:
         return ""
     cards_ = []
     for e in items[:4]:
-        p = e["p"]
+        p = e["p"] if e["games"] >= habits.MIN_GAMES else None
         tone = "up" if p is not None and p >= bayes.LIKELY else "down" if p is not None and p <= 1 - bayes.LIKELY else ""
         badge = ("working" if tone == "up" else "not yet" if tone == "down" else "too early")
         meter = (f"<span class='fmeter'><span style='width:{p * 100:.0f}%'></span></span>" if p is not None else "")

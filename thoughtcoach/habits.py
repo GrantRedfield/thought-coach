@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from . import bayes, timing
 
+MIN_GAMES = 2  # games since the focus before saying it works (or doesn't): one game can be luck
+
 
 def _q(key_found: str, key_total: str):
     return lambda g: (g["report"]["summary"].get(key_found, 0), g["report"]["summary"].get(key_total, 0))
@@ -100,6 +102,8 @@ def _text(e: dict) -> str:
         return f"{e['label'].capitalize()}: no chance to use it yet in the {games} since."
     if e["p"] is None:
         return head
+    if e["games"] < MIN_GAMES:
+        return f"{head} Too early to tell after one game."
     if e["p"] >= bayes.LIKELY:
         return f"{head} Working: {bayes.chance(e['p'])} chance you've really improved."
     if e["p"] <= 1 - bayes.LIKELY:
