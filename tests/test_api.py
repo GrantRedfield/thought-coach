@@ -213,3 +213,21 @@ def test_feedback_from_a_story_card(api):
     assert len(saved) == 1 and "lucidchess-AbCd1234" in saved[0]
     assert api.handler(event("POST", "/api/feedback", {**body, "game_id": "ZZZZ9999"}), None)["statusCode"] == 404
     assert api.handler(event("POST", "/api/feedback", {**body, "reason": "spam"}), None)["statusCode"] == 400
+
+
+def test_watchdog_with_nothing_waiting(api, monkeypatch):
+    class Q:
+        def get_queue_attributes(self, **kw):
+            return {"Attributes": {"ApproximateNumberOfMessages": "0"}}
+    monkeypatch.setattr(api, "sqs", Q())
+    assert api.handler({"tc": "watchdog"}, None) == {"waiting": 0}
+
+
+def test_watchdog_wakes_a_worker_when_reviews_wait(api, monkeypatch):
+    class Q:
+        def get_queue_attributes(self, **kw):
+            return {"Attributes": {"ApproximateNumberOfMessages": "2"}}
+    monkeypatch.setattr(api, "sqs", Q())
+    monkeypatch.setattr(api, "wake_worker", lambda: 60)
+    monkeypatch.setattr(api, "grow_burst", lambda: None)
+    assert api.handler({"tc": "watchdog"}, None) == {"waiting": 2, "woke": True}

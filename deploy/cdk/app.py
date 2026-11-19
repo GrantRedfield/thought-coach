@@ -27,6 +27,8 @@ from aws_cdk import (
     aws_ec2 as ec2,
     aws_codebuild as codebuild,
     aws_ecr as ecr,
+    aws_events as events,
+    aws_events_targets as targets_ev,
     aws_s3_assets as s3_assets,
     aws_s3_deployment as s3_deploy,
     aws_iam as iam,
@@ -206,6 +208,10 @@ class ThoughtCoach(Stack):
         api_fn.add_to_role_policy(iam.PolicyStatement(
             actions=["autoscaling:SetDesiredCapacity", "autoscaling:DescribeAutoScalingGroups",
                      "autoscaling:DescribeWarmPool"], resources=["*"]))
+        # Every 5 minutes: reviews waiting and no worker running? Start one (a worker that stopped
+        # mid-review leaves its game to come back to the queue with nothing to wake a server for it).
+        events.Rule(self, "Watchdog", schedule=events.Schedule.rate(Duration.minutes(5)),
+                    targets=[targets_ev.LambdaFunction(api_fn, event=events.RuleTargetInput.from_object({"tc": "watchdog"}))])
         http = apigw.HttpApi(self, "Http", default_integration=integrations.HttpLambdaIntegration("ApiInt", api_fn))
 
         # ---- website (pages) + /api through one CloudFront distribution

@@ -550,7 +550,28 @@ def accept(raw: str, user: str, expected: str | None, checked: bool) -> dict:
 # ---------------------------------------------------------------- routes
 
 
+def watchdog() -> dict:
+    """Every few minutes (a schedule): reviews waiting with no worker running get one. A worker that
+    stops mid-review (a spot server taken back, a crash) leaves its game to come back to the queue
+    later, when nothing else would wake a server for it."""
+    waiting = 0
+    for q in (QUEUE, BACKFILL):
+        if q:
+            a = sqs.get_queue_attributes(QueueUrl=q, AttributeNames=["ApproximateNumberOfMessages"])["Attributes"]
+            waiting += int(a["ApproximateNumberOfMessages"])
+    if not waiting:
+        return {"waiting": 0}
+    boot = wake_worker()
+    try:
+        grow_burst()
+    except Exception:  # noqa: BLE001
+        pass
+    return {"waiting": waiting, "woke": boot > 0}
+
+
 def handler(event: dict, context) -> dict:
+    if event.get("tc") == "watchdog":  # the schedule, not a web request
+        return watchdog()
     method = event.get("requestContext", {}).get("http", {}).get("method", "GET")
     path = event.get("rawPath", "/")
     if method == "OPTIONS":
