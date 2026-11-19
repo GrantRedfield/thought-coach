@@ -13,14 +13,16 @@ Then, for your moves outside time trouble:
   calibration    upbeat while the engine had you below ROSY_BELOW, worried while it had you above
                  GLOOMY_ABOVE
 
-A finding is only stated when there is enough behind it (MIN_MOVES in each group) and the gap is
-real (GAP); otherwise it says so. Nothing here decides what a good move is: that is the engine.
+Each comparison is a chance that the difference is real (bayes.py: Beta posteriors on the
+two rates): stated as a finding from LIKELY on, otherwise kept as a note with its chance. Nothing here decides what a good move is: that is the engine.
 """
 
 from __future__ import annotations
 
 import re
 import statistics
+
+from .bayes import LIKELY, chance, prob_greater_prior, sceptic
 
 UPBEAT = ["good", "great", "nice", "i like", "love", "winning", "better for me", "i'm better",
           "comfortable", "solid", "fine", "should be good", "should be fine", "easy", "crushing", "happy", "perfect", "beautiful", "got him", "got it", "free pawn", "up a pawn", "in trouble",
@@ -38,6 +40,7 @@ NEGATIONS = {"not", "don't", "dont", "isn't", "wasn't", "doesn't", "no", "never"
 THEM = re.compile(r"\b(he|she|they|his|her|their|opponent|white|black)\b")
 
 MIN_MOVES = 8   # moves in each group before comparing them (one game)
+FINDING_MIN = 5  # and never a finding from fewer moves than this in a group
 MIN_MOVES_ALL = 20  # ... across games
 GAP = 0.08      # costly-move rates this far apart count as a difference
 ROSY_BELOW, GLOOMY_ABOVE = 0.40, 0.65
@@ -135,25 +138,40 @@ def stats(rows: list[dict], min_moves: int = MIN_MOVES) -> dict:
            "gloomy": [r for r in rows if r["mood"] == "worried" and r["wp_before"] > GLOOMY_ABOVE],
            "findings": []}
     up, wo = by["upbeat"], by["worried"]
-    if up["n"] >= min_moves and wo["n"] >= min_moves:
-        if abs(up["rate"] - wo["rate"]) >= GAP:
-            better, worse = ("upbeat", "worried") if up["rate"] < wo["rate"] else ("worried", "upbeat")
+    out["notes"] = []  # comparisons that aren't sure yet, with how sure they are
+    # A sceptical prior: both groups start out like FINDING_MIN typical moves of yours.
+    prior = sceptic(sum(r["costly"] for r in rows) / len(rows) if rows else 0.25)
+    if up["n"] >= 3 and wo["n"] >= 3:
+        p = prob_greater_prior(wo["costly"], wo["n"], up["costly"], up["n"], prior)  # worried moves go wrong more
+        out["p_worried_worse"] = p
+        counts = f"{wo['n']} worried, {up['n']} upbeat moves"
+        if max(p, 1 - p) >= LIKELY and min(up["n"], wo["n"]) >= FINDING_MIN:
+            better, worse = ("upbeat", "worried") if p >= 0.5 else ("worried", "upbeat")
             out["findings"].append(
-                f"You play better when you sound {better}: {by[better]['rate']:.0%} of those moves went wrong, "
-                f"against {by[worse]['rate']:.0%} when you sound {worse} ({up['n']} upbeat, {wo['n']} worried moves).")
+                f"You play better when you sound {better}: {by[worse]['rate']:.0%} of your {worse} moves went wrong, "
+                f"against {by[better]['rate']:.0%} of your {better} ones. {chance(max(p, 1 - p))} chance that's real, "
+                f"not luck ({counts}).")
         else:
-            out["findings"].append(
-                f"Upbeat or worried, you play about the same: {up['rate']:.0%} against {wo['rate']:.0%} of moves "
-                f"went wrong ({up['n']} upbeat, {wo['n']} worried moves).")
+            out["notes"].append(
+                f"No clear link yet between your mood and your play: {wo['rate']:.0%} of worried moves went wrong, "
+                f"{up['rate']:.0%} of upbeat ones. The chance worried moves really go wrong more often is {chance(p)} "
+                f"({counts}).")
     (wf, wn), (of, on) = out["aggression"]["worried"], out["aggression"]["other"]
-    if wn >= min_moves // 2 and on >= min_moves // 2:
-        wr, orr = wf / wn, of / on
-        if orr - wr >= GAP * 1.5:
+    if wn >= 3 and on >= 3:
+        rate = (of + wf) / (on + wn)
+        p = prob_greater_prior(of, on, wf, wn, sceptic(rate))  # the forcing move more often when not worried
+        out["p_worry_holds_back"] = p
+        if p >= LIKELY and wn >= FINDING_MIN:
             out["findings"].append(
-                f"Worry holds back your attacking moves: when the best move was a capture or a check, you played one "
-                f"{wr:.0%} of the time while sounding worried, against {orr:.0%} otherwise ({wn} and {on} positions).")
-        elif wn >= min_moves:
+                f"Worry holds back your attacking moves: when the best move was a capture or a check you played one "
+                f"{wf / wn:.0%} of the time while worried, {of / on:.0%} otherwise. {chance(p)} chance that's real "
+                f"({wn} and {on} positions).")
+        elif p <= 1 - LIKELY and wn >= FINDING_MIN:
             out["findings"].append(
                 f"Worry doesn't stop you attacking: with a capture or check as the best move you played one "
-                f"{wr:.0%} of the time while worried, {orr:.0%} otherwise.")
+                f"{wf / wn:.0%} of the time while worried, {of / on:.0%} otherwise ({chance(1 - p)} sure).")
+        else:
+            out["notes"].append(
+                f"Does worry hold back your attacking moves? {chance(p)} chance, from {wn} worried positions where the "
+                f"best move was a capture or a check: too few to say.")
     return out

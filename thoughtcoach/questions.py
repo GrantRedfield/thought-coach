@@ -18,6 +18,7 @@ import re
 import chess
 import chess.svg
 
+from . import bayes
 from .fmt import game_url, move_went, pct
 
 BOARD = 168
@@ -299,7 +300,7 @@ def render(qs: list[dict], title: str = "Aagaard's questions", link: str = "game
         meter = "".join(f"<span style='width:{n / q['total'] * 100:.2f}%;background:{c}'></span>" for n, c in segs if n and q["total"])
         panels.append(f"""<div class="qpanel">
   <div class="qhead"><span class="qnum">{i}</span><div><h3>{_e(q['q'])}</h3><p class="qwhat">{_e(q['what'])}</p></div>
-    <div class="qrate"><b>{pct(rate) if q['total'] else '–'}</b><small>{q['found']} of {q['total']} {q.get('found_label', 'seen')}</small></div></div>
+    <div class="qrate"><b>{pct(rate) if q['total'] else '–'}</b><small>{q['found']} of {q['total']} {q.get('found_label', 'seen')}</small>{f"<small class='qspan'>{bayes.span(q['found'], q['total'])}</small>" if q['total'] else ''}</div></div>
   <div class="qmeter">{meter}</div>
   <div class="qsplit">{_split(q['split'])}</div>
   <div class="qxs">{examples}</div>
@@ -324,7 +325,7 @@ CSS = """
 .qhead h3 { font-size:16px; margin:0; } .qhead .qwhat { margin:2px 0 0; color:var(--muted); font-size:12.5px; }
 .qnum { width:28px; height:28px; border-radius:50%; background:var(--s1); color:#fff; display:grid; place-items:center; font-weight:700; }
 .qrate { text-align:right; } .qrate b { font-size:26px; line-height:1; display:block; font-variant-numeric:tabular-nums; }
-.qrate small { color:var(--muted); font-size:12px; white-space:nowrap; }
+.qrate small { color:var(--muted); font-size:12px; white-space:nowrap; display:block; }
 .qmeter { height:10px; background:var(--s2); border-radius:4px; overflow:hidden; margin:12px 0 10px; display:flex; }
 .qmeter span { border-right:2px solid var(--card); } .qmeter span:last-child { border-right:0; }
 .qsplit { margin-bottom:12px; }

@@ -17,7 +17,7 @@ import chess.svg
 
 from . import profile
 from .gametype import classify
-from . import timing
+from . import bayes, timing
 from .fmt import game_url, went
 
 RECENT = 5  # "your form": the last few games against the ones before
@@ -241,14 +241,19 @@ def form(rows: list[dict], prof: dict) -> str:
         other = statistics.median([x for t in tm for x in t["other_times"]])
         cc, costly = sum(t["costly_critical"] for t in tm), sum(t["costly"] for t in tm)
         rushed = sum(len(t["rushed"]) for t in tm)
+        n_crit, n_all = sum(t["critical"] for t in tm), sum(t["positions"] for t in tm)
+        worse = bayes.prob_greater_prior(cc, n_crit, costly - cc, n_all - n_crit, bayes.sceptic(costly / n_all if n_all else 0.25))
         tile(f"{crit:.0f}s<small> vs {other:.0f}s</small>", "Think time when only one move holds",
-             "", f"{cc} of {costly} costly moves came there · {rushed} played fast",
+             "", f"{cc} of {costly} costly moves came there · {rushed} played fast · "
+                 f"{bayes.chance(worse)} likely they cost you more than other positions",
              "down" if crit <= other else "up")
     q = prof["questions"]
     if q["q3"][1]:
-        tile(f"{q['q3'][0] / q['q3'][1] * 100:.0f}%", "Their threats you saw coming", "", f"{q['q3'][0]} of {q['q3'][1]}")
+        tile(f"{q['q3'][0] / q['q3'][1] * 100:.0f}%", "Their threats you saw coming", "",
+             f"{q['q3'][0]} of {q['q3'][1]} · {bayes.span(*q['q3'])}")
     if q["q4"][1]:
-        tile(f"{q['q4'][0] / q['q4'][1] * 100:.0f}%", "Best move among your candidates", "", f"{q['q4'][0]} of {q['q4'][1]} positions")
+        tile(f"{q['q4'][0] / q['q4'][1] * 100:.0f}%", "Best move among your candidates", "",
+             f"{q['q4'][0]} of {q['q4'][1]} positions · {bayes.span(*q['q4'])}")
     st = prof["strikes"]
     if st["games"]:
         tile(f"{st['you']['n']}<small>/{st['games']}</small>", "Games where you struck first", "",

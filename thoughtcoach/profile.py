@@ -18,7 +18,7 @@ from pathlib import Path
 
 import chess
 import chess.pgn
-from . import questions, tone
+from . import bayes, questions, tone
 from .fmt import game_url, went
 
 SOLID = 30  # moves a comparison needs before it is more than an early signal
@@ -181,21 +181,31 @@ def findings(p: dict) -> tuple[list[dict], list[dict]]:
     strongest first. Each is a comparison that only shows up across many moves."""
     strong, weak = [], []
 
-    def add(lst, score, head, body, n):
-        lst.append({"score": score, "head": head, "body": body, "n": n, "early": n < SOLID})
+    def add(lst, score, head, body, n, sure=None):
+        """sure: the chance the difference behind it is real (bayes.py); under LIKELY it isn't stated."""
+        if sure is not None and sure < bayes.LIKELY:
+            return
+        lst.append({"score": score, "head": head, "body": body, "n": n, "early": n < SOLID, "sure": sure})
+
+    prior = bayes.sceptic(p["all"]["rate"] if p["all"]["n"] else 0.25)  # every group starts out like you
+
+    def more(a: dict, b: dict) -> float:
+        """The chance group a really goes wrong more often than group b."""
+        return bayes.prob_greater_prior(a["costly"], a["n"], b["costly"], b["n"], prior)
 
     # Think time: do quick moves go wrong more often?
     think = {k: v for k, v in p["think"]}
     fast, slow = think["under 3s"], _merge(think["8-20s"], think["20s+"])
     if fast["n"] >= 10 and slow["n"] >= 10:
-        if fast["rate"] >= 1.5 * slow["rate"] and fast["rate"] - slow["rate"] >= 0.05:
+        pf = more(fast, slow)
+        if pf >= bayes.LIKELY:
             add(weak, fast["rate"] - slow["rate"], "Quick moves go wrong",
                 f"{_pct(fast['rate'])} of moves played in under 3s were costly, against {_pct(slow['rate'])} "
-                f"when you took 8s or more.", min(fast["n"], slow["n"]))
-        elif slow["rate"] >= 1.5 * fast["rate"] and slow["rate"] - fast["rate"] >= 0.05:
+                f"when you took 8s or more.", min(fast["n"], slow["n"]), pf)
+        elif pf <= 1 - bayes.LIKELY:
             add(weak, slow["rate"] - fast["rate"], "Long thinks go wrong",
                 f"{_pct(slow['rate'])} of moves you thought 8s+ about were costly, against {_pct(fast['rate'])} "
-                f"for quick ones: the hard positions are where it slips.", min(fast["n"], slow["n"]))
+                f"for quick ones: the hard positions are where it slips.", min(fast["n"], slow["n"]), 1 - pf)
         elif fast["rate"] <= slow["rate"]:
             add(strong, 0.05, "Your quick moves hold up",
                 f"Moves played in under 3s were costly {_pct(fast['rate'])} of the time, no worse than your long "
@@ -205,10 +215,11 @@ def findings(p: dict) -> tuple[list[dict], list[dict]]:
     cands = {k: v for k, v in p["cands"]}
     one, two = cands["one"], cands["two or more"]
     if one["n"] >= 8 and two["n"] >= 8:
-        if one["rate"] > two["rate"] + 0.05:
+        p1 = more(one, two)
+        if p1 >= bayes.LIKELY:
             add(weak, one["rate"] - two["rate"], "One candidate isn't enough",
                 f"When you considered a single move, {_pct(one['rate'])} were costly; with two or more considered, "
-                f"{_pct(two['rate'])}.", min(one["n"], two["n"]))
+                f"{_pct(two['rate'])}.", min(one["n"], two["n"]), p1)
         elif two["rate"] <= one["rate"]:
             add(strong, 0.04, "Comparing moves pays off",
                 f"With two or more moves considered you went wrong {_pct(two['rate'])} of the time "
@@ -219,10 +230,11 @@ def findings(p: dict) -> tuple[list[dict], list[dict]]:
     if len(phases) >= 2:
         worst = max(phases, key=lambda kv: kv[1]["loss"])
         best = min(phases, key=lambda kv: kv[1]["loss"])
-        if worst[1]["loss"] >= 1.5 * best[1]["loss"]:
+        pp = more(worst[1], best[1])
+        if worst[1]["loss"] >= 1.5 * best[1]["loss"] and pp >= bayes.LIKELY:
             add(weak, worst[1]["loss"] * 5, f"{worst[0].split(' (')[0]} is where it goes",
                 f"Your average move there went {went(worst[1]['before'], worst[1]['after'])}, against "
-                f"{went(best[1]['before'], best[1]['after'])} in the {best[0].split(' (')[0].lower()}.", worst[1]["n"])
+                f"{went(best[1]['before'], best[1]['after'])} in the {best[0].split(' (')[0].lower()}.", worst[1]["n"], pp)
             add(strong, 0.06, f"Solid {best[0].split(' (')[0].lower()}",
                 f"Your average move there went {went(best[1]['before'], best[1]['after'])}, over {best[1]['n']} moves.",
                 best[1]["n"])
@@ -248,32 +260,38 @@ def findings(p: dict) -> tuple[list[dict], list[dict]]:
     names = {"q1": "the weaknesses", "q2": "your worst pieces",
              "q4": "positions with the engine's best move among yours"}
     found3, real3 = p["questions"]["q3"]
-    if real3 >= 5 and found3 / real3 < 0.5:
+    p3 = 1 - bayes.prob_above(found3, real3, 0.5) if real3 else 0
+    if real3 >= 5 and found3 / real3 < 0.5 and p3 >= bayes.LIKELY:
         stopped = p.get("q3_handled", 0)
         add(weak, (0.5 - found3 / real3) / 2, "Threats seen too late",
             f"You spotted only {_pct(found3 / real3)} of the real threats against you before they could happen "
-            f"({found3} of {real3})" + (f"; your move happened to stop another {stopped}" if stopped else "") + ".", real3)
+            f"({found3} of {real3}, {bayes.span(found3, real3)})" + (f"; your move happened to stop another {stopped}"
+                                                                      if stopped else "") + ".", real3, p3)
     rates = {k: (f / n, n) for k, (f, n) in p["questions"].items() if n >= 5 and k in names}
     if rates:
         hi = max(rates, key=lambda k: rates[k][0])
         lo = min(rates, key=lambda k: rates[k][0])
+        k_hi, k_lo = p["questions"][hi][0], p["questions"][lo][0]
         if rates[hi][0] >= 0.5:  # under half isn't a strength
             add(strong, rates[hi][0] / 4, f"Strongest question: {names[hi].split(' (')[0].replace('the ', '')}",
-                f"You saw {_pct(rates[hi][0])} of {names[hi]} ({p['questions'][hi][0]} of {rates[hi][1]}).", rates[hi][1])
+                f"You saw {_pct(rates[hi][0])} of {names[hi]} ({k_hi} of {rates[hi][1]}, "
+                f"{bayes.span(k_hi, rates[hi][1])}).", rates[hi][1], bayes.prob_above(k_hi, rates[hi][1], 0.5))
         if lo != hi and rates[lo][0] < 0.5:
             add(weak, (0.5 - rates[lo][0]) / 2, f"Blind spot: {names[lo].replace('the ', '').replace('your ', '')}",
-                f"You pointed at only {_pct(rates[lo][0])} of {names[lo]} ({p['questions'][lo][0]} of {rates[lo][1]}).",
-                rates[lo][1])
+                f"You pointed at only {_pct(rates[lo][0])} of {names[lo]} ({k_lo} of {rates[lo][1]}, "
+                f"{bayes.span(k_lo, rates[lo][1])}).", rates[lo][1], 1 - bayes.prob_above(k_lo, rates[lo][1], 0.5))
 
     # Pieces.
     pieces = [(k, v) for k, v in p["piece"] if v["n"] >= 10 and k != "castling"]
     if len(pieces) >= 3:
         worst = max(pieces, key=lambda kv: kv[1]["rate"])
         best = min(pieces, key=lambda kv: kv[1]["rate"])
-        if worst[1]["rate"] >= 1.5 * p["all"]["rate"] and worst[1]["rate"] - p["all"]["rate"] >= 0.05:
+        rest = {"costly": p["all"]["costly"] - worst[1]["costly"], "n": p["all"]["n"] - worst[1]["n"]}
+        pw = more(worst[1], rest) if rest["n"] else 0
+        if worst[1]["rate"] >= 1.5 * p["all"]["rate"] and pw >= bayes.LIKELY:
             add(weak, worst[1]["rate"] - p["all"]["rate"], f"Careful with the {worst[0]}",
                 f"{_pct(worst[1]['rate'])} of your {worst[0]} moves were costly, against {_pct(p['all']['rate'])} "
-                f"overall.", worst[1]["n"])
+                f"overall.", worst[1]["n"], pw)
         if best[1]["rate"] <= 0.5 * p["all"]["rate"]:
             add(strong, 0.04, f"Sure-handed with the {best[0]}",
                 f"Only {_pct(best[1]['rate'])} of {best[1]['n']} {best[0]} moves were costly.", best[1]["n"])
@@ -387,22 +405,18 @@ def _tone_card(t: dict) -> str:
         r = st["by"][k]
         if not r["n"]:
             continue
-        thin = " <small>(few moves)</small>" if r["n"] < tone.MIN_MOVES_ALL else ""
+        thin = f" <small>({bayes.span(r['costly'], r['n'])})</small>"
         rows.append(f"<div class='sb' title='{_e(names[k])}: {r['n']} moves, {r['costly']} costly; average move "
                     f"{went(r['before'], r['after'])}'><span class='lab'>{names[k]}</span><span class='trk'>"
                     f"<span class='bad' style='width:{r['rate'] * 100:.1f}%'></span></span>"
                     f"<span class='val'><b>{_pct(r['rate'])}</b> costly <small>of {r['n']}</small>{thin}</span></div>")
     up, wo = st["by"]["upbeat"]["n"], st["by"]["worried"]["n"]
-    if st["findings"]:
-        verdict = "".join(f"<p class='tone-find'>{_e(f)}</p>" for f in st["findings"])
-    else:
-        verdict = (f"<p class='cap'>Not enough yet to say: {up} upbeat and {wo} worried moves so far, from "
-                   f"{t['games']} game{'s' * (t['games'] != 1)} with your voice. A comparison needs "
-                   f"{tone.MIN_MOVES_ALL} of each.</p>")
-    (wf, wn), (of, on) = st["aggression"]["worried"], st["aggression"]["other"]
-    attack = (f"<p class='cap'>When the best move was a capture or a check you played one {of}/{on} times"
-              + (f", and {wf}/{wn} while sounding worried" if wn else "") + ".</p>") if on else ""
-    return "".join(rows) + verdict + attack
+    verdict = "".join(f"<p class='tone-find'>{_e(f)}</p>" for f in st["findings"])
+    verdict += "".join(f"<p class='cap'>{_e(f)}</p>" for f in st.get("notes", []))
+    if not verdict:
+        verdict = (f"<p class='cap'>Not enough yet to compare: {up} upbeat and {wo} worried moves so far, from "
+                   f"{t['games']} game{'s' * (t['games'] != 1)} with your voice.</p>")
+    return "".join(rows) + verdict
 
 
 def _rate_bars(groups: list[tuple[str, dict]], labels: dict | None = None) -> str:
@@ -509,7 +523,8 @@ def render(p: dict) -> str:
     def col(cls, icon, title, items):
         body = "".join(
             f"<p><b>{_e(f['head'])}{'<span class=early>early signal</span>' if f['early'] else ''}</b>{_e(f['body'])}"
-            f" <span class='n'>({f['n']} {f.get('unit', 'moves')})</span></p>" for f in items) or "<p class='n'>Nothing clear yet.</p>"
+            f" <span class='n'>({f['n']} {f.get('unit', 'moves')}"
+            + (f" · {bayes.chance(f['sure'])} likely real" if f.get("sure") is not None else "") + ")</span></p>" for f in items) or "<p class='n'>Nothing clear yet.</p>"
         return f"<div class='fcol {cls}'><h3><i>{icon}</i>{title}</h3>{body}</div>"
 
     from .gaps import GAP_LABEL
