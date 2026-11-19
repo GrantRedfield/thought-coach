@@ -4,13 +4,97 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thought Coach</title>
-<meta name="description" content="Review how you think in your lichess games: the moves you considered, the threats you saw, checked against Stockfish after the game.">
+<meta name="description" content="Review how you think in your lichess games: the moves you considered, the threats you saw, what you said, checked against Stockfish after the game.">
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="/site.css">
+<style>
+  main.wide { max-width:1240px; }
+  .eyebrow-s { font:700 12px ui-monospace, Consolas, monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 8px; }
+  section.block { margin:72px 0 0; } section.block > h2 { font-size:clamp(24px, 3vw, 32px); margin:0 0 6px; }
+  section.block > .sub { color:var(--fg2); margin:0 0 22px; max-width:70ch; }
+
+  /* hero */
+  .hero { display:grid; grid-template-columns:minmax(0, 1.05fr) minmax(0, 1fr); gap:48px; align-items:center; margin-top:8px; }
+  .hero h1 { font-size:clamp(34px, 5vw, 56px); }
+  .storycard { border-radius:20px; padding:22px; color:#fff; box-shadow:0 24px 60px #0007;
+    background:radial-gradient(120% 90% at 50% 0%, #8a3a12 0%, #241411 55%, #0b0b0c 100%); }
+  .storycard .row2 { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:18px; align-items:center; }
+  .storycard img { width:100%; border-radius:8px; display:block; box-shadow:0 10px 30px #0008; }
+  .sc-eye { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:#ffffffb3; margin:0 0 6px; }
+  .sc-title { font-size:24px; font-weight:800; line-height:1.1; margin:0 0 10px; }
+  .sc-body { font-size:14px; color:#ffffffe0; margin:0 0 10px; }
+  .sc-quote { font-style:italic; border-left:3px solid #ff922b; padding:6px 10px; background:#ffffff12; border-radius:0 8px 8px 0; font-size:14px; margin:0 0 10px; }
+  .sc-stat { display:inline-block; font-weight:800; font-size:20px; color:#ffa8a8; }
+  .sc-bars { display:flex; gap:4px; margin-bottom:14px; } .sc-bars i { flex:1; height:3px; border-radius:2px; background:#ffffff40; }
+  .sc-bars i.on { background:#fff; }
+  .sc-cap { font-size:12px; color:var(--muted); text-align:center; margin:10px 0 0; }
+
+  /* steps */
+  .steps4 { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; }
+  .step { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:10px; }
+  .step .pic { height:170px; border-radius:10px; background:var(--soft); display:grid; place-items:center; overflow:hidden; position:relative; }
+  .step .pic img { width:150px; height:150px; }
+  .step h3 { margin:0; font-size:16px; } .step p { margin:0; color:var(--fg2); font-size:14px; }
+  .step .n { font:700 12px ui-monospace, Consolas, monospace; color:var(--accent); }
+  .log { width:100%; padding:10px 12px; font:12px/1.55 ui-monospace, Consolas, monospace; color:var(--fg2); align-self:stretch; }
+  .log b { color:var(--fg); font-weight:600; } .log .t { color:var(--muted); margin-right:6px; }
+  .log .v { color:#ff922b; } .log .a { color:var(--accent); }
+  .stack { position:relative; width:118px; height:150px; }
+  .stack div { position:absolute; inset:0; border-radius:12px; border:1px solid #ffffff22; }
+  .stack div:nth-child(1) { transform:translate(18px, -10px) rotate(6deg); background:#1c3f6b; }
+  .stack div:nth-child(2) { transform:translate(9px, -5px) rotate(3deg); background:#5c2a0e; }
+  .stack div:nth-child(3) { background:linear-gradient(160deg, #2b6b3f, #0f2417); padding:12px; color:#fff; font-size:11px; }
+  .stack b { display:block; font-size:13px; margin:6px 0 4px; } .stack small { color:#ffffffb3; }
+
+  /* captures */
+  .caps { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; }
+  .cap { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
+  .cap h3 { margin:10px 0 4px; font-size:16px; } .cap p { margin:0; color:var(--fg2); font-size:14px; }
+  .cap .pic { height:150px; border-radius:10px; background:var(--soft); display:grid; place-items:center; overflow:hidden; padding:10px; }
+  .cap .pic img { width:130px; height:130px; }
+  .said { width:100%; display:grid; gap:6px; font-size:12.5px; }
+  .said span { display:block; padding:5px 9px; border-radius:8px; background:var(--card); border:1px solid var(--line); }
+  .said .up { border-left:3px solid #2f9e44; } .said .wo { border-left:3px solid #ff922b; } .said .ca { border-left:3px solid var(--muted); }
+  .wave { width:100%; height:28px; } .wave rect { fill:var(--accent); opacity:.75; }
+  .pick { font-size:13px; color:var(--fg2); width:100%; display:grid; gap:8px; }
+  .pick .pc { display:flex; align-items:center; gap:10px; } .pick .glyph { font-size:30px; line-height:1; }
+  .pick em { font-style:normal; color:var(--fg); font-weight:600; }
+  .tbars { width:100%; height:100%; }
+
+  /* metrics */
+  .metrics { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:14px; }
+  .metric { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; }
+  .metric h3 { margin:0 0 2px; font-size:15px; } .metric .cap2 { margin:0 0 12px; color:var(--muted); font-size:13px; }
+  .metric .big { font-size:34px; font-weight:800; line-height:1; } .metric .big small { font-size:16px; color:var(--fg2); font-weight:600; }
+  .metric p.t { margin:10px 0 0; color:var(--fg2); font-size:14px; }
+  .curve { width:100%; height:auto; display:block; }
+  .key { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:8px; }
+  .key i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
+  .hb { display:grid; grid-template-columns:120px 1fr 44px; gap:10px; align-items:center; font-size:13px; color:var(--fg2); margin:8px 0; }
+  .hb .trk { height:10px; background:var(--soft); border-radius:5px; overflow:hidden; } .hb .trk span { display:block; height:100%; border-radius:5px; }
+  .hb b { color:var(--fg); text-align:right; }
+  .rng { width:100%; height:auto; display:block; margin:10px 0 2px; }
+  .focus { background:linear-gradient(160deg, #1d4d2b, #0f1f15); color:#fff; border:0; }
+  .focus .cap2 { color:#ffffffb3; } .focus p.t { color:#ffffffd9; }
+  .focus .habit { background:#ffffff14; border-radius:10px; padding:10px 12px; font-weight:600; margin:8px 0 0; }
+  .wide2 { grid-column:span 2; }
+  .notes { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:56px; }
+
+  @media (max-width:980px) {
+    .hero { grid-template-columns:1fr; gap:28px; }
+    .steps4, .caps { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .metrics { grid-template-columns:1fr; } .wide2 { grid-column:auto; }
+    .notes { grid-template-columns:1fr; }
+  }
+  @media (max-width:560px) {
+    .steps4, .caps { grid-template-columns:1fr; }
+    .storycard .row2 { grid-template-columns:1fr; }
+  }
+</style>
 </head>
 <body>
-<main>
+<main class="wide">
   <nav class="top">
     <p class="brand"><a href="/"><span class="mark"></span>Thought Coach</a></p><span class="sp"></span>
     <a class="link" id="nav-games" href="/start" hidden>Your games</a>
@@ -19,30 +103,158 @@
     <a class="link" href="/start">Setup</a>
   </nav>
 
-  <h1>Review how you think,<br>not just what you played.</h1>
-  <p class="lead">Draw arrows for the moves you consider and think out loud while you play on lichess.
-    When the game ends, Thought Coach checks your thinking against Stockfish: the threats you saw and
-    missed, the candidates you never looked at, and the moment the game turned.</p>
-  <div class="row" id="cta">
-    <a class="btn primary" href="/api/login">Sign in with lichess</a>
-    <a class="btn" href="/start">How to set it up</a>
+  <!-- ============ hero ============ -->
+  <div class="hero">
+    <div>
+      <h1>Review how you think,<br>not just what you played.</h1>
+      <p class="lead">Draw arrows for the moves you consider and think out loud while you play on lichess.
+        After the game, Thought Coach checks your thinking against Stockfish: the threats you saw and missed,
+        the moves you never looked at, how you felt, and the moment the game turned.</p>
+      <div class="row" id="cta">
+        <a class="btn primary" href="/api/login">Sign in with lichess</a>
+        <a class="btn" href="/start">How to set it up</a>
+      </div>
+      <p class="muted"><small>Free and open source. Chrome, Edge or Brave on a computer.</small></p>
+    </div>
+    <figure style="margin:0">
+      <div class="storycard" role="img" aria-label="An example story card from a real game">
+        <div class="sc-bars"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+        <div class="row2">
+          <img src="/img/hero.svg" alt="The position: Black to move after White's knight took on c6">
+          <div>
+            <p class="sc-eye">Your voice · move 25</p>
+            <p class="sc-title">You sounded good about it</p>
+            <p class="sc-quote">“I have a good position now”</p>
+            <p class="sc-body">Two moves later, 27… Nxc3+ took your win chance from 80% to 16%. Only Nb6 held, and you took 12 seconds.</p>
+            <span class="sc-stat">80% → 16%</span>
+          </div>
+        </div>
+      </div>
+      <figcaption class="sc-cap">A card from a real game's story: what you said, set against what the engine saw.</figcaption>
+    </figure>
   </div>
-  <p class="muted"><small>Free and open source. Chrome, Edge or Brave on a computer.</small></p>
 
-  <div class="grid3">
-    <div class="card"><span class="n">01</span><h3>Play as usual</h3>
-      <p>The extension quietly records the arrows you draw, the pieces you pick up and (if you want) your voice.</p></div>
-    <div class="card"><span class="n">02</span><h3>Reviewed after the game</h3>
-      <p>A few minutes after it ends, Stockfish and a speech model go through your thinking, move by move.</p></div>
-    <div class="card"><span class="n">03</span><h3>One thing to work on</h3>
-      <p>A short story of your game, <a href="/questions">the questions</a> you skipped, and a single focus for your next game.</p></div>
+  <!-- ============ how it works ============ -->
+  <section class="block">
+    <p class="eyebrow-s">How it works</p>
+    <h2>You play. It listens. Stockfish checks. You get the story.</h2>
+    <p class="sub">Nothing appears during the game. Everything happens after lichess says it's over.</p>
+    <div class="steps4">
+      <div class="step"><div class="pic"><img src="/img/arrows.svg" alt="A board with arrows for the moves being considered"></div>
+        <span class="n">01</span><h3>Play and think out loud</h3>
+        <p>Right-click to draw the moves you're considering and the threats you see. Say what you think.</p></div>
+      <div class="step"><div class="pic"><div class="log">
+          <div><span class="t">0:31</span><span class="v">said</span> “I have a good position now”</div>
+          <div><span class="t">1:21</span><span class="a">drew</span> <b>Nd4–b3</b></div>
+          <div><span class="t">1:21</span>they played <b>Nxc6</b></div>
+          <div><span class="t">1:24</span><span class="a">drew</span> <b>Nxc3+</b> (twice)</div>
+          <div><span class="t">1:32</span>you played <b>Nxc3+</b></div>
+          <div><span class="t">1:34</span><span class="v">said</span> “c3.”</div></div></div>
+        <span class="n">02</span><h3>The extension records</h3>
+        <p>Arrows, circles, the pieces you pick up, your clock and (if you like) your voice, with the time of each.</p></div>
+      <div class="step"><div class="pic"><img src="/img/review.svg" alt="The engine's verdict on the move that was played"></div>
+        <span class="n">03</span><h3>Stockfish checks your thinking</h3>
+        <p>Every move you made, and every move you considered, against the engine. Your voice is transcribed on our server.</p></div>
+      <div class="step"><div class="pic"><div class="stack"><div></div><div></div><div>
+          <small>YOUR FOCUS</small><b>Stay alert when you're winning</b><small>Ask: what are their checks, captures and threats?</small></div></div></div>
+        <span class="n">04</span><h3>Your game's story</h3>
+        <p>A few cards: the moments that mattered, what you said there, and one thing to work on next game.</p></div>
+    </div>
+  </section>
+
+  <!-- ============ what it captures ============ -->
+  <section class="block">
+    <p class="eyebrow-s">What it captures</p>
+    <h2>Your thinking, not just your moves</h2>
+    <p class="sub">An engine can tell you a move was bad. Only your thinking can tell you why.</p>
+    <div class="caps">
+      <div class="cap"><div class="pic"><img src="/img/arrows.svg" alt="Arrows for candidate moves and the opponent's threat"></div>
+        <h3>Arrows and circles</h3><p>Your candidate moves, the threats you saw (or didn't), the weak squares you marked.</p></div>
+      <div class="cap"><div class="pic"><div class="said">
+          <svg class="wave" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true">
+            <rect x="2" y="10" width="3" height="8"/><rect x="8" y="6" width="3" height="16"/><rect x="14" y="2" width="3" height="24"/>
+            <rect x="20" y="8" width="3" height="12"/><rect x="26" y="4" width="3" height="20"/><rect x="32" y="11" width="3" height="6"/>
+            <rect x="44" y="7" width="3" height="14"/><rect x="50" y="3" width="3" height="22"/><rect x="56" y="9" width="3" height="10"/>
+            <rect x="68" y="5" width="3" height="18"/><rect x="74" y="1" width="3" height="26"/><rect x="80" y="8" width="3" height="12"/>
+            <rect x="92" y="10" width="3" height="8"/><rect x="98" y="6" width="3" height="16"/><rect x="104" y="12" width="3" height="4"/></svg>
+          <span class="up">“I have a good position now” · upbeat</span>
+          <span class="ca">“queen c4, queen c3” · calculating</span>
+          <span class="wo">“not what I expected” · worried</span></div></div>
+        <h3>Your voice</h3><p>What you calculated, what you feared, how you felt. Read with the move it was about.</p></div>
+      <div class="cap"><div class="pic"><div class="pick">
+          <div class="pc"><span class="glyph">♞</span><span>Picked up the <em>knight</em> on d4…</span></div>
+          <div class="pc"><span class="glyph">♜</span><span>…then played the <em>rook</em>.</span></div>
+          <div class="pc"><span class="glyph" style="color:#2f9e44">✓</span><span>The engine's move was the knight's.</span></div></div></div>
+        <h3>Pieces you pick up</h3><p>The right piece in your hand and a different move played: one of the clearest signs of a doubt.</p></div>
+      <div class="cap"><div class="pic">
+          <svg class="tbars" viewBox="0 0 200 110" preserveAspectRatio="none" role="img" aria-label="Think time per move, with the critical positions marked">
+            <g fill="var(--accent)" opacity=".35"><rect x="6" y="70" width="10" height="30"/><rect x="22" y="40" width="10" height="60"/>
+            <rect x="38" y="78" width="10" height="22"/><rect x="54" y="20" width="10" height="80"/><rect x="70" y="72" width="10" height="28"/>
+            <rect x="102" y="60" width="10" height="40"/><rect x="134" y="74" width="10" height="26"/><rect x="166" y="66" width="10" height="34"/></g>
+            <g fill="#ff922b"><rect x="86" y="88" width="10" height="12"/><rect x="118" y="84" width="10" height="16"/><rect x="150" y="90" width="10" height="10"/>
+            <rect x="182" y="86" width="10" height="14"/></g>
+            <line x1="0" x2="200" y1="100" y2="100" stroke="var(--line)" stroke-width="2"/></svg></div>
+        <h3>Think time and clock</h3><p>Where your time went, and whether it went to the positions where only one move held (orange).</p></div>
+    </div>
+  </section>
+
+  <!-- ============ what you get ============ -->
+  <section class="block">
+    <p class="eyebrow-s">What you get</p>
+    <h2>Patterns no single game can show</h2>
+    <p class="sub">An example from one player's first 17 reviewed games. Each finding says how sure it is: one game can be luck.</p>
+    <div class="metrics">
+      <div class="metric wide2">
+        <h3>Your win chance, and how you sounded</h3>
+        <p class="cap2">One game, move by move: the dots are what you said before each move</p>
+        <svg class="curve" viewBox="0 0 600 150" role="img" aria-label="A win-chance curve that stays high, then collapses after an upbeat comment">
+          <line x1="10" x2="590" y1="75" y2="75" stroke="var(--line)" stroke-dasharray="4 4"/>
+          <polyline fill="none" stroke="var(--fg)" stroke-width="3" points="10,80 50,70 90,62 130,60 170,52 210,48 250,40 290,44 330,36 370,40 410,34 450,30 490,28 530,26 560,32 575,118 590,124"/>
+          <g stroke="var(--card)" stroke-width="2"><circle cx="90" cy="62" r="6" fill="#adb5bd"/><circle cx="170" cy="52" r="6" fill="#adb5bd"/>
+          <circle cx="250" cy="40" r="7" fill="#ff922b"/><circle cx="330" cy="36" r="6" fill="#adb5bd"/><circle cx="410" cy="34" r="7" fill="#51cf66"/>
+          <circle cx="490" cy="28" r="7" fill="#51cf66"/><circle cx="530" cy="26" r="7" fill="#51cf66"/></g>
+          <text x="532" y="16" fill="var(--fg2)" font-size="12" text-anchor="end">“I have a good position now”</text>
+          <text x="590" y="144" fill="#ffa8a8" font-size="13" font-weight="700" text-anchor="end">80% → 16%</text></svg>
+        <div class="key"><span><i style="background:#51cf66"></i>upbeat</span><span><i style="background:#ff922b"></i>worried</span><span><i style="background:#adb5bd"></i>calculating</span></div>
+      </div>
+      <div class="metric focus">
+        <h3>Your focus for the next game</h3><p class="cap2">When you're ahead</p>
+        <p class="habit">Stay alert when you're winning</p>
+        <p class="t">You think 4 s a move when you're ahead and 8 s when it's level. Probably real (about 9 in 10).</p>
+      </div>
+      <div class="metric">
+        <h3>Time where it mattered</h3><p class="cap2">Median think time</p>
+        <div class="hb"><span>Only one move held</span><span class="trk"><span style="width:55%;background:#ff922b"></span></span><b>7 s</b></div>
+        <div class="hb"><span>Everything else</span><span class="trk"><span style="width:62%;background:var(--accent)"></span></span><b>8 s</b></div>
+        <p class="t">17 of 28 costly moves came where only one move held. Almost certainly real.</p>
+      </div>
+      <div class="metric">
+        <h3>Their threats you saw coming</h3><p class="cap2">Drawn before they could happen</p>
+        <div class="big">16%<small> 22 of 135</small></div>
+        <svg class="rng" viewBox="0 0 240 32" role="img" aria-label="Your real rate is probably between 12% and 22%">
+          <line x1="8" x2="232" y1="11" y2="11" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
+          <rect x="35" y="5" width="22" height="12" rx="6" fill="var(--accent)" opacity=".5"/><circle cx="44" cy="11" r="5.5" fill="var(--fg)" stroke="var(--card)" stroke-width="2"/>
+          <text x="8" y="29" fill="var(--muted)" font-size="9">0%</text><text x="120" y="29" fill="var(--muted)" font-size="9" text-anchor="middle">50%</text>
+          <text x="232" y="29" fill="var(--muted)" font-size="9" text-anchor="end">100%</text></svg>
+        <p class="t">Over many games, probably 12–22%. The band narrows as you play more.</p>
+      </div>
+      <div class="metric">
+        <h3>Your strongest pattern</h3><p class="cap2">Strong and weak points, only when they hold up</p>
+        <p class="t" style="margin-top:0"><b style="color:var(--fg)">Long thinks go wrong.</b> 27% of moves you thought 8 s+ about were costly, against 11% for quick ones.</p>
+        <p class="t">Almost certainly real · from 95 moves</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="notes">
+    <p class="note"><b>Fair play.</b> Nothing is shown during a game: the extension only records. A review starts
+      only once lichess says the game is over, and only for games you played.</p>
+    <p class="note"><b>Privacy.</b> Signing in only asks lichess for your username: no password, no access to your
+      account. Voice recordings are deleted once they are transcribed. Your review pages aren't listed anywhere,
+      but anyone you give a link to can open them.</p>
   </div>
-
-  <p class="note"><b>Fair play.</b> Nothing is shown during a game: the extension only records. A review starts
-    only once lichess says the game is over, and only for games you played.</p>
-  <p class="note"><b>Privacy.</b> Signing in only asks lichess for your username: no password, no access to your
-    account (we hand the sign-in back to lichess straight away). Voice recordings are deleted once they are
-    transcribed. Your review pages aren't listed anywhere, but anyone you give a link to can open them.</p>
+  <div class="row" style="margin-top:28px"><a class="btn primary" href="/api/login">Sign in with lichess</a>
+    <a class="btn" href="/play">Tips for your first games</a></div>
 
   <footer>Thought Coach · <a href="https://github.com/GrantRedfield/thought-coach">open source</a> · engine: Stockfish · <a href="/privacy">Privacy</a> · not affiliated with lichess.org</footer>
 </main>

@@ -234,7 +234,7 @@ class ThoughtCoach(Stack):
         s3_deploy.BucketDeployment(
             self, "SitePages", destination_bucket=site, sources=[s3_deploy.Source.asset(SITE_DIR)], prune=False,
             cache_control=[s3_deploy.CacheControl.from_string("no-cache")], distribution=dist,
-            distribution_paths=["/", "/index.html", "/start*", "/privacy*", "/questions*", "/play*", "/live*", "/site.css", "/favicon.png", "/thoughtcoach-extension.zip"])
+            distribution_paths=["/", "/index.html", "/start*", "/privacy*", "/questions*", "/play*", "/img/*", "/live*", "/site.css", "/favicon.png", "/thoughtcoach-extension.zip"])
         if zone:
             route53.ARecord(self, "Alias", zone=zone, target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(dist)))
 
