@@ -13,8 +13,9 @@ cd "$(dirname "$0")/../cdk"
 out() { python -c "import json,sys; print(json.load(open('outputs.json'))['ThoughtCoach'][sys.argv[1]])" "$1"; }
 PROJECT=$(out WorkerBuildProject)
 GROUP=$(out WorkerGroup)
-QUEUE=$(aws cloudformation describe-stack-resources --stack-name ThoughtCoach \
-  --query "StackResources[?ResourceType=='AWS::SQS::Queue' && starts_with(LogicalResourceId, 'Reviews')].PhysicalResourceId" --output text)
+# Re-reviews go to the backfill queue: games just played always come first.
+QUEUE=$(out BackfillQueue)
+BURST=$(out BurstGroup)
 
 BUILD=$(aws codebuild start-build --project-name "$PROJECT" --query build.id --output text)
 echo "building $BUILD"
@@ -45,5 +46,8 @@ if [ $# -ge 2 ]; then
     echo "queued $GID"
   done
   aws autoscaling set-desired-capacity --auto-scaling-group-name "$GROUP" --desired-capacity 1
-  echo "worker started"
+  # A backlog also gets spot servers: one per 4 games beyond the warm server's, at most 3.
+  WANT=$(( ($# + 3) / 4 - 1 )); [ $WANT -gt 3 ] && WANT=3; [ $WANT -lt 0 ] && WANT=0
+  if [ $WANT -gt 0 ]; then aws autoscaling set-desired-capacity --auto-scaling-group-name "$BURST" --desired-capacity $WANT; fi
+  echo "worker started (+$WANT spot)"
 fi
