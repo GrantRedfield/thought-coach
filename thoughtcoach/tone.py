@@ -39,6 +39,70 @@ NEGATIONS = {"not", "don't", "dont", "isn't", "wasn't", "doesn't", "no", "never"
 # Said about the other side, these are good news for you.
 THEM = re.compile(r"\b(he|she|they|his|her|their|opponent|white|black)\b")
 
+# The local model (Ollama), when the review run has it: the word lists decide WHETHER a sentence
+# carries a mood (plain move talk stays neutral), the model reads the whole sentence (and the one
+# before) to decide WHICH mood, so negation, comparison and context come out right ("the king is
+# more exposed than mine", "I don't think I'm lost"). It also decides whether a defeat phrase
+# really means giving up. Set by the review run; None means word lists only.
+LLM: dict | None = None  # {"model": ..., "url": ..., "gpu": bool}
+LLM_INSTRUCTIONS = """You read what a chess player said out loud during their own game. Judge the SENTENCE (the earlier sentence is only context).
+Answer with JSON only: {"mood": "upbeat" | "worried" | "neutral", "gave_up": true | false}
+- upbeat: the player feels good about their own game (confident, pleased, relieved), or says the opponent is in trouble.
+- worried: the player feels bad or anxious about their own game or position, or says the opponent is doing well.
+- neutral: calculating, naming moves or squares, describing, no feeling about how the game is going.
+- gave_up: the player says their own game is lost, over or hopeless. Denying it ("I'm not lost", "I don't think I'm lost") is NOT giving up.
+Examples:
+"I have a good position now" -> {"mood": "upbeat", "gave_up": false}
+"I don't think I'm lost" -> {"mood": "upbeat", "gave_up": false}
+"the king is a little more exposed than mine" -> {"mood": "upbeat", "gave_up": false}
+"this is getting scary, my king is open" -> {"mood": "worried", "gave_up": false}
+"I'm just lost here" -> {"mood": "worried", "gave_up": true}
+"not bad" -> {"mood": "upbeat", "gave_up": false}
+"he's in big trouble now" -> {"mood": "upbeat", "gave_up": false}"""
+_read_cache: dict[tuple[str, str], dict | None] = {}
+# No mood word, but a mood that needs the whole sentence to read: whose king is exposed, better than whose.
+CONTEXT = re.compile(r"(exposed|than (mine|his|hers|theirs|yours|me|him|her|them)|better for (me|him|her|them)|"
+                     r"worse for (me|him|her|them))")
+
+
+def llm_read(prev: str, text: str) -> dict | None:
+    """The model's reading of one sentence ({"mood", "gave_up"}), or None without a model."""
+    if not LLM:
+        return None
+    key = (prev, text)
+    if key in _read_cache:
+        return _read_cache[key]
+    import json
+    import urllib.request
+
+    body = {"model": LLM["model"], "format": "json", "stream": False, "keep_alive": "30m",
+            "options": {"temperature": 0, **({} if LLM.get("gpu") else {"num_gpu": 0})},
+            "prompt": f"{LLM_INSTRUCTIONS}\n\nEarlier sentence: \"{prev}\"\nSENTENCE: \"{text}\"\nJSON:"}
+    out = None
+    try:
+        req = urllib.request.Request(f"{LLM['url']}/api/generate", data=json.dumps(body).encode(),
+                                     headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            a = json.loads(json.loads(r.read())["response"])
+        if a.get("mood") in ("upbeat", "worried", "neutral"):
+            out = {"mood": a["mood"], "gave_up": bool(a.get("gave_up"))}
+    except Exception:  # noqa: BLE001 - no model, or an odd answer: the word lists decide
+        out = None
+    _read_cache[key] = out
+    return out
+
+
+def mood(text: str, prev: str = "") -> tuple[int, list[str]]:
+    """Like score(), but when a mood word is there and the model is available, the model reads the
+    whole sentence to decide which way it goes."""
+    sign, found = score(text)
+    if found or CONTEXT.search(text.lower()):
+        a = llm_read(prev, text)
+        if a:
+            sign = {"upbeat": 1, "worried": -1, "neutral": 0}[a["mood"]]
+    return sign, found
+
+
 MIN_MOVES = 8   # moves in each group before comparing them (one game)
 FINDING_MIN = 5  # and never a finding from fewer moves than this in a group
 MIN_MOVES_ALL = 20  # ... across games
@@ -91,15 +155,15 @@ def analyse(game, me, report: dict, recording: dict | None, transcript: dict | N
     g = Game(game, me, report)
     v = Voice(g, recording, transcript, utterances)
     said: dict[int, list[dict]] = {}
-    for c in v.clauses:
+    for i, c in enumerate(v.clauses):
         pos = v.position_at(c["t"])
         if pos is not None:
-            said.setdefault(pos, []).append(c)
+            said.setdefault(pos, []).append({**c, "prev": v.clauses[i - 1]["text"] if i else ""})
     tt = report["thresholds"].get("time_trouble", 30)
     rows = []
     for ply, m in sorted(g.mine.items()):
         clauses = said.get(ply - 2, []) + said.get(ply - 1, [])  # their turn before it, then yours
-        scored = [(score(c["text"]), c["text"].strip()) for c in clauses]
+        scored = [(mood(c["text"], c.get("prev", "")), c["text"].strip()) for c in clauses]
         total = sum(s for (s, _), _ in scored)
         mood = "quiet" if not clauses else "upbeat" if total > 0 else "worried" if total < 0 else "neutral"
         # The quote: a clear mood, said plainly ("I have a good position" over "not back rank problems").

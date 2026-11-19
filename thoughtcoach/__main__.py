@@ -312,6 +312,10 @@ def cmd_review(args: argparse.Namespace) -> int:
             annotate_aagaard(report, analysis, engine, me)  # Q1 weaknesses, Q2 worst piece
             transcript_path = out_dir / f"{gid}.transcript.json"
             transcript = json.loads(transcript_path.read_text(encoding="utf-8")) if spoken is not None and transcript_path.exists() else None
+            # The local model reads the sentences the word lists flag (tone.py): mood and giving up.
+            import thoughtcoach.tone as tone_mod
+            tone_mod.LLM = ({"model": args.llm_model, "url": args.ollama_url, "gpu": args.llm_gpu}
+                            if not args.no_llm and ollama_available(args.ollama_url) else None)
             report["insights"] = build_insights(game, me, report, thinking, recording, transcript, utterances)
             report["verdict"] = verdict(report, analysis, report["insights"])
             report["tone"] = analyse_tone(game, me, report, recording, transcript, utterances)  # mood against play

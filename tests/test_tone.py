@@ -25,3 +25,12 @@ def test_a_real_gap_is_stated():
     rows = [row("upbeat", i % 10 == 0) for i in range(20)] + [row("worried", i % 2 == 0) for i in range(20)]
     st = stats(rows)
     assert st["findings"][0].startswith("You play better when you sound upbeat")
+
+
+def test_hybrid_asks_the_model_only_about_mood_sentences(monkeypatch):
+    from thoughtcoach import tone
+    asked = []
+    monkeypatch.setattr(tone, "llm_read", lambda prev, text: asked.append(text) or {"mood": "upbeat", "gave_up": False})
+    assert tone.mood("Knight again,")[0] == 0 and asked == []          # plain move talk: no model, neutral
+    assert tone.mood("the king is more exposed than mine")[0] == 1     # needs context: the model reads it
+    assert tone.mood("this is not good")[0] == 1 and len(asked) == 2  # a mood word: the model decides which way

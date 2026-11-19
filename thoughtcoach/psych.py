@@ -89,8 +89,15 @@ def defeated(text: str) -> bool:
 
 
 def gave_up(g, v: Voice) -> list[dict]:
-    for c in v.clauses:
-        if not defeated(c["text"]):
+    from . import tone
+
+    for i, c in enumerate(v.clauses):
+        if not DEFEAT.search(c["text"].lower().replace("’", "'")):
+            continue
+        # A defeat phrase: the model reads the whole sentence when it can ("I don't think I'm lost"
+        # is not giving up), the word check otherwise.
+        read = tone.llm_read(v.clauses[i - 1]["text"] if i else "", c["text"])
+        if not (read["gave_up"] if read else defeated(c["text"])):
             continue
         pos = v.position_at(c["t"])
         now = None if pos is None else g.wp(pos)
