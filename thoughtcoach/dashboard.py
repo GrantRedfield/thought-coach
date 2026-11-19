@@ -20,6 +20,7 @@ from .critical import CSS as REEL_CSS
 from .critical import _last_move, pick, player_html, reel, sharpness
 from .gaps import GAP_LABEL, GAPS
 from .gametype import classify
+from .strike import EXPLAIN as STRIKE_EXPLAIN
 from .fmt import avg_went, game_url, move_went, pct
 from .fmt import THEME_BUTTON, THEME_HEAD
 from . import questions, timing
@@ -319,7 +320,8 @@ def verdict_html(report: dict, critical_plies: list[int]) -> str:
     if st and cells:
         brk = (st.get("break") or {}).get("text")
         more = f"<p class='v-break'>{_e(brk)}</p>" if brk else ""
-        cells.append(f"<div class='v-strike'><i aria-hidden='true'>&#9889;</i><b>First strike</b><p>{_e(st['text'])}</p>{more}</div>")
+        cells.append(f"<div class='v-strike' title='{_e(STRIKE_EXPLAIN)}'><i aria-hidden='true'>&#9889;</i><b>First strike</b>"
+                     f"<p>{_e(st['text'])}</p>{more}<p class='v-what'>{_e(STRIKE_EXPLAIN)}</p></div>")
     return f"<div class='verdict'>{''.join(cells)}</div>" if cells else ""
 
 
@@ -443,6 +445,7 @@ header h1 { font-size:18px; margin:0; letter-spacing:-0.01em; } header .meta { c
 .gtype.swindle, .gtype.stomp { background:color-mix(in srgb, #2f9e44 28%, transparent); }
 .gtype.swindled, .gtype.stomped { background:color-mix(in srgb, #e03131 26%, transparent); }
 .gtype.crazy { background:color-mix(in srgb, #f08c00 30%, transparent); }
+.verdict .v-what { margin-top:6px; font-size:11.5px; color:var(--muted); }
 .verdict .v-break { margin-top:6px; color:var(--muted); }
 .strike line { stroke:var(--fg2); stroke-width:1.5; stroke-dasharray:3 3; } .strike text { fill:var(--fg2); font-size:10.5px; font-weight:600; }
 .verdict b { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg2); }

@@ -35,6 +35,10 @@ import chess.pgn
 
 from .fmt import pct
 
+EXPLAIN = ("A strike is the first tactic once the game is out of the opening book: a capture, check or real "
+           "threat that starts a run of forcing moves and changes the game, moving the win chance by 15% or more "
+           "or winning 2+ pawns of material. Even trades don't count.")
+
 BALANCED = 0.20
 SWING = 0.15
 MATERIAL = 2

@@ -571,7 +571,8 @@ that it's a real pattern and not luck.</p>
   <div class="pcard"><h3>Your clock against theirs</h3><p class="cap">Seconds ahead (+) or behind (−), averaged by move number</p>{_clock_line(p['clock'])}</div>
   <div class="pcard"><h3>Each game</h3><p class="cap">How much your average move cost, oldest to newest (lower is better); orange = a game you lost. Click a dot.</p>{_per_game_line(games)}</div>
   <div class="pcard"><h3>What went wrong, by cause, all games</h3><p class="cap">Share of what your costly moves cost you, by cause</p>{gaps}</div>
-  <div class="pcard"><h3>Who struck first</h3><p class="cap">The first tactic in each game, and how those games ended</p>{_strike_card(p['strikes'])}</div>
+  <div class="pcard"><h3>Who struck first</h3><p class="cap">The first tactic in each game once it's out of the opening book (a capture,
+    check or threat that changes the game; even trades don't count), and how those games ended</p>{_strike_card(p['strikes'])}</div>
   <div class="pcard"><h3>Costly moves by piece</h3><p class="cap">Which piece you moved (5+ moves)</p>{SPLIT_KEY}{pieces}</div>
 </div></section>""",
         "voice": f"<section class='profile'><div class='pgrid one'>{voice_card}</div></section>" if p["tone"]["games"] else "",

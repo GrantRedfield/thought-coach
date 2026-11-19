@@ -32,6 +32,7 @@ import chess.svg
 
 from .critical import _said
 from .gametype import classify
+from .strike import EXPLAIN as STRIKE_EXPLAIN
 from . import bayes, timing, tone
 from .fmt import move_went, went, game_url, home_url, pct
 
@@ -435,12 +436,16 @@ def strike(c: Ctx) -> list[dict]:
                 text += " You saw it coming: you'd drawn it."
         if s.get("break"):
             text += " Earlier, " + s["break"]["text"][0].lower() + s["break"]["text"][1:]
-        return [_beat("strike", s["ply"], 0.8 if good else 0.6, f"First strike · move {s['move_number']}",
-                      "You struck first" if s["side"] == "you" else "They struck first", text,
-                      c.quote(s["ply"]) if s["side"] == "you" else None, board, arrows)]
+        beat = _beat("strike", s["ply"], 0.8 if good else 0.6, f"First strike · move {s['move_number']}",
+                     "You struck first" if s["side"] == "you" else "They struck first", text,
+                     c.quote(s["ply"]) if s["side"] == "you" else None, board, arrows)
+        beat["note"] = STRIKE_EXPLAIN
+        return [beat]
     if s.get("decided_by"):
-        return [_beat("decided", s["ply"], 0.4, f"First strike · move {(s['ply'] + 1) // 2}", "No strike needed",
-                      s["text"].removeprefix("None: "), None, c.board_before(s["ply"] + 1))]
+        beat = _beat("decided", s["ply"], 0.4, f"First strike · move {(s['ply'] + 1) // 2}", "No strike needed",
+                     s["text"].removeprefix("None: "), None, c.board_before(s["ply"] + 1))
+        beat["note"] = STRIKE_EXPLAIN
+        return [beat]
     return []
 
 
@@ -740,7 +745,7 @@ def _type_tag(t: dict | None) -> str:
 
 def summary(story: dict) -> dict:
     """What the home page needs from a story (saved as <id>.story.json): no animation frames."""
-    keep = ("kind", "ply", "eyebrow", "title", "body", "quote", "fen", "arrows", "fill", "stat")
+    keep = ("kind", "ply", "eyebrow", "title", "body", "quote", "fen", "arrows", "fill", "stat", "note")
     return {**{k: story[k] for k in ("id", "me", "them", "color", "tc", "result", "outcome", "arrows", "said",
                                      "moves_with_thoughts", "curve", "focus", "decided_by")},
             "voice": story.get("voice"),
@@ -862,7 +867,7 @@ def render(story: dict) -> str:
         quote = f"<blockquote>“{_e(b['quote'])}”<cite>you, during the game</cite></blockquote>" if b.get("quote") else ""
         slides.append((b["kind"], f"""<p class='eyebrow'><span class='n'>{i}</span>{_e(b['eyebrow'])}</p>
 <h2>{_e(b['title'])}</h2>{stat}{visual}
-<p class='body'>{_e(b['body'])}</p>{quote}"""))
+<p class='body'>{_e(b['body'])}</p>{quote}{f"<p class='note'>{_e(b['note'])}</p>" if b.get('note') else ''}"""))
     f = story["focus"]
     if story.get("truths"):
         items = "".join(
@@ -955,6 +960,7 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
 }
 .curve.mood circle { stroke:#0b0b0c; stroke-width:1.5; }
 .moodkey { justify-content:flex-start; }
+.note { margin:0; font-size:13px; line-height:1.45; color:#ffffff99; border-top:1px solid #ffffff22; padding-top:8px; }
 .lastfocus { margin:0 0 10px; padding:10px 14px; border-radius:10px; background:#ffffff12; font-size:15px; color:#ffffffd9; }
 .lastfocus small { display:block; margin-top:4px; font-size:13px; color:#ffffffb3; }
 .truths { display:grid; gap:10px; }
