@@ -32,7 +32,7 @@ import chess.svg
 
 from .critical import _said
 from .gametype import classify
-from . import timing
+from . import timing, tone
 from .fmt import move_went, went, game_url, home_url, pct
 
 MAX_BEATS = 6
@@ -40,6 +40,7 @@ MIN_SCORE = 0.3  # a quiet game gets a shorter story rather than filler
 RELATIVE = 0.33  # a card needs at least this share of the top moment's weight
 DECISIVE_LOSS, DECISIVE_SHARE = 0.25, 0.6  # one move this costly, and this share of all you lost: it decided the game
 DECISIVE_BEATS = 2  # then the story is that moment and at most one other
+VOICE_KINDS = {"rosy", "worry_held", "gloomy", "gave_up", "inner", "tide"}  # moments your voice tells
 BLUE, DARK_BLUE, GREEN, RED, ORANGE, PURPLE = "#3c78d8", "#1f4fa8", "#15781b", "#c0392b", "#eb6834", "#7b2cbf"
 
 ACCENT = {  # card background accents, by kind
@@ -47,8 +48,10 @@ ACCENT = {  # card background accents, by kind
     "weak_made": "#e67700", "weak_found": "#2b8a3e", "weak_missed": "#e67700", "worst": "#7048e8",
     "worst_named": "#2b8a3e", "insight": "#0c8599", "strike": "#f08c00", "decided": "#c92a2a", "clock": "#495057",
     "result": "#343a40", "focus": "#2f9e44", "tide": "#1098ad", "gave_up": "#862e9c", "instinct": "#1c7ed6",
-    "inner": "#5f3dc4",
+    "inner": "#5f3dc4", "voice": "#0b7285", "rosy": "#d9480f", "worry_held": "#e67700", "gloomy": "#1971c2",
 }
+MOOD_COLOR = {"upbeat": "#51cf66", "worried": "#ff922b", "neutral": "#ffffffaa"}
+MOOD_WORD = {"upbeat": "upbeat", "worried": "worried", "neutral": "calculating", "quiet": "quiet"}
 
 
 def _e(x) -> str:
@@ -74,6 +77,7 @@ class Ctx:
         self.by_ply = {m["ply"]: m for m in self.moves}
         self.windows = {w["ply"]: w for w in (thinking or {}).get("windows", [])}
         self.timing = timing.game(analysis, report) or {"rushed": [], "lingered": [], "usual": 0}
+        self.tone = {r["ply"]: r for r in (report.get("tone") or {}).get("moves", [])}
         self.white = report["game"]["my_color"] == "white"
         tt = report["thresholds"].get("time_trouble", 30)
         self.tt = tt
@@ -210,6 +214,77 @@ def rushed(c: Ctx) -> list[dict]:
                          [_arrow(board, m["move_san"], DARK_BLUE), _arrow(board, p["best"], GREEN)],
                          stat=f"{p['time']:.0f} s"))
     return out
+
+
+def moods(c: Ctx) -> list[dict]:
+    """What your tone said against what the board said (tone.py): sounding good just before it went
+    wrong, worry when the engine wanted you to attack, and worry while you were doing well."""
+    out = []
+    rows = [r for r in c.tone.values() if not r["tt"]]
+    for r in rows:
+        nxt = [x for x in rows if r["ply"] <= x["ply"] <= r["ply"] + 4 and x["wp_loss"] >= 0.10]
+        if r["mood"] == "upbeat" and r["quote"] and nxt:
+            m = nxt[0]
+            later = "Then" if m["ply"] == r["ply"] else f"{(m['ply'] - r['ply']) // 2} move{'s' * (m['ply'] - r['ply'] > 2)} later"
+            out.append(_beat("rosy", r["ply"], m["wp_loss"] * 2.4, f"Your voice · move {r['move_number']}",
+                             "You sounded good about it",
+                             f"Around move {r['move_number']} you said “{r['quote']}”, with your win chance at "
+                             f"{pct(r['wp_before'])}. {later}, {_label(m['ply'], m['move_san'])} took it from "
+                             f"{pct(m['wp_before'])} to {pct(m['wp_after'])}. Feeling good is fine; it is a good "
+                             f"moment to look once more.", None, c.board_before(m["ply"])))
+            break
+    for r in rows:
+        if r["mood"] == "worried" and r["best_forcing"] and not r["played_forcing"] and r["wp_loss"] >= 0.05 and r["quote"]:
+            m = c.by_ply.get(r["ply"])
+            board = chess.Board(m["fen"]) if m else None
+            arrows = [_arrow(board, r["move_san"], DARK_BLUE), _arrow(board, r["best"], GREEN)] if board else []
+            out.append(_beat("worry_held", r["ply"], r["wp_loss"] * 2.4, f"Your voice · move {r['move_number']}",
+                             "Worry held you back", f"You said “{r['quote']}” and played {_label(r['ply'], r['move_san'])} "
+                             f"({pct(r['wp_before'])} → {pct(r['wp_after'])}). The engine's move was the forcing "
+                             f"{r['best']}.", None, board, arrows))
+            break
+    gloomy = [r for r in rows if r["mood"] == "worried" and r["quote"] and r["wp_before"] > tone.GLOOMY_ABOVE
+              and r["wp_loss"] < 0.05]
+    if gloomy:
+        r = max(gloomy, key=lambda x: x["wp_before"])
+        out.append(_beat("gloomy", r["ply"], 0.35, f"Your voice · move {r['move_number']}", "Better than it sounded",
+                         f"You said “{r['quote']}” while the engine had you at {pct(r['wp_before'])}, and you kept it "
+                         f"there ({pct(r['wp_before'])} → {pct(r['wp_after'])}).", None, c.board_before(r["ply"])))
+    return out
+
+
+def voice_card(c: Ctx) -> dict | None:
+    """The voice, shown off: your mood move by move on the win-chance curve, what you sounded like
+    before your costly moves, and a finding when this game has enough behind it."""
+    rows = sorted(c.tone.values(), key=lambda r: r["ply"])
+    talked = [r for r in rows if r["mood"] != "quiet"]
+    if len(talked) < 3:
+        return None
+    counts = {k: sum(r["mood"] == k for r in rows) for k in ("upbeat", "worried", "neutral", "quiet")}
+    costly = [r for r in rows if r["costly"] and not r["tt"]]
+    before = {}
+    for r in costly:
+        before[r["mood"]] = before.get(r["mood"], 0) + 1
+    line = None
+    st = tone.stats(rows)
+    how = {"upbeat": "sounding upbeat", "worried": "sounding worried", "neutral": "calculating", "quiet": "quiet"}
+    if st["findings"]:
+        line = st["findings"][0]
+    elif len(costly) == 1:
+        line = f"Before your costly move you were {how[costly[0]['mood']]}."
+    elif costly:
+        parts = [f"{n} {how[k]}" for k, n in sorted(before.items(), key=lambda kv: -kv[1])]
+        line = f"Before your {len(costly)} costly moves: {', '.join(parts)}."
+    # The quote: something said with a clear mood, soonest before the costliest move.
+    worst = max(costly, key=lambda r: r["wp_loss"], default=None)
+    toned = [r for r in rows if r["quote"] and r["mood"] in ("upbeat", "worried")]
+    if worst and any(r["ply"] <= worst["ply"] for r in toned):
+        key = max((r for r in toned if r["ply"] <= worst["ply"]), key=lambda r: r["ply"])
+    else:
+        key = max(toned or [r for r in rows if r["quote"]], key=lambda r: r["wp_loss"], default=None)
+    return {"talked": len(talked), "of": len(rows), "counts": counts, "line": line,
+            "marks": [(r["ply"], r["mood"], r["wp_after"]) for r in rows if r["mood"] != "quiet"],
+            "quote": {"text": key["quote"], "move": _label(key["ply"], key["move_san"]), "mood": key["mood"]} if key else None}
 
 
 def trust(c: Ctx) -> list[dict]:
@@ -382,7 +457,7 @@ def clock(c: Ctx) -> list[dict]:
                   f"those {len(tt_moves)} moves.", c.quote(first["ply"]), stat=f"{first['clock_before']:.0f}s")]
 
 
-SOURCES = (turning_point, rushed, trust, threats, weaknesses, worst_piece, insights, strike, clock)
+SOURCES = (turning_point, rushed, moods, trust, threats, weaknesses, worst_piece, insights, strike, clock)
 
 
 def decisive(c: Ctx) -> bool:
@@ -616,7 +691,15 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
           history: dict | None = None) -> dict:
     c = Ctx(report, analysis, thinking, game)
     one = decisive(c)
-    beats = pick([b for src in SOURCES for b in src(c)], DECISIVE_BEATS if one else MAX_BEATS)
+    every = [b for src in SOURCES for b in src(c)]
+    beats = pick(every, DECISIVE_BEATS if one else MAX_BEATS)
+    # Your voice gets a say: when it told something on its own and no such moment made the cut,
+    # the strongest one is added.
+    voiced = [b for b in every if b["kind"] in VOICE_KINDS and b["score"] >= MIN_SCORE]
+    if voiced and not any(b["kind"] in VOICE_KINDS for b in beats):
+        best = max(voiced, key=lambda b: b["score"])
+        if best["ply"] not in {b["ply"] for b in beats}:
+            beats = sorted(beats + [best], key=lambda b: b["ply"])
     worst = max((m for m in c.moves if m["mistake"]), key=lambda m: m["wp_loss"], default=None)
     decided_by = _label(worst["ply"], worst["move_san"]) if one and worst else None
     g = report["game"]
@@ -637,7 +720,7 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
             "result": res, "outcome": outcome, "arrows": arrows, "said": said,
             "moves_with_thoughts": report["summary"].get("moves_with_thoughts", 0), "beats": beats,
             "curve": curve, "focus": focus(c, history), "orientation": c.me, "decided_by": decided_by,
-            "type": classify(analysis, g)}
+            "type": classify(analysis, g), "voice": voice_card(c)}
 
 
 def _type_tag(t: dict | None) -> str:
@@ -650,6 +733,7 @@ def summary(story: dict) -> dict:
     keep = ("kind", "ply", "eyebrow", "title", "body", "quote", "fen", "arrows", "fill", "stat")
     return {**{k: story[k] for k in ("id", "me", "them", "color", "tc", "result", "outcome", "arrows", "said",
                                      "moves_with_thoughts", "curve", "focus", "decided_by")},
+            "voice": story.get("voice"),
             "type": story.get("type"),
             "orientation": "white" if story["orientation"] else "black",
             "beats": [{k: b.get(k) for k in keep} for b in story["beats"]]}
@@ -694,6 +778,32 @@ def _key(b: dict) -> str:
     return "<p class='key'>" + "".join(f"<span><i style='background:{c}'></i>{_e(t)}</span>" for c, t in items) + "</p>" if items else ""
 
 
+def _voice_slide(story: dict) -> str:
+    v = story["voice"]
+    c = v["counts"]
+    W, H, PAD, TOP = 600, 170, 16, 18
+    curve = story["curve"]
+    svg = ""
+    if len(curve) >= 2:
+        p0, p1 = curve[0][0], curve[-1][0]
+        x = lambda p: PAD + (min(max(p, p0), p1) - p0) / max(1, p1 - p0) * (W - 2 * PAD)  # noqa: E731
+        y = lambda w: TOP + (1 - w) * (H - TOP - 8)  # noqa: E731
+        pts = " ".join(f"{x(p):.1f},{y(w):.1f}" for p, w in curve)
+        dots = "".join(f"<circle cx='{x(p):.1f}' cy='{y(w):.1f}' r='{7 if mood != 'neutral' else 4}' "
+                       f"style='fill:{MOOD_COLOR[mood]}'><title>move {(p + 1) // 2}: {MOOD_WORD[mood]}</title></circle>"
+                       for p, mood, w in v["marks"])
+        svg = (f"<svg class='curve mood' viewBox='0 0 {W} {H}' aria-label='Your win chance, with what you sounded like'>"
+               f"<line x1='{PAD}' x2='{W - PAD}' y1='{y(0.5):.1f}' y2='{y(0.5):.1f}'/>"
+               f"<polyline points='{pts}'/>{dots}</svg>")
+    key = "".join(f"<span><i style='background:{MOOD_COLOR[k]}'></i>{MOOD_WORD[k]} {c[k]}</span>"
+                  for k in ("upbeat", "worried", "neutral") if c[k])
+    q = v.get("quote")
+    quote = (f"<blockquote>“{_e(q['text'])}”<cite>you, around {_e(q['move'])}</cite></blockquote>" if q else "")
+    line = f"<p class='body'>{_e(v['line'])}</p>" if v.get("line") else ""
+    return (f"<p class='eyebrow'>Your voice</p><h2>You talked through {v['talked']} of {v['of']} moves</h2>"
+            f"<div class='visual wide'>{svg}</div><p class='key moodkey'>{key}</p>{quote}{line}")
+
+
 def _curve_svg(curve, marks) -> str:
     if len(curve) < 2:
         return ""
@@ -732,6 +842,8 @@ def render(story: dict) -> str:
 <p class='lead'>Your win chance, move by move. {lead}</p>
 <div class='stats'><div><b>{story['arrows']}</b>arrows drawn</div><div><b>{story['said']}</b>things said aloud</div>
 <div><b>{story['moves_with_thoughts']}</b>moves with thoughts</div></div>"""))
+    if story.get("voice"):
+        slides.append(("voice", _voice_slide(story)))
     for i, b in enumerate(story["beats"], 1):
         board = _frames_svg(b, o) if b.get("frames") else _board_svg(b, o)
         stat = f"<div class='stat'>{_e(b['stat'])}</div>" if b.get("stat") else ""
@@ -819,6 +931,8 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
   .nav:hover { transform:translateY(-50%) scale(1.07); }
   .nav.prev { left:24px; } .nav.next { right:24px; }
 }
+.curve.mood circle { stroke:#0b0b0c; stroke-width:1.5; }
+.moodkey { justify-content:flex-start; }
 .curve circle { fill:#f08c00; stroke:#0b0b0c; stroke-width:2; } .curve text { fill:#fff; font-size:14px; font-weight:700; text-anchor:middle; }
 .end { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; position:relative; z-index:5; }
 .end a, .end button { font:inherit; font-size:15px; color:#000; background:#fff; border:0; border-radius:999px; padding:10px 16px;

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import chess
 import chess.pgn
-from . import questions
+from . import questions, tone
 from .fmt import game_url, went
 
 SOLID = 30  # moves a comparison needs before it is more than an early signal
@@ -156,6 +156,9 @@ def compute(games: list[dict]) -> dict:
         "good": [(name, _rate([x for x in thinking_rows if x["cands"] and x["good"] == want]))
                  for name, want in (("yes", True), ("no", False))],
         "aagaard": questions.compute(games),
+        "tone": {"stats": tone.stats([r for g in games for r in (g["report"].get("tone") or {}).get("moves", [])],
+                                     tone.MIN_MOVES_ALL),
+                 "games": sum(1 for g in games if (g["report"].get("tone") or {}).get("moves"))},
         "piece": sorted(((p, _rate([x for x in rows if x["piece"] == p])) for p in {x["piece"] for x in rows}),
                         key=lambda kv: -kv[1]["n"]),
         "tt": {"moves": len(tt_moves), "loss": sum(x["loss"] for x in tt_moves),
@@ -332,6 +335,7 @@ CSS = """
 .early { font-size:10.5px; color:var(--muted); border:1px solid var(--line); border-radius:8px; padding:0 6px; margin-left:4px; }
 .pgrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:10px; }
 .pcard { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
+.tone-find { margin:8px 0 0; font-size:13.5px; }
 .pcard h3 { margin:0 0 2px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg2); font-weight:600; }
 .pcard .cap { margin:0 0 8px; color:var(--muted); font-size:12px; }
 .hb { display:grid; grid-template-columns:150px 1fr 70px; gap:6px; align-items:center; font-size:12.5px; margin:5px 0; }
@@ -369,6 +373,36 @@ def _hbars(items: list[tuple[str, float, str, str]], scale: float | None = None,
                    f"<span class='{cls}' style='display:block;width:{min(100, value / top * 100):.1f}%'></span></span>"
                    f"<span class='val'>{shown}</span></div>")
     return "".join(out)
+
+
+def _tone_card(t: dict) -> str:
+    """Your voice and your play (tone.py): each mood's moves, how often they went wrong and where
+    your average move took your win chance; a finding only when there is enough behind it."""
+    st = t["stats"]
+    if not t["games"] or not st["talked"]:
+        return "<p class='cap'>Shows up once games with your voice have been reviewed.</p>"
+    names = {"upbeat": "Sounding upbeat", "worried": "Sounding worried", "neutral": "Calculating", "quiet": "Quiet"}
+    rows = []
+    for k in ("upbeat", "worried", "neutral", "quiet"):
+        r = st["by"][k]
+        if not r["n"]:
+            continue
+        thin = " <small>(few moves)</small>" if r["n"] < tone.MIN_MOVES_ALL else ""
+        rows.append(f"<div class='sb' title='{_e(names[k])}: {r['n']} moves, {r['costly']} costly; average move "
+                    f"{went(r['before'], r['after'])}'><span class='lab'>{names[k]}</span><span class='trk'>"
+                    f"<span class='bad' style='width:{r['rate'] * 100:.1f}%'></span></span>"
+                    f"<span class='val'><b>{_pct(r['rate'])}</b> costly <small>of {r['n']}</small>{thin}</span></div>")
+    up, wo = st["by"]["upbeat"]["n"], st["by"]["worried"]["n"]
+    if st["findings"]:
+        verdict = "".join(f"<p class='tone-find'>{_e(f)}</p>" for f in st["findings"])
+    else:
+        verdict = (f"<p class='cap'>Not enough yet to say: {up} upbeat and {wo} worried moves so far, from "
+                   f"{t['games']} game{'s' * (t['games'] != 1)} with your voice. A comparison needs "
+                   f"{tone.MIN_MOVES_ALL} of each.</p>")
+    (wf, wn), (of, on) = st["aggression"]["worried"], st["aggression"]["other"]
+    attack = (f"<p class='cap'>When the best move was a capture or a check you played one {of}/{on} times"
+              + (f", and {wf}/{wn} while sounding worried" if wn else "") + ".</p>") if on else ""
+    return "".join(rows) + verdict + attack
 
 
 def _rate_bars(groups: list[tuple[str, dict]], labels: dict | None = None) -> str:
@@ -509,6 +543,8 @@ def render(p: dict) -> str:
   <div class="pcard"><h3>Each game</h3><p class="cap">How much your average move cost, oldest to newest (lower is better); orange = a game you lost. Click a dot.</p>{_per_game_line(games)}</div>
   <div class="pcard"><h3>What went wrong, by cause, all games</h3><p class="cap">Share of what your costly moves cost you, by cause</p>{gaps}</div>
   <div class="pcard"><h3>Who struck first</h3><p class="cap">The first tactic in each game, and how those games ended</p>{_strike_card(p['strikes'])}</div>
+  <div class="pcard"><h3>Your voice and your play</h3><p class="cap">What you sounded like before each move, and how
+    often those moves went wrong (time trouble left out)</p>{SPLIT_KEY}{_tone_card(p['tone'])}</div>
   <div class="pcard"><h3>Costly moves by piece</h3><p class="cap">Which piece you moved (5+ moves)</p>{SPLIT_KEY}{pieces}</div>
 </div>
 </section>"""

@@ -25,6 +25,7 @@ from .arrows import load_recordings
 from .dashboard import render as render_dashboard
 from .aagaard import annotate as annotate_aagaard
 from .insights import build as build_insights, verdict
+from .tone import analyse as analyse_tone
 from .strike import find as find_strike, first_break, threats as strike_threats
 from .arrows import summarise as summarise_arrows
 from .engine import WP_MODELS, Engine, EngineSettings, find_stockfish
@@ -286,6 +287,7 @@ def cmd_review(args: argparse.Namespace) -> int:
             transcript = json.loads(transcript_path.read_text(encoding="utf-8")) if spoken is not None and transcript_path.exists() else None
             report["insights"] = build_insights(game, me, report, thinking, recording, transcript, utterances)
             report["verdict"] = verdict(report, analysis, report["insights"])
+            report["tone"] = analyse_tone(game, me, report, recording, transcript, utterances)  # mood against play
             report_progress("strike")
             report["strike"] = find_strike(game, analysis, me, strike_threats(engine, game, analysis, me, rules.wp_model))
             brk = first_break(game, analysis, me)
