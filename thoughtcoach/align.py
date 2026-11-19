@@ -224,7 +224,7 @@ def align(game: chess.pgn.Game, recording: dict, me: chess.Color, voice: list[di
     # Each shape_add (with when it was removed again) and each spoken mention.
     shapes_by_ply: dict[int, list[dict]] = {}
     for index, event in enumerate(events):
-        if event["type"] not in ("shape_add", "voice", "pick_up"):
+        if event["type"] not in ("shape_add", "voice", "pick_up", "hover"):
             continue
         drawn_in = on_screen[index]
         if drawn_in is None:
@@ -293,14 +293,17 @@ def align(game: chess.pgn.Game, recording: dict, me: chess.Color, voice: list[di
             }
             shapes_by_ply.setdefault(my_ply, []).append(shape)
             continue
-        removed = next(
-            (
-                e["t"]
-                for e in events[index + 1 :]
-                if e["type"] == "shape_remove" and (e["from"], e["to"]) == (event["from"], event["to"])
-            ),
-            None,
-        )
+        if event["type"] == "hover":  # held a piece over a square: considered that move, for ms
+            removed = event["t"] + int(event.get("ms") or 0)
+        else:
+            removed = next(
+                (
+                    e["t"]
+                    for e in events[index + 1 :]
+                    if e["type"] == "shape_remove" and (e["from"], e["to"]) == (event["from"], event["to"])
+                ),
+                None,
+            )
         drawn_board = boards[drawn_in]
         piece = drawn_board.piece_at(chess.parse_square(event["from"]))
         kind = classify(piece, event["to"] is not None, me)
@@ -321,10 +324,10 @@ def align(game: chess.pgn.Game, recording: dict, me: chess.Color, voice: list[di
             san = board.san(move) if move else None
         shape = {
             "kind": kind,
-            "source": "arrow",
+            "source": "hover" if event["type"] == "hover" else "arrow",
             "from": event["from"],
             "to": event["to"],
-            "brush": event["brush"],
+            "brush": event.get("brush"),
             "phase": "own_time" if own_turn else "opponent_time",
             "drawn_t": event["t"],
             "on_board_s": None if removed is None else round((removed - event["t"]) / 1000, 1),
@@ -435,6 +438,8 @@ def render(result: dict, headers: dict | None = None) -> str:
                 move = " (moved it)" if s["played"] else " (not moved)"
             if s.get("source") == "voice":
                 what = f'said "{s["said"]}"' + (f" {what}" if what and not s["move_san"] else "")
+            if s.get("source") == "hover":
+                what = f"hovered {what}"
             if s.get("target_circled"):
                 what += "o"  # arrow with its target square circled
             shown = "" if s["on_board_s"] is None else f", shown {s['on_board_s']}s"

@@ -22,6 +22,7 @@
   const PIECE_LETTER = { pawn: 'p', knight: 'n', bishop: 'b', rook: 'r', queen: 'q', king: 'k' };
   const TRANSLATE = /translate\(\s*(-?[\d.]+)px\s*,\s*(-?[\d.]+)px\s*\)/;
   const CLOCKS_STOPPED_MS = 5000; // timed games: clocks stopped this long => game over
+  const HOVER_MS = 700; // holding a picked-up piece over a square this long counts as considering that move
 
   // ------------------------------------------------------------------ storage (extension)
   //
@@ -168,6 +169,29 @@
     const rank = white ? 7 - row : row;
     if (file < 0 || file > 7 || rank < 0 || rank > 7) return null;
     return 'abcdefgh'[file] + (rank + 1);
+  }
+
+  /** The square under the pointer, or null (same board geometry as selectedSquare). */
+  function squareAt(wrap, x, y) {
+    const board = wrap.querySelector('cg-board');
+    if (!board) return null;
+    const r = board.getBoundingClientRect();
+    if (x < r.left || y < r.top || x >= r.right || y >= r.bottom) return null;
+    const col = Math.floor((x - r.left) / (r.width / 8));
+    const row = Math.floor((y - r.top) / (r.height / 8));
+    const white = orientation(wrap) === 'white';
+    const file = white ? col : 7 - col;
+    const rank = white ? 7 - row : row;
+    return 'abcdefgh'[file] + (rank + 1);
+  }
+
+  /** The pointer left a square while a piece was held: a long enough stay is a move considered. */
+  function endHover(rec, now) {
+    const h = rec.hover;
+    rec.hover = null;
+    if (!h || !rec.selected || h.square === rec.selected || h.from !== rec.selected) return;
+    const ms = now - h.since;
+    if (ms >= HOVER_MS) push(rec, { type: 'hover', from: h.from, to: h.square, ms: Math.round(ms) });
   }
 
   /** One user-drawn shape from a chessground <g cgHash="w,h,[true,][n,]orig[,dest],brush">. */
@@ -422,6 +446,7 @@
     // Picking up a piece (click or drag start) and letting go of it again.
     const selected = selectedSquare(wrap);
     if (selected !== rec.selected) {
+      endHover(rec, Date.now());  // letting go (or moving) ends a hover too
       if (rec.selected) push(rec, { type: 'put_down', square: rec.selected });
       if (selected) push(rec, { type: 'pick_up', square: selected });
       rec.selected = selected;
@@ -466,6 +491,16 @@
       });
     });
     rec.observer.observe(wrap, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'cgHash'] });
+    // While a piece is held (dragged, or clicked and pointed with), follow the square under the pointer.
+    const track = (e) => {
+      if (!rec.selected) { rec.hover = null; return; }
+      const square = squareAt(wrap, e.clientX, e.clientY);
+      if (rec.hover && rec.hover.square === square) return;
+      endHover(rec, Date.now());
+      if (square) rec.hover = { square, from: rec.selected, since: Date.now() };
+    };
+    document.addEventListener('pointermove', track, { passive: true });
+    document.addEventListener('mousemove', track, { passive: true });  // some drags only send mouse events
   }
 
   // ------------------------------------------------------------------ export

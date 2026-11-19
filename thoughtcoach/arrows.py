@@ -14,7 +14,7 @@ from pathlib import Path
 GAME_FORMATS = {"thoughtcoach-arrows/1", "thoughtcoach-arrows/2"}
 BUNDLE_FORMAT = "thoughtcoach-arrows-bundle/1"
 EVENT_TYPES = {"load", "move", "position", "flip", "shape_add", "shape_remove", "game_end", "resume",
-               "pick_up", "put_down"}
+               "pick_up", "put_down", "hover"}
 FILES = "abcdefgh"
 
 

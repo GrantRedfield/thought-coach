@@ -129,3 +129,13 @@ def test_lingering_highlight_is_not_a_pickup():
     rec["events"].sort(key=lambda e: e["t"])
     windows = align(game, rec, chess.WHITE)["windows"]
     assert not any(s["kind"] == "picked_up" for w in windows for s in w["shapes"])
+
+
+def test_holding_a_piece_over_a_square_counts_as_a_move_considered():
+    game, recording = load()
+    rec = copy.deepcopy(recording)
+    add = next(e for e in rec["events"] if e["type"] == "shape_add" and e.get("from") == "g1")
+    rec["events"].append({"type": "hover", "t": add["t"] + 500, "from": "b1", "to": "c3", "ms": 900})
+    shapes = window(align(game, rec, chess.WHITE), 3)["shapes"]
+    hover = next(s for s in shapes if s["source"] == "hover")
+    assert (hover["kind"], hover["move_san"], hover["played"], hover["on_board_s"]) == ("candidate", "Nc3", False, 0.9)
