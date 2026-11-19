@@ -21,3 +21,4 @@ deploy/cdk/.last-build
 # Built at deploy time
 deploy/site/thoughtcoach-extension.zip
 deploy/store/thoughtcoach-*.zip
+deploy/.feedback/

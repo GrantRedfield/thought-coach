@@ -180,6 +180,40 @@ def _cookie(name: str, value: str, path: str, max_age: int) -> str:
     return f"{name}={value}; Path={path}; Max-Age={max_age}; Secure; HttpOnly; SameSite=Lax"
 
 
+FEEDBACK_REASONS = {"wrong", "confusing", "other"}
+PLAYER = re.compile(r"^[a-z0-9_-]{2,30}$")
+
+
+def feedback(event: dict) -> dict:
+    """'This doesn't make sense' from a story card: kept privately (data bucket, feedback/<day>/) so
+    we can fix what confuses people. Anyone who can open a story can send one; signed-in players
+    are named, others are 'anonymous'. Only for story pages that exist."""
+    raw = _body(event)
+    if len(raw) > 8000:
+        return reply(413, {"error": "too long"})
+    try:
+        f = json.loads(raw)
+        owner, gid, reason = str(f.get("owner", "")).lower(), str(f.get("game_id", "")), f.get("reason")
+        if not PLAYER.match(owner) or not GAME_ID.match(gid) or reason not in FEEDBACK_REASONS:
+            raise ValueError
+    except (ValueError, json.JSONDecodeError, AttributeError):
+        return reply(400, {"error": "bad report"})
+    try:
+        s3.head_object(Bucket=SITE, Key=f"u/{owner}/games/{gid}/story/index.html")
+    except Exception:  # noqa: BLE001
+        return reply(404, {"error": "no such story"})
+    card = f.get("card") if isinstance(f.get("card"), dict) else {}
+    record = {
+        "at": time.time(), "owner": owner, "game_id": gid, "reason": reason,
+        "comment": str(f.get("comment") or "")[:1000], "by": signed_in(event) or "anonymous",
+        "card": {"index": card.get("index") if isinstance(card.get("index"), int) else None,
+                 "kind": str(card.get("kind") or "")[:40], "ply": card.get("ply") if isinstance(card.get("ply"), int) else None,
+                 "title": str(card.get("title") or "")[:200], "text": str(card.get("text") or "")[:1500]},
+    }
+    _put_json(DATA, f"feedback/{time.strftime('%Y-%m-%d', time.gmtime())}/{owner}-{gid}-{uuid.uuid4().hex[:8]}.json", record)
+    return reply(201, {"ok": True})
+
+
 def signed_in(event: dict) -> str | None:
     return read_session(cookies(event).get("tc_session", ""))
 
@@ -548,6 +582,8 @@ def handler(event: dict, context) -> dict:
         return reply(405, {"error": "method not allowed"})
     if path == "/api/account/delete":
         return delete_account(event)
+    if path == "/api/feedback":
+        return feedback(event)
     user = uploader(event)
     if not user:
         return reply(401, {"error": "not connected: sign in at thoughtcoach.org/start to connect the extension"})

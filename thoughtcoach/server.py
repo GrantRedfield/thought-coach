@@ -252,6 +252,18 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(404, {"error": "not found"})
 
     def do_POST(self) -> None:  # noqa: N802
+        if self.path.split("?")[0] == "/api/feedback":  # "doesn't make sense" from a story card
+            length = int(self.headers.get("Content-Length") or 0)
+            if not 0 < length <= 8000:
+                return self._json(413, {"error": "empty or too large"})
+            try:
+                report = json.loads(self.rfile.read(length))
+            except json.JSONDecodeError:
+                return self._json(400, {"error": "bad report"})
+            report["at"] = time.time()
+            with open(self.reviews.out / "feedback.jsonl", "a", encoding="utf-8") as f:
+                f.write(json.dumps(report) + "\n")
+            return self._json(201, {"ok": True})
         if self.path.split("?")[0] != "/api/recordings":
             return self._json(404, {"error": "not found"})
         length = int(self.headers.get("Content-Length") or 0)

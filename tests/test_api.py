@@ -201,3 +201,15 @@ def test_queued_status_has_game_facts_and_shows_as_active(api):
     assert status["cold_start"] is True and status["boot_s"] == 160
     active = json.loads(api.handler(event("GET", "/api/u/lucidchess/active"), None)["body"])["active"]
     assert active[0]["game_id"] == "AbCd1234" and active[0]["facts"]["opening"] == "English Opening"
+
+
+def test_feedback_from_a_story_card(api):
+    api.fake_s3.put_object(Bucket="site", Key="u/lucidchess/games/AbCd1234/story/index.html", Body=b"x")
+    body = {"owner": "lucidchess", "game_id": "AbCd1234", "reason": "wrong", "comment": "I said I'm NOT lost",
+            "card": {"index": 3, "kind": "gave_up", "ply": 40, "title": "You called it lost too early", "text": "..."}}
+    r = api.handler(event("POST", "/api/feedback", body), None)
+    assert r["statusCode"] == 201
+    saved = [k for _, k in api.fake_s3.objects if k.startswith("feedback/")]
+    assert len(saved) == 1 and "lucidchess-AbCd1234" in saved[0]
+    assert api.handler(event("POST", "/api/feedback", {**body, "game_id": "ZZZZ9999"}), None)["statusCode"] == 404
+    assert api.handler(event("POST", "/api/feedback", {**body, "reason": "spam"}), None)["statusCode"] == 400

@@ -908,12 +908,13 @@ def render(story: dict) -> str:
     if story.get("voice"):
         slides.append(("voice", _voice_slide(story)))
     for i, b in enumerate(story["beats"], 1):
+        meta = f"<span hidden class='meta' data-ply='{b['ply']}'></span>"
         board = _frames_svg(b, o) if b.get("frames") else _board_svg(b, o)
         stat = f"<div class='stat'>{_e(b['stat'])}</div>" if b.get("stat") else ""
         inside = board if b.get("frames") else f"<div class='board'>{board}</div>{_key(b)}" if board else ""
         visual = f"<div class='visual'>{inside}</div>" if inside else ""
         quote = f"<blockquote>“{_e(b['quote'])}”<cite>you, during the game</cite></blockquote>" if b.get("quote") else ""
-        slides.append((b["kind"], f"""<p class='eyebrow'><span class='n'>{i}</span>{_e(b['eyebrow'])}</p>
+        slides.append((b["kind"], meta + f"""<p class='eyebrow'><span class='n'>{i}</span>{_e(b['eyebrow'])}</p>
 <h2>{_e(b['title'])}</h2>{stat}{visual}
 <p class='body'>{_e(b['body'])}</p>{quote}{f"<p class='note'>{_e(b['note'])}</p>" if b.get('note') else ''}"""))
     f = story["focus"]
@@ -933,7 +934,7 @@ def render(story: dict) -> str:
 <p class='habit'>{_e(f['habit'])}</p><p class='body'>{_e(f['why'])}{(' ' + _e(f['across'])) if f.get('across') else ''}</p>
 <div class='end'>{f"<a href='{GUIDE}'>How to show your thinking</a>" if f['key'] == 'input' else ''}<a href='{_e(game_url(story['id']))}'>See the full review</a><a href='{_e(home_url())}'>All your games</a>
 <button type='button' class='replay'>Watch again</button></div>"""))
-    body = "".join(f"<section class='slide' style='--accent:{ACCENT.get(k, '#495057')}'><div class='inner'>{h}</div></section>"
+    body = "".join(f"<section class='slide' data-kind='{k}' style='--accent:{ACCENT.get(k, '#495057')}'><div class='inner'>{h}</div></section>"
                    for k, h in slides)
     bars = "".join("<i><b></b></i>" for _ in slides)
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -942,6 +943,14 @@ def render(story: dict) -> str:
 <div class="bars">{bars}</div><button class="close" type="button" onclick="location.href='{_e(game_url(story['id']))}'" aria-label="Close">×</button>
 {body}<button class="nav prev" type="button" aria-label="Previous card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
 <button class="nav next" type="button" aria-label="Next card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+<button class="flag" type="button" aria-haspopup="dialog">Doesn't make sense?</button>
+<div class="fb" role="dialog" aria-label="Report this card" hidden><p class="fbh">What's off about this card?</p>
+<label><input type="radio" name="why" value="wrong" checked> It's wrong or contradicts itself</label>
+<label><input type="radio" name="why" value="confusing"> It's confusing</label>
+<label><input type="radio" name="why" value="other"> Something else</label>
+<textarea maxlength="1000" placeholder="What did you expect? (optional)"></textarea>
+<div class="fbr"><button type="button" class="fbsend">Send</button><button type="button" class="fbcancel">Cancel</button></div>
+<p class="fbdone" hidden>Thanks: this helps make the stories better.</p></div>
 <p class="hint"><span class="count"></span><span class="keys"> · use ← → to move between cards</span></p></main>
 <script>{JS}</script></body></html>"""
 
@@ -1010,6 +1019,18 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
 .moodkey { justify-content:flex-start; }
 .note { margin:0; font-size:13px; line-height:1.45; color:#ffffff99; border-top:1px solid #ffffff22; padding-top:8px; }
 .lastfocus { margin:0 0 10px; padding:10px 14px; border-radius:10px; background:#ffffff12; font-size:15px; color:#ffffffd9; }
+.flag { position:absolute; top:26px; right:12px; z-index:6; background:none; border:0; color:#ffffff73; font:inherit;
+  font-size:12px; cursor:pointer; padding:4px 6px; border-radius:6px; }
+.flag:hover, .flag:focus-visible { color:#fff; background:#ffffff1a; outline:none; }
+.fb { position:absolute; top:58px; right:12px; z-index:7; width:min(320px, calc(100% - 24px)); background:#1b1b1a;
+  border:1px solid #ffffff2e; border-radius:14px; padding:14px; box-shadow:0 12px 40px #000a; font-size:14px; }
+.fb[hidden] { display:none; } .fb .fbh { margin:0 0 8px; font-weight:700; }
+.fb label { display:flex; gap:8px; align-items:center; margin:4px 0; color:#ffffffd9; cursor:pointer; }
+.fb textarea { width:100%; min-height:70px; margin:8px 0; border-radius:8px; border:1px solid #ffffff2e; background:#0b0b0c;
+  color:#fff; font:inherit; font-size:13.5px; padding:8px; resize:vertical; }
+.fbr { display:flex; gap:8px; } .fbr button { font:inherit; font-size:13.5px; border-radius:999px; padding:7px 14px; cursor:pointer; border:0; }
+.fbsend { background:#fff; color:#000; font-weight:700; } .fbcancel { background:#ffffff1f; color:#fff; }
+.fbdone { margin:6px 0 0; color:#8ce99a; }
 .lastfocus small { display:block; margin-top:4px; font-size:13px; color:#ffffffb3; }
 .truths { display:grid; gap:10px; }
 .truth { padding:12px 14px; border-radius:12px; background:#ffffff12; border-left:3px solid #ffffff55; }
@@ -1073,6 +1094,8 @@ JS = """
   const replay = document.querySelector('.replay');
   if (replay) replay.onclick = () => show(0);
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !fb.hidden) { closeFb(); return; }
+    if (busy(e)) return;
     if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); next.classList.remove('invite'); show(i + 1); }
     else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); show(i - 1); }
     else if (e.key === 'Home') show(0); else if (e.key === 'End') show(slides.length - 1);
@@ -1081,11 +1104,36 @@ JS = """
   let x0 = null, y0 = null;
   document.addEventListener('touchstart', e => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
   document.addEventListener('touchend', e => {
-    if (x0 === null) return;
+    if (x0 === null || busy(e)) return;
     const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
     if (Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) show(i + (dx < 0 ? 1 : -1));
     x0 = null;
   });
+  // "Doesn't make sense?": report the card on screen (kept privately, read to improve the stories).
+  const flag = document.querySelector('.flag'), fb = document.querySelector('.fb');
+  const m = location.pathname.match(/\\/u\\/([a-z0-9_-]+)\\/games\\/([A-Za-z0-9]{8})/) || location.pathname.match(/\\/games\\/([A-Za-z0-9]{8})/);
+  const owner = m && m.length > 2 ? m[1] : '', gid = m ? m[m.length - 1] : '';
+  const closeFb = () => { fb.hidden = true; flag.focus(); };
+  flag.onclick = () => {
+    fb.hidden = !fb.hidden;
+    fb.querySelector('.fbdone').hidden = true; fb.querySelector('.fbr').hidden = false;
+    if (!fb.hidden) fb.querySelector('input:checked').focus();
+  };
+  fb.querySelector('.fbcancel').onclick = closeFb;
+  fb.querySelector('.fbsend').onclick = async () => {
+    const s = slides[i], meta = s.querySelector('.meta');
+    const body = { owner, game_id: gid, reason: fb.querySelector('input:checked').value,
+      comment: fb.querySelector('textarea').value,
+      card: { index: i, kind: s.dataset.kind, ply: meta ? +meta.dataset.ply : null,
+              title: (s.querySelector('h1, h2') || {}).innerText || '', text: s.innerText.slice(0, 1500) } };
+    try {
+      await fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } catch (err) { /* offline: nothing to do */ }
+    fb.querySelector('.fbr').hidden = true; fb.querySelector('.fbdone').hidden = false;
+    fb.querySelector('textarea').value = '';
+    setTimeout(() => { fb.hidden = true; }, 1600);
+  };
+  const busy = (e) => !fb.hidden || (e.target && e.target.closest && e.target.closest('.fb'));
   next.classList.add('invite');
   show(0);
 })();
