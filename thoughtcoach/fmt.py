@@ -1,4 +1,5 @@
 """How win probabilities are shown: as percentages (stored as 0-1 fractions everywhere else)."""
+import math
 
 
 def pct(x: float | None) -> str:
@@ -21,12 +22,40 @@ def move_went(m: dict) -> str:
     return went(m.get("wp_before"), m.get("wp_after"))
 
 
+# ---------------------------------------------------------------- accuracy
+# How well a set of moves kept your winning chances, on the same scale as lichess's accuracy:
+# 100% = no move gave any away. Each move's score comes from the win chance it lost (lichess's
+# AccuracyPercent curve); a set's is the average of the plain and the harmonic mean of those, so one
+# blunder pulls it down more than a plain average would (lichess blends the same two means with its
+# own weighting, so the numbers are close to lichess's but not always identical).
+ACCURACY_EXPLAIN = ("How well your moves kept your winning chances, like lichess's accuracy score. "
+                    "100% = no move gave any away; one blunder pulls it down a lot.")
+
+
+def move_accuracy(loss: float) -> float:
+    """One move's accuracy (0-100) from the win chance it lost (0-1)."""
+    a = 103.1668 * math.exp(-0.04354 * max(0.0, loss) * 100) - 3.1669 + 1  # lichess adds 1 for engine noise
+    return max(0.0, min(100.0, a))
+
+
+def accuracy(losses) -> float | None:
+    """Accuracy (0-1) of a set of moves, from the win chance each lost."""
+    accs = [move_accuracy(x) for x in losses if x is not None]
+    if not accs:
+        return None
+    plain = sum(accs) / len(accs)
+    harmonic = len(accs) / sum(1 / max(a, 1.0) for a in accs)
+    return (plain + harmonic) / 2 / 100
+
+
+def acc(x: float | None) -> str:
+    """0.873 -> '87%'."""
+    return "?" if x is None else f"{x * 100:.0f}%"
+
+
 def avg_went(moves: list[dict]) -> str:
-    """Your average move, as where it went: '52% → 49%'."""
-    ms = [m for m in moves if m.get("wp_before") is not None and m.get("wp_after") is not None]
-    if not ms:
-        return "?"
-    return went(sum(m["wp_before"] for m in ms) / len(ms), sum(m["wp_after"] for m in ms) / len(ms))
+    """A set of moves as its accuracy: '87% accuracy'."""
+    return f"{acc(accuracy(m.get('wp_loss') for m in moves))} accuracy"
 
 
 def spct(x: float | None, minus: str = "-") -> str:

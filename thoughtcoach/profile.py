@@ -19,7 +19,7 @@ from pathlib import Path
 import chess
 import chess.pgn
 from . import ahead, bayes, questions, tone
-from .fmt import game_url, went
+from .fmt import ACCURACY_EXPLAIN, acc, accuracy, game_url, went
 
 SOLID = 30  # moves a comparison needs before it is more than an early signal
 PHASES = [("Opening (to move 15)", 0, 15), ("Middlegame (16-30)", 16, 30), ("Late game (31+)", 31, 999)]
@@ -74,7 +74,8 @@ def _rate(rows: list[dict]) -> dict:
     return {"n": n, "costly": costly, "rate": costly / n if n else 0.0,
             "loss": statistics.mean(r["loss"] for r in rows) if n else 0.0,
             "before": statistics.mean(r["before"] for r in rows) if n else 0.0,
-            "after": statistics.mean(r["after"] for r in rows) if n else 0.0}
+            "after": statistics.mean(r["after"] for r in rows) if n else 0.0,
+            "acc": accuracy(r["loss"] for r in rows)}
 
 
 def compute(games: list[dict]) -> dict:
@@ -121,6 +122,7 @@ def compute(games: list[dict]) -> dict:
             "per_move": statistics.mean(m["wp_loss"] for m in moves) if moves else 0, "first_tt": first_tt,
             "before": statistics.mean(m["wp_before"] for m in moves) if moves else 0,
             "after": statistics.mean(m["wp_after"] for m in moves) if moves else 0,
+            "acc": accuracy(m["wp_loss"] for m in moves),
             "won": (r["game"]["result"] == "1-0") == (r["game"]["my_color"] == "white") and r["game"]["result"] != "1/2-1/2",
             "strike": r.get("strike"),
         })
@@ -234,10 +236,10 @@ def findings(p: dict) -> tuple[list[dict], list[dict]]:
         pp = more(worst[1], best[1])
         if worst[1]["loss"] >= 1.5 * best[1]["loss"] and pp >= bayes.LIKELY:
             add(weak, worst[1]["loss"] * 5, f"{worst[0].split(' (')[0]} is where it goes",
-                f"Your average move there went {went(worst[1]['before'], worst[1]['after'])}, against "
-                f"{went(best[1]['before'], best[1]['after'])} in the {best[0].split(' (')[0].lower()}.", worst[1]["n"], pp)
+                f"Your accuracy there was {acc(worst[1]['acc'])}, against "
+                f"{acc(best[1]['acc'])} in the {best[0].split(' (')[0].lower()}.", worst[1]["n"], pp)
             add(strong, 0.06, f"Solid {best[0].split(' (')[0].lower()}",
-                f"Your average move there went {went(best[1]['before'], best[1]['after'])}, over {best[1]['n']} moves.",
+                f"Your accuracy there was {acc(best[1]['acc'])}, over {best[1]['n']} moves.",
                 best[1]["n"])
 
     # The clock.
@@ -302,8 +304,8 @@ def findings(p: dict) -> tuple[list[dict], list[dict]]:
     if w["n"] >= 15 and b["n"] >= 15 and abs(w["loss"] - b["loss"]) >= 0.01:
         better, worse = ("white", "black") if w["loss"] < b["loss"] else ("black", "white")
         add(strong, 0.03, f"Better with {better}",
-            f"Your average move with {better} went {went(p['color'][better]['before'], p['color'][better]['after'])}; "
-            f"with {worse} {went(p['color'][worse]['before'], p['color'][worse]['after'])}.",
+            f"Your accuracy with {better} is {acc(p['color'][better]['acc'])}; "
+            f"with {worse} {acc(p['color'][worse]['acc'])}.",
             min(w["n"], b["n"]))
 
     # Who struck first (strike.py), counted in games.
@@ -408,8 +410,8 @@ def _tone_card(t: dict) -> str:
         if not r["n"]:
             continue
         thin = f" <small>({bayes.span(r['costly'], r['n'])})</small>"
-        rows.append(f"<div class='sb' title='{_e(names[k])}: {r['n']} moves, {r['costly']} costly; average move "
-                    f"{went(r['before'], r['after'])}'><span class='lab'>{names[k]}</span><span class='trk'>"
+        rows.append(f"<div class='sb' title='{_e(names[k])}: {r['n']} moves, {r['costly']} costly; accuracy "
+                    f"{acc(r['acc'])}'><span class='lab'>{names[k]}</span><span class='trk'>"
                     f"<span class='bad' style='width:{r['rate'] * 100:.1f}%'></span></span>"
                     f"<span class='val'><b>{_pct(r['rate'])}</b> costly <small>of {r['n']}</small>{thin}</span></div>")
     up, wo = st["by"]["upbeat"]["n"], st["by"]["worried"]["n"]
@@ -429,7 +431,7 @@ def _rate_bars(groups: list[tuple[str, dict]], labels: dict | None = None) -> st
         if not r["n"]:
             continue
         label = (labels or {}).get(name, name)
-        tip = f"{label}: {r['costly']} of {r['n']} moves costly ({_pct(r['rate'])}); average move {went(r['before'], r['after'])}"
+        tip = f"{label}: {r['costly']} of {r['n']} moves costly ({_pct(r['rate'])}); accuracy {acc(r['acc'])}"
         out.append(f"<div class='sb' title='{_e(tip)}'><span class='lab'>{_e(label)}</span><span class='trk'>"
                    f"<span class='bad' style='width:{r['rate'] * 100:.1f}%'></span></span>"
                    f"<span class='val'><b>{_pct(r['rate'])}</b> costly <small>of {r['n']}</small></span></div>")
@@ -479,7 +481,7 @@ def _per_game_line(games: list[dict]) -> str:
              f"<text class='ax' x='{L - 4}' y='{y(0) + 3:.1f}' text-anchor='end'>best</text>",
              "<polyline class='ln' points='" + " ".join(f"{x(i):.1f},{y(g['per_move']):.1f}" for i, g in enumerate(games)) + "'/>"]
     for i, g in enumerate(games):
-        tip = (f"{g['id']} ({g['date']}, {g['color']}, {g['result']}): average move {went(g['before'], g['after'])}, "
+        tip = (f"{g['id']} ({g['date']}, {g['color']}, {g['result']}): accuracy {acc(g['acc'])}, "
                f"{g['costly']} costly moves" + (f", under 30s from move {g['first_tt']}" if g["first_tt"] else ""))
         parts.append(f"<a href='{_e(game_url(g['id']))}'><circle class='dot{'' if g['won'] else ' lost'}' cx='{x(i):.1f}' "
                      f"cy='{y(g['per_move']):.1f}' r='5'><title>{_e(tip)}</title></circle></a>")
@@ -547,7 +549,7 @@ def sections(p: dict) -> dict[str, str]:
     kpis = [
         (f"{len(games)}", f"games ({wins} won)"),
         (f"{p['moves']}", "moves reviewed"),
-        (went(statistics.mean(g['before'] for g in games), statistics.mean(g['after'] for g in games)), "your average move"),
+        (acc(statistics.mean(g['acc'] for g in games if g['acc'] is not None)), "accuracy (like lichess's)"),
         (f"{statistics.mean(g['costly'] for g in games):.1f}", "costly moves per game"),
         (_pct(p["tt"]["share"]), "of all loss in time trouble"),
     ]
@@ -568,7 +570,7 @@ that it's a real pattern and not luck.</p>
   <div class="pcard"><h3>Your candidate moves</h3><p class="cap">Candidates = moves you drew an arrow for or said, before playing</p>{SPLIT_KEY}
     <h4>How many you considered</h4>{_rate_bars(p['cands'], {"none": "None", "one": "1 move", "two or more": "2 or more"})}
     <h4>Was a good move among them?</h4>{_rate_bars(p['good'], {"yes": "Yes", "no": "No"})}</div>
-  <div class="pcard"><h3>Your average move, by phase</h3><p class="cap">Where your win chance went on an average move; shorter bar = it cost less</p>{_hbars([(n, r['loss'], f"{went(r['before'], r['after'])} <small>of {r['n']}</small>", f"{n}: {r['n']} moves, {r['costly']} costly") for n, r in p['phase'] if r['n']])}</div>
+  <div class="pcard"><h3>Your accuracy, by phase</h3><p class="cap">Bar = win chance an average move gave away (shorter is better); number = accuracy, like lichess's</p>{_hbars([(n, r['loss'], f"{acc(r['acc'])} <small>of {r['n']}</small>", f"{n}: {r['n']} moves, {r['costly']} costly") for n, r in p['phase'] if r['n']])}</div>
   <div class="pcard"><h3>Your clock against theirs</h3><p class="cap">Seconds ahead (+) or behind (−), averaged by move number</p>{_clock_line(p['clock'])}</div>
   <div class="pcard"><h3>Each game</h3><p class="cap">How much your average move cost, oldest to newest (lower is better); orange = a game you lost. Click a dot.</p>{_per_game_line(games)}</div>
   <div class="pcard"><h3>What went wrong, by cause, all games</h3><p class="cap">Share of what your costly moves cost you, by cause</p>{gaps}</div>

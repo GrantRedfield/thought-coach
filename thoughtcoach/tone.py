@@ -23,6 +23,7 @@ import re
 import statistics
 
 from .bayes import LIKELY, prob_greater_prior, sceptic, verdict
+from .fmt import accuracy
 
 UPBEAT = ["good", "great", "nice", "i like", "love", "winning", "better for me", "i'm better",
           "comfortable", "solid", "fine", "should be good", "should be fine", "easy", "crushing", "happy", "perfect", "beautiful", "got him", "got it", "free pawn", "up a pawn", "in trouble",
@@ -186,7 +187,8 @@ def _group(rows: list[dict]) -> dict:
     return {"n": n, "costly": sum(r["costly"] for r in rows),
             "rate": sum(r["costly"] for r in rows) / n if n else 0.0,
             "before": statistics.mean(r["wp_before"] for r in rows) if n else None,
-            "after": statistics.mean(r["wp_after"] for r in rows) if n else None}
+            "after": statistics.mean(r["wp_after"] for r in rows) if n else None,
+            "acc": accuracy(r.get("wp_loss") for r in rows)}
 
 
 def stats(rows: list[dict], min_moves: int = MIN_MOVES) -> dict:

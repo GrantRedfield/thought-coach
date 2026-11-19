@@ -37,12 +37,12 @@
     color:var(--good); border:1px solid color-mix(in srgb, var(--good) 55%, transparent);
     background:color-mix(in srgb, var(--good) 12%, transparent); }
   .freeline { margin:12px 0 0; font-size:13.5px; color:var(--fg2); max-width:62ch; } .freeline b { color:var(--fg); }
-  .tips2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:28px; }
+  .tips2 { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:28px; }
   .tip2 { display:flex; gap:12px; align-items:flex-start; background:var(--soft); border:1px solid var(--line);
     border-radius:14px; padding:12px 14px; }
   .tip2 .ti { font-size:22px; line-height:1; flex:none; margin-top:2px; }
   .tip2 b { display:block; font-size:15px; margin-bottom:2px; } .tip2 p { margin:0; color:var(--fg2); font-size:13.5px; line-height:1.45; }
-  @media (max-width:760px) { .tips2 { grid-template-columns:1fr; } }
+  @media (max-width:1000px) { .tips2 { grid-template-columns:1fr; } }
   .duo { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:28px; margin-top:40px; }
   .duo section.block { margin:0; }
   .steps4 { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
@@ -160,6 +160,10 @@
 
   <!-- ============ two things to know before you start ============ -->
   <div class="tips2">
+    <div class="tip2"><span class="ti" aria-hidden="true">&#9822;</span><div><b>Made for intermediate and advanced players</b>
+      <p>It works best when you can say lines out loud in coordinates ("knight f3, then e5"): that is how the review
+        follows your calculation and ties each thought to the move you played. Not fluent yet?
+        <a href="https://lichess.org/training/coordinate" target="_blank" rel="noopener">Practise coordinates on lichess</a>.</p></div></div>
     <div class="tip2"><span class="ti" aria-hidden="true">&#9201;</span><div><b>Longer games work best</b>
       <p>Play 10+5 or 15+10 rapid: there's time to draw your ideas and say them. In bullet there's no room to think out
         loud, and moves played with under 30 seconds left aren't judged on your thinking.</p></div></div>

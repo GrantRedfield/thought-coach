@@ -18,7 +18,7 @@ import chess.svg
 from . import profile
 from .gametype import classify
 from . import bayes, habits, timing
-from .fmt import game_url, went
+from .fmt import ACCURACY_EXPLAIN, acc, accuracy, game_url, went
 
 RECENT = 5  # "your form": the last few games against the ones before
 
@@ -48,7 +48,7 @@ def facts(loaded: list[dict], prof: dict) -> list[dict]:
             "elo": int(elo) if str(elo or "").isdigit() else None, "result": res,
             "outcome": "draw" if res == "1/2-1/2" else "won" if won else "lost", "opening": r.get("opening"),
             "per_move": p.get("per_move", 0.0), "costly": p.get("costly", 0), "moves": p.get("moves", 0),
-            "before": p.get("before"), "after": p.get("after"),
+            "before": p.get("before"), "after": p.get("after"), "acc": p.get("acc"),
             "curve": [(m["ply"], 1.0 if m["move_san"].endswith("#") else m["wp_after"])
                       for m in g["analysis"].get("moves", []) if m.get("wp_after") is not None],
             "strike": (p.get("strike") or {}).get("side"),
@@ -109,7 +109,7 @@ def _games_chart(rows: list[dict]) -> str:
     for i, r in enumerate(rows):
         cx = L + slot * (i + 0.5)
         h = max(2.0, y(0) - y(r["per_move"]))
-        tip = (f"{r['date'] or ''} vs {r['opp']} ({r['outcome']}): your average move {went(r['before'], r['after'])}, "
+        tip = (f"{r['date'] or ''} vs {r['opp']} ({r['outcome']}): accuracy {acc(r.get('acc'))}, "
                f"{r['costly']} costly move{'s' * (r['costly'] != 1)}")
         parts.append(f"<a href='{_e(game_url(r['id']))}' class='col {r['outcome']}' data-tip='{_e(tip)}'>"
                      f"<rect class='hit' x='{cx - slot / 2:.1f}' y='{T}' width='{slot:.1f}' height='{H - T - B}'/>"
@@ -153,7 +153,7 @@ def _type_chip(t: dict | None, big: bool = False) -> str:
 
 
 def hero(last: dict, story: dict | None, avg_before: tuple | None) -> str:
-    """avg_before: your earlier games' (win chance lost per move, average move before, after)."""
+    """avg_before: your earlier games' (win chance lost per move, accuracy)."""
     s = story or {}
     beats = s.get("beats") or []
     top = beats[0] if beats else None
@@ -172,11 +172,10 @@ def hero(last: dict, story: dict | None, avg_before: tuple | None) -> str:
     if avg_before is not None and last["moves"]:
         better = last["per_move"] <= avg_before[0]
         compare = (f"<div class='chip {'up' if better else 'down'}'><b>{'better' if better else 'worse'}</b>"
-                   f"than usual (your average move: {went(avg_before[1], avg_before[2])})</div>")
+                   f"than usual (accuracy {acc(last.get('acc'))}, usually {acc(avg_before[1])})</div>")
     elo = f" ({_e(last['opp_elo'])})" if last.get("opp_elo") else ""
     stats = [(s.get("arrows"), "arrows drawn"), (s.get("said"), "things said aloud"),
-             (last["costly"], "costly moves"), (went(last["before"], last["after"]) if last.get("before") is not None
-                                                   else None, "your average move")]
+             (last["costly"], "costly moves"), (acc(last["acc"]) if last.get("acc") is not None else None, "accuracy")]
     chips = "".join(f"<div class='chip'><b data-count>{_e(v)}</b>{_e(t)}</div>" for v, t in stats if v is not None)
     board = _board(key, s.get("orientation") or last["color"])
     figure = (f"<figure class='hfig'><div class='brd'>{board}</div><figcaption>{_e(key['eyebrow'])}</figcaption></figure>"
@@ -208,8 +207,9 @@ def form(rows: list[dict], prof: dict) -> str:
     recent, before = rows[-RECENT:], rows[:-RECENT]
     tiles = []
 
-    def tile(value, label, trend="", delta="", tone=""):
-        tiles.append(f"<div class='tile {tone}'><span class='lab'>{label}</span><b>{value}</b>{trend}"
+    def tile(value, label, trend="", delta="", tone="", hint=""):
+        tiles.append(f"<div class='tile {tone}'><span class='lab'>{label}</span><b>{value}</b>"
+                     f"{f'<span class=hint>{hint}</span>' if hint else ''}{trend}"
                      f"{f'<span class=delta>{delta}</span>' if delta else ''}</div>")
 
     elos = [r["elo"] for r in rows]
@@ -224,14 +224,14 @@ def form(rows: list[dict], prof: dict) -> str:
     if before:
         d = statistics.mean(x["per_move"] for x in recent) - statistics.mean(x["per_move"] for x in before)
         mean = lambda rs, k: statistics.mean(x[k] for x in rs if x.get(k) is not None)  # noqa: E731
-        delta = (f"last {len(recent)}: {went(mean(recent, 'before'), mean(recent, 'after'))} · "
-                 f"before: {went(mean(before, 'before'), mean(before, 'after'))}")
+        delta = f"last {len(recent)} games: {acc(mean(recent, 'acc'))} · before that: {acc(mean(before, 'acc'))}"
         tone = "up" if d <= 0 else "down"
     else:
         delta, tone = "", ""
-    known = [r for r in rows if r.get("before") is not None]
-    avg = went(statistics.mean(r["before"] for r in known), statistics.mean(r["after"] for r in known)) if known else "?"
-    tile(avg, "Your average move", _trend(per), delta, tone)
+    known = [r["acc"] for r in rows if r.get("acc") is not None]
+    tile(acc(statistics.mean(known)) if known else "?",
+         f"<span title='{_e(ACCURACY_EXPLAIN)}'>Accuracy</span>", _trend(known), delta, tone,
+         "like lichess's: 100% = no move gave away winning chances")
     tile(f"{statistics.mean(r['costly'] for r in rows):.1f}", "Costly moves per game", _trend([r["costly"] for r in rows]))
     tm = [r["timing"] for r in rows if r.get("timing")]
     if tm:
@@ -278,7 +278,7 @@ def cards(rows: list[dict], statuses: dict[str, dict]) -> str:
         out.append(f"""<a class='gcard {r['outcome']}' href='{_e(game_url(r['id']))}'>
 <p class='gtop'><span class='res'>{res}</span><b>vs {_e(r['opp'])}</b><span class='gdate'>{_e(r['date'] or '')}</span></p>{_type_chip(r.get('type'))}
 {_spark(r['curve'])}
-<p class='gmeta'>{_e(r['tc'] or '')} · {_e(r['color'])} · {r['costly']} costly · avg move {went(r['before'], r['after']) if r.get('before') is not None else '?'}</p>
+<p class='gmeta'>{_e(r['tc'] or '')} · {_e(r['color'])} · {r['costly']} costly · {acc(r.get('acc'))} accuracy</p>
 <span class='gplay' data-href='{_e(game_url(r['id'], story=True))}'>&#9654; story</span></a>""")
     return "".join(out)
 
@@ -314,16 +314,15 @@ minutes after it ends, its story shows up here. Draw an arrow for each move you 
 loud: the more the review sees, the more it can tell you.</p><div class="cta"><a class="btn play" href="https://lichess.org/">Play on lichess</a>
 <a class="btn ghost" href="https://thoughtcoach.org/play">Tips for your first games</a></div></div></section>{f"<div class='grid'>{waiting}</div>" if waiting else ''}"""
     last = rows[-1]
-    before = [r for r in rows[:-1] if r["moves"] and r.get("before") is not None]
+    before = [r for r in rows[:-1] if r["moves"] and r.get("acc") is not None]
     parts = profile.sections(prof) if len(rows) >= 2 else {}
     focus = focus_check(loaded, stories)
     res = {"won": "you won", "lost": "you lost", "draw": "a draw"}[last["outcome"]]
     tabs = [("story", f"&#9654; Your latest story<small>vs {_e(last['opp'])} · {res}</small>",
              hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before),
-                                                  statistics.mean(r["before"] for r in before),
-                                                  statistics.mean(r["after"] for r in before)) if before else None)),
+                                                  statistics.mean(r["acc"] for r in before)) if before else None)),
             ("form", "Your form", f"""{form(rows, prof)}
-<section class="chart"><h2>Every game at a glance</h2><p class="cap">How much your average move cost, game by game (hover a column: where your average move took your win chance)</p>
+<section class="chart"><h2>Every game at a glance</h2><p class="cap">How much win chance an average move gave away, game by game (lower is better; hover a column for that game's accuracy)</p>
 {_games_chart(rows)}</section>"""),
             ("focus", "Is your focus working?", focus),
             ("games", f"Your games<small>{len(rows)}</small>", f"<section><h2>Your games</h2><div class='grid'>{cards(rows, statuses)}</div></section>"),
@@ -433,6 +432,7 @@ figure.hfig { margin:0; } .hfig .brd svg { width:100%; max-width:360px; height:a
 .tile .lab { color:var(--fg2); font-size:12px; line-height:1.3; } .tile b { font-size:24px; font-variant-numeric:tabular-nums; line-height:1.15; }
 .tile b small { font-size:16px; color:var(--fg2); font-weight:600; } .tile .delta { font-size:12px; color:var(--muted); }
 .tile.up .delta { color:var(--good); } .tile.down .delta { color:var(--warn); }
+.tile .hint { font-size:11.5px; color:var(--muted); line-height:1.3; }
 svg.trend { width:100%; height:30px; margin-top:4px; } .trend polyline { fill:none; stroke:var(--accent); stroke-width:2; }
 .trend circle { fill:var(--accent); stroke:var(--card); stroke-width:2; }
 
