@@ -970,7 +970,7 @@ def render(story: dict) -> str:
             if lf and lf.get("line") else "")
     slides.append(("focus", f"""{last}<p class='eyebrow'>Your focus for the next game · {_e(f['tag'])}</p><h2>{_e(f['title'])}</h2>
 <p class='habit'>{_e(f['habit'])}</p><p class='body'>{_link_moves(_e(f['why']), story)}{(' ' + _e(f['across'])) if f.get('across') else ''}</p>
-<div class='end'>{f"<a href='{GUIDE}'>How to show your thinking</a>" if f['key'] == 'input' else ''}<a href='{_e(game_url(story['id']))}'>See the full review</a><a href='{_e(home_url())}'>All your games</a>
+<div class='end'>{f"<a href='{GUIDE}'>How to show your thinking</a>" if f['key'] == 'input' else ''}<a href='{_e(game_url(story['id']))}'>See the full review</a><a href='https://lichess.org/{_e(story['id'])}{"/black" if story.get("color") == "black" else ""}' target='_blank' rel='noopener'>Analyze on lichess</a><a href='{_e(home_url())}'>All your games</a>
 <button type='button' class='replay'>Watch again</button></div>"""))
     body = "".join(f"<section class='slide' data-kind='{k}' style='--accent:{ACCENT.get(k, '#495057')}'><div class='inner'>{h}</div></section>"
                    for k, h in slides)

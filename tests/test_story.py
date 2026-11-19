@@ -28,7 +28,7 @@ def test_story_keeps_the_standout_moments_and_picks_a_focus():
     assert s["focus"]["key"] == "candidates" and s["focus"]["title"] == "Find a second candidate"
     page = story.render(s)
     assert page.count("class='slide'") == 3  # intro (with the result), the turning point, the focus
-    assert "Your focus for the next game" in page
+    assert "Your focus for the next game" in page and "https://lichess.org/game0001" in page
 
 
 def test_history_can_tip_the_focus():
