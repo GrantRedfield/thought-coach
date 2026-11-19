@@ -17,7 +17,7 @@ import chess.svg
 
 from . import profile
 from .gametype import classify
-from . import bayes, timing
+from . import bayes, habits, timing
 from .fmt import game_url, went
 
 RECENT = 5  # "your form": the last few games against the ones before
@@ -288,6 +288,24 @@ def cards(rows: list[dict], statuses: dict[str, dict]) -> str:
 # ---------------------------------------------------------------- the page
 
 
+def focus_check(loaded: list[dict], stories: dict[str, dict]) -> str:
+    """Is your focus working? (habits.py): each focus you've played with, before against since."""
+    items = habits.compute(loaded, stories)
+    if not items:
+        return ""
+    cards_ = []
+    for e in items[:4]:
+        p = e["p"]
+        tone = "up" if p is not None and p >= bayes.LIKELY else "down" if p is not None and p <= 1 - bayes.LIKELY else ""
+        badge = ("working" if tone == "up" else "not yet" if tone == "down" else "too early")
+        meter = (f"<span class='fmeter'><span style='width:{p * 100:.0f}%'></span></span>" if p is not None else "")
+        cards_.append(f"<div class='fcard {tone}'><p class='ftop'><b>{_e(e['title'])}</b><span class='fbadge'>{badge}</span></p>"
+                      f"{meter}<p class='ftext'>{_e(e['text'])}</p></div>")
+    return (f"<section class='focuscheck'><h2>Is your focus working?</h2><p class='cap'>Each game's story gives you one "
+            f"thing to work on. Here is the rate it should move, in the games before you got it and the games since, "
+            f"with the chance the change is real and not luck.</p><div class='fgrid'>{''.join(cards_)}</div></section>")
+
+
 def render(loaded: list[dict], prof: dict | None, stories: dict[str, dict], statuses: dict[str, dict]) -> str:
     rows = facts(loaded, prof) if prof else []
     if not rows:
@@ -303,6 +321,7 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
     return f"""{hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before), statistics.mean(r["before"] for r in before),
                                                         statistics.mean(r["after"] for r in before)) if before else None)}
 {form(rows, prof)}
+{focus_check(loaded, stories)}
 <section class="chart"><h2>Every game at a glance</h2><p class="cap">How much your average move cost, game by game (hover a column: where your average move took your win chance)</p>
 {_games_chart(rows)}</section>
 <section><h2>Your games</h2><div class="grid">{cards(rows, statuses)}</div></section>
@@ -368,6 +387,17 @@ figure.hfig { margin:0; } .hfig .brd svg { width:100%; max-width:360px; height:a
 .spark.big .ln { stroke-dasharray:1; animation:draw 1.6s ease-out .4s both; }
 
 /* your form */
+.focuscheck { margin:26px 0 8px; } .focuscheck h2 { margin:0 0 4px; }
+.fgrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap:12px; margin-top:10px; }
+.fcard { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px; }
+.fcard .ftop { display:flex; justify-content:space-between; gap:10px; align-items:baseline; margin:0 0 8px; }
+.fbadge { font-size:11.5px; font-weight:700; padding:2px 9px; border-radius:20px; background:var(--soft, rgba(127,127,127,.15)); white-space:nowrap; }
+.fcard.up .fbadge { background:color-mix(in srgb, #2f9e44 30%, transparent); }
+.fcard.down .fbadge { background:color-mix(in srgb, #e03131 26%, transparent); }
+.fmeter { display:block; height:6px; border-radius:3px; background:var(--soft, rgba(127,127,127,.15)); overflow:hidden; margin:0 0 8px; }
+.fmeter span { display:block; height:100%; background:var(--fg2); } .fcard.up .fmeter span { background:#2f9e44; }
+.fcard.down .fmeter span { background:#e03131; }
+.ftext { margin:0; font-size:13.5px; color:var(--fg2); }
 .tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
 .tile { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:2px;
   animation:rise .5s ease-out both; }

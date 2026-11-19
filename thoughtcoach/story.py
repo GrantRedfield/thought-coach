@@ -720,7 +720,7 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
             "result": res, "outcome": outcome, "arrows": arrows, "said": said,
             "moves_with_thoughts": report["summary"].get("moves_with_thoughts", 0), "beats": beats,
             "curve": curve, "focus": focus(c, history), "orientation": c.me, "decided_by": decided_by,
-            "type": classify(analysis, g), "voice": voice_card(c)}
+            "type": classify(analysis, g), "voice": voice_card(c), "last_focus": (history or {}).get("last_focus")}
 
 
 def _type_tag(t: dict | None) -> str:
@@ -854,7 +854,10 @@ def render(story: dict) -> str:
 <h2>{_e(b['title'])}</h2>{stat}{visual}
 <p class='body'>{_e(b['body'])}</p>{quote}"""))
     f = story["focus"]
-    slides.append(("focus", f"""<p class='eyebrow'>Your focus for the next game · {_e(f['tag'])}</p><h2>{_e(f['title'])}</h2>
+    lf = story.get("last_focus")
+    last = (f"<p class='lastfocus'><span>Last game's focus: <b>{_e(lf['title'])}</b></span>{_e(lf['line'])}</p>"
+            if lf and lf.get("line") else "")
+    slides.append(("focus", f"""{last}<p class='eyebrow'>Your focus for the next game · {_e(f['tag'])}</p><h2>{_e(f['title'])}</h2>
 <p class='habit'>{_e(f['habit'])}</p><p class='body'>{_e(f['why'])}{(' ' + _e(f['across'])) if f.get('across') else ''}</p>
 <div class='end'>{f"<a href='{GUIDE}'>How to show your thinking</a>" if f['key'] == 'input' else ''}<a href='{_e(game_url(story['id']))}'>See the full review</a><a href='{_e(home_url())}'>All your games</a>
 <button type='button' class='replay'>Watch again</button></div>"""))
@@ -933,6 +936,8 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
 }
 .curve.mood circle { stroke:#0b0b0c; stroke-width:1.5; }
 .moodkey { justify-content:flex-start; }
+.lastfocus { margin:0 0 10px; padding:10px 14px; border-radius:10px; background:#ffffff12; font-size:15px; color:#ffffffd9; }
+.lastfocus span { display:block; font-size:12.5px; color:#ffffffa6; margin-bottom:2px; } .lastfocus b { color:#fff; }
 .curve circle { fill:#f08c00; stroke:#0b0b0c; stroke-width:2; } .curve text { fill:#fff; font-size:14px; font-weight:700; text-anchor:middle; }
 .end { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; position:relative; z-index:5; }
 .end a, .end button { font:inherit; font-size:15px; color:#000; background:#fff; border:0; border-radius:999px; padding:10px 16px;

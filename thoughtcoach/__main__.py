@@ -215,9 +215,25 @@ def write_story(report: dict, analysis: dict, thinking: dict | None, game, out_d
     from . import profile, story
 
     try:
-        history = story.history_from_profile(profile.compute(profile.load(out_dir, games)))
+        loaded = profile.load(out_dir, games)
+        history = story.history_from_profile(profile.compute(loaded))
     except Exception:  # no other games yet, or an old saved review: this game alone
-        history = None
+        loaded, history = [], None
+    # Last game's focus, and how this game went on it (habits.py).
+    from . import habits
+
+    gid = report["game"]["id"]
+    ids = [g["id"] for g in loaded]
+    if history is not None and gid in ids and ids.index(gid) > 0:
+        i = ids.index(gid)
+        prev = out_dir / f"{ids[i - 1]}.story.json"
+        try:
+            focus = json.loads(prev.read_text(encoding="utf-8")).get("focus") or {}
+        except (OSError, ValueError):
+            focus = {}
+        line = habits.this_game(focus.get("key"), loaded[i], loaded[:i])  # before: every earlier game
+        if line:
+            history["last_focus"] = {"key": focus["key"], "title": focus.get("title"), "line": line}
     built = story.build(report, analysis, thinking, game, history)
     # The home page's "latest game" card reads this: the headline, the key position and the focus.
     write(out_dir / f"{built['id']}.story.json", json.dumps(story.summary(built)))
