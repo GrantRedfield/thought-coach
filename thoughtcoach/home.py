@@ -467,7 +467,7 @@ svg.games { width:100%; height:auto; display:block; } .games .ax { fill:var(--mu
 .gtype.swindle, .gtype.stomp { background:color-mix(in srgb, #2f9e44 28%, transparent); }
 .gtype.swindled, .gtype.stomped { background:color-mix(in srgb, #e03131 26%, transparent); }
 .gtype.crazy { background:color-mix(in srgb, #f08c00 30%, transparent); }
-.gplay { position:absolute; right:12px; bottom:10px; font-size:12px; font-weight:700; color:var(--glow); }
+.gplay { display:block; width:max-content; margin:6px 0 0 auto; font-size:12px; font-weight:700; color:var(--glow); }  /* its own line: never on top of the meta */
 .gcard.pending .res { background:var(--muted); } .gcard .wait { color:var(--fg2); font-size:13px; margin:8px 0 0; }
 .gcard.running .wait::after { content:""; display:inline-block; width:8px; height:8px; margin-left:8px; border-radius:50%;
   background:var(--accent); animation:pulse-dot 1s infinite alternate; }

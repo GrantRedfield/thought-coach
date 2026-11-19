@@ -24,3 +24,12 @@ def test_the_tide_turns_and_you_give_it_back():
     [i] = psych.tide(FakeGame(mine), None)
     assert i["kind"] == "tide" and i["ply"] == 57 and not i["took"]
     assert "from 20% to 43%" in i["body"] and "gave 34% back" in i["body"]
+
+
+def test_denying_it_is_not_giving_up():
+    from thoughtcoach.psych import defeated
+    assert defeated("I'm lost here")
+    assert defeated("white is winning")
+    assert not defeated("I don't think I'm lost")
+    assert not defeated("I'm not sure, but it's not over, not busted")
+    assert not defeated("no, I'm not losing")

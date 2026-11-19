@@ -20,6 +20,7 @@ from aws_cdk import (
     aws_apigatewayv2 as apigw,
     aws_apigatewayv2_integrations as integrations,
     aws_autoscaling as autoscaling,
+    aws_budgets as budgets,
     aws_certificatemanager as acm,
     aws_cloudfront as cf,
     aws_cloudfront_origins as origins,
@@ -39,6 +40,9 @@ from constructs import Construct
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 WORKER_TYPE = "c7i.xlarge"  # 4 vCPU, 8 GB; only runs while reviewing
+BUDGET_USD, BUDGET_WARN = 50, 50  # monthly budget; emails at 50% ($25), 100% ($50), and when the forecast passes it
+BURST_MAX = 3  # spot servers for a backlog, on top of the warm one
+BURST_TYPES = ["c7i.xlarge", "c6i.xlarge", "c6a.xlarge", "m7i.xlarge", "m6i.xlarge"]  # 4 vCPU each
 
 # /games/<id> and /games/<id>/story are folders in the site bucket: serve their index.html.
 REWRITE = """function handler(event) {
@@ -63,7 +67,7 @@ def build_extension_zip() -> None:
 
 class ThoughtCoach(Stack):
     def __init__(self, scope: Construct, cid: str, *, domain: str | None, upload_key: str, owner: str | None,
-                 **kw) -> None:
+                 budget_email: str | None = None, **kw) -> None:
         super().__init__(scope, cid, **kw)
 
         # ---- storage and queue
@@ -78,6 +82,10 @@ class ThoughtCoach(Stack):
         dead = sqs.Queue(self, "FailedReviews", retention_period=Duration.days(14))
         jobs = sqs.Queue(self, "Reviews", visibility_timeout=Duration.minutes(30),
                          dead_letter_queue=sqs.DeadLetterQueue(max_receive_count=2, queue=dead))
+        # Low priority: re-reviews and old games uploaded in bulk. Workers take from it only when the
+        # main queue is empty, so a game just played never waits behind a backlog.
+        backfill = sqs.Queue(self, "Backfill", visibility_timeout=Duration.minutes(30),
+                             dead_letter_queue=sqs.DeadLetterQueue(max_receive_count=2, queue=dead))
 
         # ---- review worker: scale to zero
         vpc = ec2.Vpc.from_lookup(self, "Vpc", is_default=True)
@@ -114,9 +122,11 @@ class ThoughtCoach(Stack):
         data.grant_read_write(role)
         site.grant_read_write(role)
         jobs.grant_consume_messages(role)
+        backfill.grant_consume_messages(role)
         repo.grant_pull(role)
         role.add_to_policy(iam.PolicyStatement(
             actions=["autoscaling:SetDesiredCapacity", "autoscaling:DescribeAutoScalingInstances",
+                     "autoscaling:DescribeAutoScalingGroups",
                      "autoscaling:CompleteLifecycleAction", "autoscaling:TerminateInstanceInAutoScalingGroup"],
             resources=["*"]))
 
@@ -124,29 +134,48 @@ class ThoughtCoach(Stack):
         # start (servers wait stopped in the warm pool, so a review starts an existing server).
         with open(os.path.join(ROOT, "deploy", "worker", "boot.sh"), encoding="utf-8") as f:
             boot = f.read().replace("\r\n", "\n")
-        env = "\n".join([f"REGION={self.region}", f"REPO={repo.repository_uri}", f"QUEUE={jobs.queue_url}",
-                         f"DATA={data.bucket_name}", f"SITE={site.bucket_name}"])
         unit = "\n".join(["[Unit]", "Description=Thought Coach worker", "After=network-online.target docker.service",
                           "Wants=network-online.target", "Requires=docker.service", "", "[Service]", "Type=simple",
                           "ExecStart=/opt/thoughtcoach/boot.sh", "Restart=no", "", "[Install]", "WantedBy=multi-user.target"])
-        user_data = ec2.UserData.for_linux()
-        user_data.add_commands(
-            "dnf install -y docker && systemctl enable --now docker",
-            "mkdir -p /opt/thoughtcoach",
-            f"cat > /etc/thoughtcoach.env <<'TCENV'\n{env}\nTCENV",
-            f"cat > /opt/thoughtcoach/boot.sh <<'TCBOOT'\n{boot}\nTCBOOT",
-            "chmod +x /opt/thoughtcoach/boot.sh",
-            f"cat > /etc/systemd/system/thoughtcoach.service <<'TCUNIT'\n{unit}\nTCUNIT",
-            "systemctl daemon-reload && systemctl enable thoughtcoach.service && systemctl start --no-block thoughtcoach.service",
-        )
         sg = ec2.SecurityGroup(self, "WorkerSg", vpc=vpc, allow_all_outbound=True, description="no inbound")
-        template = ec2.LaunchTemplate(
-            self, "WorkerTemplate", instance_type=ec2.InstanceType(WORKER_TYPE),
-            machine_image=ec2.MachineImage.latest_amazon_linux2023(), role=role, user_data=user_data,
-            security_group=sg, associate_public_ip_address=True,
-            block_devices=[ec2.BlockDevice(device_name="/dev/xvda",
-                                           volume=ec2.BlockDeviceVolume.ebs(40, volume_type=ec2.EbsDeviceVolumeType.GP3))],
-            require_imdsv2=True)
+
+        def worker_template(cid: str, extra: list[str]) -> ec2.LaunchTemplate:
+            env = "\n".join([f"REGION={self.region}", f"REPO={repo.repository_uri}", f"QUEUE={jobs.queue_url}",
+                             f"BACKFILL={backfill.queue_url}", f"DATA={data.bucket_name}", f"SITE={site.bucket_name}"]
+                            + extra)
+            user_data = ec2.UserData.for_linux()
+            user_data.add_commands(
+                "dnf install -y docker && systemctl enable --now docker",
+                "mkdir -p /opt/thoughtcoach",
+                f"cat > /etc/thoughtcoach.env <<'TCENV'\n{env}\nTCENV",
+                f"cat > /opt/thoughtcoach/boot.sh <<'TCBOOT'\n{boot}\nTCBOOT",
+                "chmod +x /opt/thoughtcoach/boot.sh",
+                f"cat > /etc/systemd/system/thoughtcoach.service <<'TCUNIT'\n{unit}\nTCUNIT",
+                "systemctl daemon-reload && systemctl enable thoughtcoach.service && systemctl start --no-block thoughtcoach.service",
+            )
+            return ec2.LaunchTemplate(
+                self, cid, instance_type=ec2.InstanceType(WORKER_TYPE),
+                machine_image=ec2.MachineImage.latest_amazon_linux2023(), role=role, user_data=user_data,
+                security_group=sg, associate_public_ip_address=True,
+                block_devices=[ec2.BlockDevice(device_name="/dev/xvda",
+                                               volume=ec2.BlockDeviceVolume.ebs(40, volume_type=ec2.EbsDeviceVolumeType.GP3))],
+                require_imdsv2=True)
+
+        # Burst: spot servers (much cheaper; if AWS takes one back, its review returns to the queue)
+        # started only for a backlog, gone two minutes after the queues are empty. Several instance
+        # types, so spot capacity is easy to find.
+        burst_template = worker_template("BurstTemplate", ["ROLE=burst", "IDLE=2"])
+        burst = autoscaling.AutoScalingGroup(
+            self, "Burst", vpc=vpc, min_capacity=0, max_capacity=BURST_MAX,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
+            mixed_instances_policy=autoscaling.MixedInstancesPolicy(
+                launch_template=burst_template,
+                launch_template_overrides=[autoscaling.LaunchTemplateOverrides(instance_type=ec2.InstanceType(t))
+                                           for t in BURST_TYPES],
+                instances_distribution=autoscaling.InstancesDistribution(
+                    on_demand_base_capacity=0, on_demand_percentage_above_base_capacity=0,
+                    spot_allocation_strategy=autoscaling.SpotAllocationStrategy.PRICE_CAPACITY_OPTIMIZED)))
+        template = worker_template("WorkerTemplate", ["ROLE=warm", "IDLE=10", f"BURST={burst.auto_scaling_group_name}"])
         group = autoscaling.AutoScalingGroup(
             self, "Workers", vpc=vpc, launch_template=template, min_capacity=0, max_capacity=1,
             vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC))
@@ -165,11 +194,15 @@ class ThoughtCoach(Stack):
             code=lambda_.Code.from_asset(os.path.join(ROOT, "deploy", "api")), timeout=Duration.seconds(20),
             memory_size=512, environment={"TC_DATA_BUCKET": data.bucket_name, "TC_SITE_BUCKET": site.bucket_name,
                                           "TC_QUEUE_URL": jobs.queue_url, "TC_WORKER_GROUP": group.auto_scaling_group_name,
+                                          "TC_BACKFILL_URL": backfill.queue_url, "TC_BURST_GROUP": burst.auto_scaling_group_name,
                                           "TC_UPLOAD_KEY": upload_key, "TC_DOMAIN": domain or "",
                                           "TC_OWNER": owner or ""})
         data.grant_read_write(api_fn)
         site.grant_read_write(api_fn)
         jobs.grant_send_messages(api_fn)
+        backfill.grant_send_messages(api_fn)
+        jobs.grant(api_fn, "sqs:GetQueueAttributes")
+        backfill.grant(api_fn, "sqs:GetQueueAttributes")
         api_fn.add_to_role_policy(iam.PolicyStatement(
             actions=["autoscaling:SetDesiredCapacity", "autoscaling:DescribeAutoScalingGroups",
                      "autoscaling:DescribeWarmPool"], resources=["*"]))
@@ -210,6 +243,26 @@ class ThoughtCoach(Stack):
         cdk.CfnOutput(self, "WorkerBuildProject", value=build.project_name)
         cdk.CfnOutput(self, "DataBucket", value=data.bucket_name)
         cdk.CfnOutput(self, "SiteBucket", value=site.bucket_name)
+        cdk.CfnOutput(self, "BurstGroup", value=burst.auto_scaling_group_name)
+        cdk.CfnOutput(self, "BackfillQueue", value=backfill.queue_url)
+
+        # ---- a monthly budget that emails before a runaway queue becomes a surprise bill. The address
+        # is passed at deploy time (-c budget_email=...), never kept in this public code.
+        if budget_email:
+            alerts = [("ACTUAL", BUDGET_WARN), ("ACTUAL", 100), ("FORECASTED", 100)]
+            budgets.CfnBudget(
+                self, "Budget",
+                budget=budgets.CfnBudget.BudgetDataProperty(
+                    budget_name="thoughtcoach-monthly", budget_type="COST", time_unit="MONTHLY",
+                    budget_limit=budgets.CfnBudget.SpendProperty(amount=BUDGET_USD, unit="USD")),
+                notifications_with_subscribers=[
+                    budgets.CfnBudget.NotificationWithSubscribersProperty(
+                        notification=budgets.CfnBudget.NotificationProperty(
+                            notification_type=kind, comparison_operator="GREATER_THAN", threshold=pct,
+                            threshold_type="PERCENTAGE"),
+                        subscribers=[budgets.CfnBudget.SubscriberProperty(subscription_type="EMAIL",
+                                                                          address=budget_email)])
+                    for kind, pct in alerts])
 
 
 app = cdk.App()
@@ -217,6 +270,6 @@ key = app.node.try_get_context("upload_key")
 if not key:
     raise SystemExit("pass the upload key: -c upload_key=<secret> (see deploy/README.md)")
 ThoughtCoach(app, "ThoughtCoach", domain=app.node.try_get_context("domain"), upload_key=key,
-             owner=app.node.try_get_context("owner"),
+             owner=app.node.try_get_context("owner"), budget_email=app.node.try_get_context("budget_email"),
              env=cdk.Environment(account=os.environ.get("CDK_DEFAULT_ACCOUNT"), region="us-east-1"))
 app.synth()

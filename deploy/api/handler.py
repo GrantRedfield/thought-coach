@@ -47,6 +47,10 @@ MAX_PER_DAY = 30  # reviews a player can ask for per day (each one starts a serv
 s3, sqs, asg = boto3.client("s3"), boto3.client("sqs"), boto3.client("autoscaling")
 DATA, SITE = os.environ["TC_DATA_BUCKET"], os.environ["TC_SITE_BUCKET"]
 QUEUE, GROUP, KEY = os.environ["TC_QUEUE_URL"], os.environ["TC_WORKER_GROUP"], os.environ["TC_UPLOAD_KEY"]
+BACKFILL = os.environ.get("TC_BACKFILL_URL", "")  # low priority: games that ended a while ago
+BURST = os.environ.get("TC_BURST_GROUP", "")  # spot servers for a backlog
+FRESH_HOURS = 6  # a game that ended this recently goes to the front
+PER_SERVER, MAX_BURST = 4, 3
 OWNER = os.environ.get("TC_OWNER", "").lower()  # the old shared key uploads as this player
 SECRET = hmac.new(KEY.encode(), b"thoughtcoach session cookie", hashlib.sha256).digest()
 CORS = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "content-type,x-thought-coach-key",
@@ -352,6 +356,38 @@ def wake_worker() -> int:
     return BOOT_WARM_S if warm else BOOT_COLD_S
 
 
+def fresh(rec: dict) -> bool:
+    """Did the game end in the last FRESH_HOURS (the extension's end time)? Bulk uploads of old games
+    and re-reviews don't: they go to the backfill queue, behind every game just played."""
+    when = rec.get("ended_at") or rec.get("started_at")
+    if not when:
+        return True
+    try:
+        if isinstance(when, (int, float)):
+            t = when / 1000 if when > 1e11 else when
+        else:
+            t = time.mktime(time.strptime(str(when)[:19], "%Y-%m-%dT%H:%M:%S")) - time.timezone
+    except (ValueError, OverflowError):
+        return True
+    return time.time() - t < FRESH_HOURS * 3600
+
+
+def grow_burst() -> None:
+    """With a backlog, start spot servers as well: one more per PER_SERVER games waiting."""
+    if not BURST:
+        return
+    depth = 0
+    for q in (QUEUE, BACKFILL):
+        if q:
+            a = sqs.get_queue_attributes(QueueUrl=q, AttributeNames=[
+                "ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"])["Attributes"]
+            depth += int(a["ApproximateNumberOfMessages"]) + int(a["ApproximateNumberOfMessagesNotVisible"])
+    want = max(0, min(MAX_BURST, -(-depth // PER_SERVER) - 1))
+    now = asg.describe_auto_scaling_groups(AutoScalingGroupNames=[BURST])["AutoScalingGroups"][0]["DesiredCapacity"]
+    if want > now:
+        asg.set_desired_capacity(AutoScalingGroupName=BURST, DesiredCapacity=want, HonorCooldown=False)
+
+
 def _body(event: dict) -> str:
     raw = event.get("body") or ""
     return base64.b64decode(raw).decode("utf-8") if event.get("isBase64Encoded") else raw
@@ -461,8 +497,13 @@ def accept(raw: str, user: str, expected: str | None, checked: bool) -> dict:
     if user != OWNER and not _count_today(user):  # the person running the site has no daily limit
         return reply(429, {"error": f"that's {MAX_PER_DAY} reviews today: the rest wait until tomorrow (UTC)"})
     s3.put_object(Bucket=DATA, Key=key, Body=json.dumps(rec).encode())
-    sqs.send_message(QueueUrl=QUEUE, MessageBody=json.dumps({"game_id": gid, "user": user}))
+    queue = QUEUE if fresh(rec) or not BACKFILL else BACKFILL
+    sqs.send_message(QueueUrl=queue, MessageBody=json.dumps({"game_id": gid, "user": user}))
     boot_s = wake_worker()
+    try:
+        grow_burst()
+    except Exception:  # noqa: BLE001 - extra servers are a nicety; the warm one is on its way
+        pass
     events = rec.get("events") or []
     _put_json(SITE, f"status/{user}/{gid}.json", {
         "game_id": gid, "user": user, "state": "queued", "queued_at": time.time(), "cold_start": boot_s > 0, "boot_s": boot_s,

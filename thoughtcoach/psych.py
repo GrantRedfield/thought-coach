@@ -75,9 +75,22 @@ def _pace(g) -> float:
     return statistics.mean(times) if times else 0
 
 
+NOT = {"not", "don't", "dont", "never", "no", "isn't", "isnt", "wasn't", "doubt", "hardly"}
+
+
+def defeated(text: str) -> bool:
+    """Says the game is lost, and doesn't deny it: "I'm lost" yes, "I don't think I'm lost" no."""
+    low = text.lower().replace("’", "'")
+    for m in DEFEAT.finditer(low):
+        before = set(re.findall(r"[a-z']+", low[:m.start()])[-4:])
+        if not before & NOT:
+            return True
+    return False
+
+
 def gave_up(g, v: Voice) -> list[dict]:
     for c in v.clauses:
-        if not DEFEAT.search(c["text"].lower()):
+        if not defeated(c["text"]):
             continue
         pos = v.position_at(c["t"])
         now = None if pos is None else g.wp(pos)

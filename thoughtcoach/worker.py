@@ -9,6 +9,11 @@ Environment:
     TC_SITE_BUCKET    bucket served at the domain, each player under u/<user>/: index.html (their games),
                       games/<id>/index.html, games/<id>/story/index.html; status/<user>/<id>.json
     TC_IDLE_MINUTES   switch off after this long with no jobs (default 10)
+    TC_BACKFILL_URL   low-priority queue (re-reviews, old games uploaded in bulk): only taken from
+                      when the main queue is empty, so a game you just played never waits behind them
+    TC_ROLE           "warm" (the on-demand server that waits parked in the warm pool) or "burst" (a spot
+                      server started for a backlog: it terminates itself when the queues are empty)
+    TC_BURST_GROUP    the burst servers' group: the warm worker grows it while there is a backlog
 
 Privacy: once a game is reviewed, its audio is removed from the stored recording; only the
 transcript (text) is kept. Fair play: the upload API only queues games lichess says are over.
@@ -163,6 +168,54 @@ def review_one(s3, data: str, site: str, user: str, gid: str) -> None:
     _status(s3, site, user, gid, "done", finished_at=time.time())
 
 
+PER_SERVER = 4  # queued games per server before another one is worth starting
+MAX_BURST = 3
+
+
+def _depth(sqs, *queues) -> int:
+    """Games waiting or being reviewed, across the queues."""
+    total = 0
+    for q in queues:
+        if q:
+            a = sqs.get_queue_attributes(QueueUrl=q, AttributeNames=[
+                "ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"])["Attributes"]
+            total += int(a["ApproximateNumberOfMessages"]) + int(a["ApproximateNumberOfMessagesNotVisible"])
+    return total
+
+
+def burst_wanted(depth: int) -> int:
+    """Spot servers worth adding for this many games: one server per PER_SERVER, the warm one first."""
+    return max(0, min(MAX_BURST, -(-depth // PER_SERVER) - 1))
+
+
+def _grow_burst(sqs, queues) -> None:
+    """While there is a backlog, make sure enough burst servers are on their way (never shrinks:
+    burst servers switch themselves off when the queues are empty)."""
+    group = os.environ.get("TC_BURST_GROUP")
+    if not group:
+        return
+    import boto3
+
+    try:
+        want = burst_wanted(_depth(sqs, *queues))
+        asg = boto3.client("autoscaling")
+        now = asg.describe_auto_scaling_groups(AutoScalingGroupNames=[group])["AutoScalingGroups"][0]["DesiredCapacity"]
+        if want > now:
+            asg.set_desired_capacity(AutoScalingGroupName=group, DesiredCapacity=want, HonorCooldown=False)
+            print(f"backlog: {want} burst server(s)", file=sys.stderr)
+    except Exception as err:  # noqa: BLE001 - scaling is a nicety; reviewing goes on
+        print(f"burst scaling skipped: {err}", file=sys.stderr)
+
+
+def _instance_id() -> str:
+    token = urllib.request.urlopen(urllib.request.Request(
+        "http://169.254.169.254/latest/api/token", method="PUT",
+        headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"}), timeout=2).read().decode()
+    return urllib.request.urlopen(urllib.request.Request(
+        "http://169.254.169.254/latest/meta-data/instance-id",
+        headers={"X-aws-ec2-metadata-token": token}), timeout=2).read().decode()
+
+
 def _switch_off() -> None:
     """Scale the worker group to 0. With the warm pool this server goes back to it, stopped, with the
     image and models still on its disk (the next review starts it in under a minute). Without a group
@@ -171,16 +224,13 @@ def _switch_off() -> None:
 
     group = os.environ.get("TC_WORKER_GROUP")
     asg = boto3.client("autoscaling")
+    if os.environ.get("TC_ROLE") == "burst":  # a spot server: gone for good, and one fewer wanted
+        asg.terminate_instance_in_auto_scaling_group(InstanceId=_instance_id(), ShouldDecrementDesiredCapacity=True)
+        return
     if group:
         asg.set_desired_capacity(AutoScalingGroupName=group, DesiredCapacity=0, HonorCooldown=False)
         return
-    token = urllib.request.urlopen(urllib.request.Request(
-        "http://169.254.169.254/latest/api/token", method="PUT",
-        headers={"X-aws-ec2-metadata-token-ttl-seconds": "60"}), timeout=2).read().decode()
-    iid = urllib.request.urlopen(urllib.request.Request(
-        "http://169.254.169.254/latest/meta-data/instance-id",
-        headers={"X-aws-ec2-metadata-token": token}), timeout=2).read().decode()
-    asg.terminate_instance_in_auto_scaling_group(InstanceId=iid, ShouldDecrementDesiredCapacity=True)
+    asg.terminate_instance_in_auto_scaling_group(InstanceId=_instance_id(), ShouldDecrementDesiredCapacity=True)
 
 
 def run() -> int:
@@ -189,9 +239,19 @@ def run() -> int:
     s3, sqs = _aws()
     last_job = time.time()
     print("Thought Coach worker: waiting for games", file=sys.stderr)
+    backfill = os.environ.get("TC_BACKFILL_URL")
+    warm = os.environ.get("TC_ROLE", "warm") == "warm"
     while True:
-        got = sqs.receive_message(QueueUrl=queue, MaxNumberOfMessages=1, WaitTimeSeconds=20,
+        # Fresh games first: the backfill queue only when the main one has nothing.
+        source = queue
+        got = sqs.receive_message(QueueUrl=queue, MaxNumberOfMessages=1, WaitTimeSeconds=5 if backfill else 20,
                                   VisibilityTimeout=1800).get("Messages", [])
+        if not got and backfill:
+            source = backfill
+            got = sqs.receive_message(QueueUrl=backfill, MaxNumberOfMessages=1, WaitTimeSeconds=15,
+                                      VisibilityTimeout=1800).get("Messages", [])
+        if got and warm:
+            _grow_burst(sqs, (queue, backfill))
         if not got:
             if time.time() - last_job > idle_limit:
                 print("idle: switching off", file=sys.stderr)
@@ -208,5 +268,5 @@ def run() -> int:
             traceback.print_exc()
             if USER.match(user):
                 _status(s3, site, user, gid, "error", error=f"{type(err).__name__}: {err}")
-        sqs.delete_message(QueueUrl=queue, ReceiptHandle=msg["ReceiptHandle"])
+        sqs.delete_message(QueueUrl=source, ReceiptHandle=msg["ReceiptHandle"])
         last_job = time.time()

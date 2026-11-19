@@ -34,7 +34,14 @@ case "$STATE" in
 esac
 
 docker run --rm -e TC_QUEUE_URL="$QUEUE" -e TC_DATA_BUCKET="$DATA" -e TC_SITE_BUCKET="$SITE" \
+  -e TC_BACKFILL_URL="${BACKFILL:-}" -e TC_ROLE="${ROLE:-warm}" -e TC_BURST_GROUP="${BURST:-}" \
+  -e TC_IDLE_MINUTES="${IDLE:-10}" \
   -e TC_WORKER_GROUP="$GROUP" -e AWS_DEFAULT_REGION="$REGION" "$REPO:latest" worker
 # The worker scales the group to 0 when idle; if it stopped any other way, do it here so the server
 # doesn't keep running.
-aws autoscaling set-desired-capacity --auto-scaling-group-name "$GROUP" --desired-capacity 0 --region "$REGION" || true
+if [ "${ROLE:-warm}" = burst ]; then  # a spot server: terminate it, one fewer wanted
+  aws autoscaling terminate-instance-in-auto-scaling-group --instance-id "$IID" --should-decrement-desired-capacity \
+    --region "$REGION" || true
+else
+  aws autoscaling set-desired-capacity --auto-scaling-group-name "$GROUP" --desired-capacity 0 --region "$REGION" || true
+fi
