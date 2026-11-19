@@ -1,3 +1,4 @@
+import thoughtcoach.insights as insights_mod
 import io
 
 import chess
@@ -43,7 +44,8 @@ def test_called_it_and_one_track():
     assert "Nxd4 (best) never came up" in found["one_track"]["body"]
 
 
-def test_read_plan_and_planned():
+def test_read_plan_and_planned(monkeypatch):
+    monkeypatch.setattr(insights_mod, 'OPENING_MOVES', 0)  # a short sample game: no opening to skip
     idea = lambda frm, to: {"kind": "opponent_idea", "source": "arrow", "from": frm, "to": to, "phase": "own_time"}  # noqa: E731
     plan = {"kind": "candidate", "source": "arrow", "from": "e5", "to": "f7", "phase": "own_time", "played": False, "legal": False}
     game, report, thinking = setup([{"ply": 5, "shapes": [idea("c6", "d4"), idea("d8", "g5")]},
@@ -93,3 +95,20 @@ def test_feelings_are_not_move_evaluations():
     assert _phrase("I don't think I want to trade this beautiful bishop") is None
     assert _phrase("this is winning for me")[0] == "confident"
     assert _phrase("oh man, just dropped a piece")[0] == "shock"
+
+
+
+def test_opening_moves_and_recaptures_are_not_worth_foreseeing():
+    import io
+
+    import chess
+    import chess.pgn
+
+    from thoughtcoach.insights import Game, _worth_foreseeing
+    pgn = "1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Bxc6 dxc6 5. O-O f6 6. d4 exd4 7. Nxd4 c5 8. Nb3 Qxd1 9. Rxd1 Bg4 10. f3 Be6 11. Nc3 Bd6 12. Be3 b6 13. a4 O-O-O 14. a5 c4 15. Nd4 Bc5 *"
+    game = chess.pgn.read_game(io.StringIO(pgn))
+    report = {"moves": [], "game": {"my_color": "white"}}
+    g = Game(game, chess.WHITE, report)
+    assert not _worth_foreseeing(g, 8)    # 4... dxc6: in the opening (and a recapture)
+    assert not _worth_foreseeing(g, 18)   # 9. Rxd1: taking back on d1
+    assert _worth_foreseeing(g, 24)       # 12... b6: past move 12, a real move

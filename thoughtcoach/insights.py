@@ -221,14 +221,31 @@ def named_worst(report: dict) -> list[dict]:
     return []
 
 
+OPENING_MOVES = 12  # foreseeing a move before this is mostly knowing the opening, not reading the game
+
+
+def _worth_foreseeing(g: Game, ply: int) -> bool:
+    """A move that says something when you saw it coming: out of the opening, and not simply taking
+    back on the square that was just taken on."""
+    if g.boards[ply - 1].fullmove_number < OPENING_MOVES:
+        return False
+    if ply >= 2:
+        mv, prev = g.moves[ply - 1], g.moves[ply - 2]
+        if g.boards[ply - 1].is_capture(mv) and g.boards[ply - 2].is_capture(prev) and mv.to_square == prev.to_square:
+            return False
+    return True
+
+
 def read_plan(g: Game, windows: list[dict]) -> list[dict]:
     hits: dict[int, str] = {}
     drawn = set()
     for w in windows:
         for s in w["shapes"]:
-            if s["kind"] != "opponent_idea" or not s.get("to") or s["source"] != "arrow":
+            if s["kind"] != "opponent_idea" or not s.get("to") or s.get("source", "arrow") != "arrow":
                 continue
             frm, to = chess.parse_square(s["from"]), chess.parse_square(s["to"])
+            if g.boards[w["ply"] - 1].fullmove_number < OPENING_MOVES:
+                continue  # an opening move you saw coming is mostly theory you both know
             if s["phase"] == "opponent_time":
                 if s.get("drawn_s", 0) > -0.3:
                     continue  # drawn as the move appeared: not a prediction
@@ -237,7 +254,7 @@ def read_plan(g: Game, windows: list[dict]) -> list[dict]:
                 targets = [w["ply"] + 1, w["ply"] + 3]
             drawn.add((frm, to))
             for ply in targets:
-                if 1 <= ply <= len(g.moves) and not g.is_mine(ply):
+                if 1 <= ply <= len(g.moves) and not g.is_mine(ply) and _worth_foreseeing(g, ply):
                     mv = g.moves[ply - 1]
                     if (mv.from_square, mv.to_square) == (frm, to):
                         hits.setdefault(ply, g.label(ply))
@@ -266,7 +283,7 @@ def planned(g: Game, windows: list[dict]) -> list[dict]:
                 if later > len(g.moves):
                     break
                 mv = g.moves[later - 1]
-                if (mv.from_square, mv.to_square) == (frm, to):
+                if (mv.from_square, mv.to_square) == (frm, to) and _worth_foreseeing(g, later):
                     early = (later - w["ply"]) // 2
                     found.append((w["ply"], later, early, s.get("legal")))
                     break
