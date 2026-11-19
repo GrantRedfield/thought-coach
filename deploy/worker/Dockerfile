@@ -29,6 +29,9 @@ RUN pip install --no-cache-dir -r requirements.txt boto3
 RUN python -c "from faster_whisper import WhisperModel; WhisperModel('small.en', device='cpu', compute_type='int8')"
 
 COPY thoughtcoach ./thoughtcoach
+# Compile with this image's own Python: a syntax error newer Pythons accept fails the build here,
+# not every review afterwards.
+RUN python -m compileall -q -f thoughtcoach
 COPY deploy/worker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 ENV PYTHONIOENCODING=utf-8

@@ -550,6 +550,119 @@ def accept(raw: str, user: str, expected: str | None, checked: bool) -> dict:
 # ---------------------------------------------------------------- routes
 
 
+def _list(bucket: str, prefix: str, limit: int = 2000) -> list[dict]:
+    out = []
+    for page in s3.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+        out += page.get("Contents", [])
+        if len(out) >= limit:
+            break
+    return out
+
+
+def admin(event: dict) -> dict:
+    """Everything at a glance, for the owner only (anyone else gets 'not found'): players, every
+    game submitted and its review, the 'doesn't make sense' reports, and the queues and servers."""
+    import html as H
+
+    if not OWNER or signed_in(event) != OWNER:
+        return reply(404, {"error": "not found"})
+    esc = lambda x: H.escape(str(x if x is not None else ""))  # noqa: E731
+    when = lambda t: time.strftime("%Y-%m-%d %H:%M", time.gmtime(t)) if t else ""  # noqa: E731
+    day = time.strftime("%Y-%m-%d", time.gmtime())
+
+    users = []
+    for o in _list(DATA, "users/"):
+        u = _get_json(DATA, o["Key"]) or {}
+        users.append(u)
+    games = []
+    for o in _list(SITE, "status/"):
+        parts = o["Key"].split("/")
+        if len(parts) != 3 or not parts[2].endswith(".json"):
+            continue
+        st = _get_json(SITE, o["Key"]) or {}
+        st.setdefault("user", parts[1])
+        st.setdefault("game_id", parts[2][:-5])
+        st["_t"] = st.get("updated") or st.get("finished_at") or st.get("queued_at") or o["LastModified"].timestamp()
+        games.append(st)
+    games.sort(key=lambda g: -g["_t"])
+    reports = []
+    for o in sorted(_list(DATA, "feedback/"), key=lambda o: o["LastModified"], reverse=True)[:40]:
+        reports.append(_get_json(DATA, o["Key"]) or {})
+
+    per = {}
+    for g in games:
+        p = per.setdefault(g["user"], {"games": 0, "done": 0, "failed": 0, "last": 0})
+        p["games"] += 1
+        p["done"] += g.get("state") == "done"
+        p["failed"] += g.get("state") == "error"
+        p["last"] = max(p["last"], g["_t"])
+    rows_u = "".join(
+        f"<tr><td><a href='/u/{esc(u.get('id'))}/'>{esc(u.get('name') or u.get('id'))}</a></td>"
+        f"<td>{when(u.get('created'))}</td><td>{per.get(u.get('id'), {}).get('games', 0)}</td>"
+        f"<td>{per.get(u.get('id'), {}).get('done', 0)}</td><td class='bad'>{per.get(u.get('id'), {}).get('failed', 0) or ''}</td>"
+        f"<td>{(_get_json(DATA, f'usage/{u.get(chr(105) + chr(100))}.json') or {}).get(day, 0)}</td>"
+        f"<td>{when(per.get(u.get('id'), {}).get('last'))}</td></tr>"
+        for u in sorted(users, key=lambda u: -per.get(u.get("id"), {}).get("last", 0)))
+    rows_g = "".join(
+        f"<tr class='{esc(g.get('state'))}'><td>{when(g['_t'])}</td><td>{esc(g['user'])}</td>"
+        f"<td><a href='https://lichess.org/{esc(g['game_id'])}' target='_blank' rel='noopener'>{esc(g['game_id'])}</a></td>"
+        f"<td>{esc((g.get('facts') or {}).get('opp'))}</td><td>{esc((g.get('facts') or {}).get('result'))}</td>"
+        f"<td>{esc(g.get('state'))}{(' · ' + esc(g.get('stage'))) if g.get('state') == 'running' and g.get('stage') else ''}</td>"
+        f"<td>" + (f"<a href='/u/{esc(g['user'])}/games/{esc(g['game_id'])}/story'>story</a> · "
+                   f"<a href='/u/{esc(g['user'])}/games/{esc(g['game_id'])}/'>review</a>" if g.get('state') == 'done' else "") +
+        f"</td><td class='err'>{esc((g.get('error') or '')[:140]) if g.get('state') == 'error' else ''}</td></tr>"
+        for g in games[:500])
+    rows_f = "".join(
+        f"<tr><td>{when(r.get('at'))}</td><td>{esc(r.get('by'))}</td>"
+        f"<td><a href='/u/{esc(r.get('owner'))}/games/{esc(r.get('game_id'))}/story'>{esc(r.get('owner'))}/{esc(r.get('game_id'))}</a></td>"
+        f"<td>{esc((r.get('card') or {}).get('title'))}</td><td>{esc(r.get('reason'))}</td><td>{esc(r.get('comment'))}</td></tr>"
+        for r in reports) or "<tr><td colspan='6'>No reports yet.</td></tr>"
+
+    def depth(q: str) -> str:
+        if not q:
+            return "-"
+        a = sqs.get_queue_attributes(QueueUrl=q, AttributeNames=[
+            "ApproximateNumberOfMessages", "ApproximateNumberOfMessagesNotVisible"])["Attributes"]
+        return f"{a['ApproximateNumberOfMessages']} waiting, {a['ApproximateNumberOfMessagesNotVisible']} being reviewed"
+
+    def servers(group: str) -> str:
+        if not group:
+            return "-"
+        g = asg.describe_auto_scaling_groups(AutoScalingGroupNames=[group])["AutoScalingGroups"][0]
+        return f"{len(g['Instances'])} running (wanted {g['DesiredCapacity']}, at most {g['MaxSize']})"
+
+    done = sum(g.get("state") == "done" for g in games)
+    failed = sum(g.get("state") == "error" for g in games)
+    page = f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin · Thought Coach</title>
+<link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/site.css"><style>
+main {{ max-width:1500px; }} h2 {{ margin:28px 0 8px; }} .k {{ display:flex; gap:12px; flex-wrap:wrap; }}
+.k div {{ background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px; }}
+.k b {{ display:block; font-size:22px; }} .k span {{ color:var(--fg2); font-size:13px; }}
+table {{ width:100%; border-collapse:collapse; font-size:13.5px; }} th, td {{ text-align:left; padding:6px 8px;
+  border-bottom:1px solid var(--line); vertical-align:top; }} th {{ color:var(--muted); font-weight:600; }}
+.scroll {{ overflow-x:auto; }} tr.error td {{ background:#e0313114; }} tr.running td, tr.queued td {{ background:#3987e514; }}
+.bad, .err {{ color:#ff8787; }} .err {{ font-family:ui-monospace, Consolas, monospace; font-size:12px; }}
+</style></head><body><main>
+<nav class="top"><p class="brand"><a href="/"><span class="mark"></span>Thought Coach</a></p><span class="sp"></span>
+<a class="link" href="/u/{esc(OWNER)}/">Your games</a></nav>
+<h1>Admin</h1><p class="muted">Only you can see this page. Times are UTC.</p>
+<div class="k"><div><b>{len(users)}</b><span>players</span></div><div><b>{len(games)}</b><span>games submitted</span></div>
+<div><b>{done}</b><span>reviewed</span></div><div><b class="bad">{failed}</b><span>failed</span></div>
+<div><b>{len(reports)}</b><span>reports</span></div></div>
+<h2>Right now</h2><p>Fresh games: {depth(QUEUE)} · Backlog: {depth(BACKFILL)}<br>
+Warm server: {servers(GROUP)} · Spot servers: {servers(BURST)}</p>
+<h2>Players</h2><div class="scroll"><table><tr><th>Player</th><th>Joined</th><th>Games</th><th>Reviewed</th><th>Failed</th>
+<th>Reviews today</th><th>Last activity</th></tr>{rows_u}</table></div>
+<h2>"Doesn't make sense?" reports</h2><div class="scroll"><table><tr><th>When</th><th>From</th><th>Game</th><th>Card</th>
+<th>Reason</th><th>Comment</th></tr>{rows_f}</table></div>
+<h2>Games, newest first</h2><div class="scroll"><table><tr><th>Updated</th><th>Player</th><th>Game</th><th>Opponent</th>
+<th>Result</th><th>State</th><th>Open</th><th>Error</th></tr>{rows_g}</table></div>
+</main></body></html>"""
+    return {"statusCode": 200, "headers": {"Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store",
+                                           "X-Robots-Tag": "noindex"}, "body": page}
+
+
 def watchdog() -> dict:
     """Every few minutes (a schedule): reviews waiting with no worker running get one. A worker that
     stops mid-review (a spot server taken back, a crash) leaves its game to come back to the queue
@@ -583,6 +696,8 @@ def handler(event: dict, context) -> dict:
             return login(event)
         if path == "/api/callback":
             return callback(event)
+        if path == "/api/admin":
+            return admin(event)
         if path == "/api/me":
             return me(event)
         if path == "/api/logout":

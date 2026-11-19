@@ -975,6 +975,8 @@ def render(story: dict) -> str:
     body = "".join(f"<section class='slide' data-kind='{k}' style='--accent:{ACCENT.get(k, '#495057')}'><div class='inner'>{h}</div></section>"
                    for k, h in slides)
     bars = "".join("<i><b></b></i>" for _ in slides)
+    # Built outside the f-string: a backslash inside its braces needs Python 3.12 (the worker runs 3.11).
+    plies_json = json.dumps({"plies": story.get("plies") or [], "white": story.get("color") != "black"}).replace("</", "<\\/")
     return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Your game · {_e(story['id'])}</title>
 <style>{CSS}</style></head><body><main class="story" aria-live="polite">
@@ -990,7 +992,7 @@ def render(story: dict) -> str:
 <div class="fbr"><button type="button" class="fbsend">Send</button><button type="button" class="fbcancel">Cancel</button></div>
 <p class="fbdone" hidden>Thanks: this helps make the stories better.</p></div>
 <p class="hint"><span class="count"></span><span class="keys"> · use ← → to move between cards</span></p></main>
-<script type="application/json" id="plies">{json.dumps({"plies": story.get("plies") or [], "white": story.get("orientation", True) is not False and story.get("color") != "black"}).replace("</", "<\\/")}</script>
+<script type="application/json" id="plies">{plies_json}</script>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">{PIECE_DEFS}</svg>
 <script>{JS}{MOVES_JS}</script></body></html>"""
 

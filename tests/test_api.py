@@ -231,3 +231,23 @@ def test_watchdog_wakes_a_worker_when_reviews_wait(api, monkeypatch):
     monkeypatch.setattr(api, "wake_worker", lambda: 60)
     monkeypatch.setattr(api, "grow_burst", lambda: None)
     assert api.handler({"tc": "watchdog"}, None) == {"waiting": 2, "woke": True}
+
+
+def test_admin_is_for_the_owner_only(api, monkeypatch):
+    assert api.handler(event("GET", "/api/admin"), None)["statusCode"] == 404  # not signed in
+    stranger = "tc_session=" + api.make_session("someone")
+    assert api.handler(event("GET", "/api/admin", cookies=[stranger]), None)["statusCode"] == 404
+    class Q:
+        def get_queue_attributes(self, **kw):
+            return {"Attributes": {"ApproximateNumberOfMessages": "0", "ApproximateNumberOfMessagesNotVisible": "0"}}
+    class G:
+        def describe_auto_scaling_groups(self, **kw):
+            return {"AutoScalingGroups": [{"Instances": [], "DesiredCapacity": 0, "MaxSize": 1}]}
+    monkeypatch.setattr(api, "sqs", Q())
+    monkeypatch.setattr(api, "asg", G())
+    api.get_or_create_user("lucidchess", "LucidChess")
+    api.fake_s3.put_object(Bucket="site", Key="status/lucidchess/AbCd1234.json",
+                           Body=json.dumps({"state": "error", "error": "boom", "updated": 1}).encode())
+    owner = "tc_session=" + api.make_session("lucidchess")
+    r = api.handler(event("GET", "/api/admin", cookies=[owner]), None)
+    assert r["statusCode"] == 200 and "AbCd1234" in r["body"] and "boom" in r["body"] and "LucidChess" in r["body"]
