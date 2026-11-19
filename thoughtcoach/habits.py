@@ -113,10 +113,10 @@ def _text(e: dict) -> str:
     if e["games"] < MIN_GAMES:
         return f"{head} Too early to tell after one game."
     if e["p"] >= bayes.LIKELY:
-        return f"{head} Working: {bayes.verdict(e['p'])} ({bayes.odds(e['p'])} that you've improved)."
+        return f"{head} Working: {bayes.verdict(e['p'])}."
     if e["p"] <= 1 - bayes.LIKELY:
-        return f"{head} Not showing yet: {bayes.odds(1 - e['p'])} that it has gone the wrong way."
-    return f"{head} Too early to tell: {bayes.odds(e['p'])} that it's helping, so far."
+        return f"{head} Not working yet: it has gone the wrong way."
+    return f"{head} Too early to tell."
 
 
 def this_game(key: str | None, game: dict, earlier: list[dict]) -> str | None:

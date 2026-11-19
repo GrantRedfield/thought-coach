@@ -23,7 +23,7 @@ def test_the_tide_turns_and_you_give_it_back():
             58: {"wp_before": 0.43, "wp_after": 0.09, "wp_loss": 0.34}}
     [i] = psych.tide(FakeGame(mine), None)
     assert i["kind"] == "tide" and i["ply"] == 57 and not i["took"]
-    assert "from 20% to 43%" in i["body"] and "gave 34% back" in i["body"]
+    assert "from 20% to 43%" in i["body"] and "gave it back (43% → 9%)" in i["body"]
 
 
 def test_denying_it_is_not_giving_up():

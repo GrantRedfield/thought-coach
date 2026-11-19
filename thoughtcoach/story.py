@@ -527,10 +527,10 @@ FOCUS = {
            "Before a pawn move, circle the squares it stops guarding, on both sides."),
     "q2": ("Ask: which is my worst piece?", "Aagaard's question 2",
            "Once in the opening and once in the middlegame, name your worst piece out loud and find it a square."),
-    "play_on": ("Play it out", "The inner game",
+    "play_on": ("Play it out", "Your mindset",
                 "When it feels lost, find the most stubborn move and keep thinking the same way: let the board "
                 "decide it's over, not the mood."),
-    "inner": ("Notice, don't judge", "The inner game",
+    "inner": ("Notice, don't judge", "Your mindset",
               "When a move goes wrong, say what happened in one plain sentence ('this drops the knight') and go "
               "back to the board. No verdicts on yourself."),
     "check": ("Look once more before you let go", "Blunder check",
@@ -781,7 +781,7 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
             "result": res, "outcome": outcome, "arrows": arrows, "said": said,
             "moves_with_thoughts": report["summary"].get("moves_with_thoughts", 0), "beats": beats,
             "curve": curve, "focus": focus(c, history), "orientation": c.me, "decided_by": decided_by,
-            "type": classify(analysis, g), "voice": voice_card(c), "last_focus": (history or {}).get("last_focus"),
+            "type": classify(analysis, g), "voice": voice_card(c), "plies": _plies(c), "last_focus": (history or {}).get("last_focus"),
             "truths": [{"head": f["head"], "body": f["body"], "sure": f["sure"], "n": f["n"], "good": f["good"]}
                        for f in (history or {}).get("truths", [])], "games": (history or {}).get("games")}
 
@@ -789,6 +789,44 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
 def _type_tag(t: dict | None) -> str:
     """'A swindle · You were down to 8% and won.' under the result."""
     return f"<p class='gtype'>{_e(t['label'])}<small>{_e(t['why'])}</small></p>" if t else ""
+
+
+def _plies(c: Ctx) -> list[dict]:
+    """Every position of the game for the clickable moves: [{"fen": placement, "label", "uci"}],
+    index = plies played (0 = the start)."""
+    if not c.boards:
+        return []
+    out = [{"fen": c.boards[0].board_fen(), "label": "the start", "uci": ""}]
+    for i, mv in enumerate(c.played, 1):
+        out.append({"fen": c.boards[i].board_fen(), "label": _label(i, c.boards[i - 1].san(mv)), "uci": mv.uci()})
+    return out
+
+
+SAN = r"(?:[KQRBN]?[a-h]?[1-8]?x?[a-h][1-8](?:=[QRBN])?|O-O(?:-O)?)[+#]?"
+MOVE_REF = re.compile(rf"\b(\d+)\.(\.\.)?\s?({SAN})|\b(move (\d+))\b")
+
+
+def _link_moves(text: str, story: dict) -> str:
+    """Moves written in a card ("27... Nxc3+", "move 11") as buttons that show that position."""
+    plies = story.get("plies") or []
+    if not plies:
+        return text
+    white = story.get("color") == "white"
+
+    def swap(m: re.Match) -> str:
+        if m.group(3):
+            n, black = int(m.group(1)), bool(m.group(2))
+            ply = 2 * n if black else 2 * n - 1
+            if not (0 < ply < len(plies)) or plies[ply]["label"].split()[-1] != m.group(3):
+                return m.group(0)
+            return f"<button type='button' class='mv' data-ply='{ply}'>{m.group(0)}</button>"
+        n = int(m.group(5))
+        ply = (2 * n - 1 if white else 2 * n) - 1  # the position you faced at your move n
+        if not (0 <= ply < len(plies)):
+            return m.group(0)
+        return f"<button type='button' class='mv' data-ply='{ply}'>{m.group(4)}</button>"
+
+    return MOVE_REF.sub(swap, text)
 
 
 def summary(story: dict) -> dict:
@@ -916,22 +954,22 @@ def render(story: dict) -> str:
         quote = f"<blockquote>“{_e(b['quote'])}”<cite>you, during the game</cite></blockquote>" if b.get("quote") else ""
         slides.append((b["kind"], meta + f"""<p class='eyebrow'><span class='n'>{i}</span>{_e(b['eyebrow'])}</p>
 <h2>{_e(b['title'])}</h2>{stat}{visual}
-<p class='body'>{_e(b['body'])}</p>{quote}{f"<p class='note'>{_e(b['note'])}</p>" if b.get('note') else ''}"""))
+<p class='body'>{_link_moves(_e(b['body']), story)}</p>{quote}{f"<p class='note'>{_e(b['note'])}</p>" if b.get('note') else ''}"""))
     f = story["focus"]
     if story.get("truths"):
         items = "".join(
             f"<div class='truth {'good' if t['good'] else 'weak'}'><p class='th'>{_e(t['head'])}</p><p class='tb'>{_e(t['body'])}</p>"
-            f"<p class='ts'>{bayes.odds_dots(t['sure'])}<span>{_e(bayes.verdict(t['sure']).capitalize())}: "
-            f"{_e(bayes.odds(t['sure']))} it's a real pattern, from {t['n']} moves</span></p></div>"
+            f"<p class='ts'>{bayes.odds_dots(t['sure'])}<span>{_e(bayes.verdict(t['sure']).capitalize())} · "
+            f"{t['n']} moves</span></p></div>"
             for t in story["truths"])
         slides.append(("truths", f"""<p class='eyebrow'>Across your {story.get('games') or ''} games</p><h2>What your games say</h2>
 <p class='lead'>One game can be luck. These held up across all of them.</p><div class='truths'>{items}</div>"""))
     lf = story.get("last_focus")
-    last = (f"<p class='lastfocus'><span>Last game's focus: <b>{_e(lf['title'])}</b></span>{_e(lf['line'])}"
+    last = (f"<p class='lastfocus'><span>Last game's focus: <b>{_e(lf['title'])}</b></span>{_link_moves(_e(lf['line']), story)}"
             + (f"<small>{_e(lf['check'])}</small>" if lf.get("check") else "") + "</p>"
             if lf and lf.get("line") else "")
     slides.append(("focus", f"""{last}<p class='eyebrow'>Your focus for the next game · {_e(f['tag'])}</p><h2>{_e(f['title'])}</h2>
-<p class='habit'>{_e(f['habit'])}</p><p class='body'>{_e(f['why'])}{(' ' + _e(f['across'])) if f.get('across') else ''}</p>
+<p class='habit'>{_e(f['habit'])}</p><p class='body'>{_link_moves(_e(f['why']), story)}{(' ' + _e(f['across'])) if f.get('across') else ''}</p>
 <div class='end'>{f"<a href='{GUIDE}'>How to show your thinking</a>" if f['key'] == 'input' else ''}<a href='{_e(game_url(story['id']))}'>See the full review</a><a href='{_e(home_url())}'>All your games</a>
 <button type='button' class='replay'>Watch again</button></div>"""))
     body = "".join(f"<section class='slide' data-kind='{k}' style='--accent:{ACCENT.get(k, '#495057')}'><div class='inner'>{h}</div></section>"
@@ -952,8 +990,58 @@ def render(story: dict) -> str:
 <div class="fbr"><button type="button" class="fbsend">Send</button><button type="button" class="fbcancel">Cancel</button></div>
 <p class="fbdone" hidden>Thanks: this helps make the stories better.</p></div>
 <p class="hint"><span class="count"></span><span class="keys"> · use ← → to move between cards</span></p></main>
-<script>{JS}</script></body></html>"""
+<script type="application/json" id="plies">{json.dumps({"plies": story.get("plies") or [], "white": story.get("orientation", True) is not False and story.get("color") != "black"}).replace("</", "<\\/")}</script>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">{PIECE_DEFS}</svg>
+<script>{JS}{MOVES_JS}</script></body></html>"""
 
+
+PIECE_DEFS = re.search(r"<defs>.*?</defs>", chess.svg.board(chess.Board(), coordinates=False), re.S).group(0)
+
+MOVES_JS = """
+(() => {
+  // A move named in a card: show that position on the card's board (and go back).
+  const data = JSON.parse(document.getElementById('plies').textContent);
+  const P = data.plies; if (!P.length) return;
+  const NAME = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+  const sqXY = (sq) => { const f = sq.charCodeAt(0) - 97, r = +sq[1] - 1;
+    return data.white ? [f * 45, (7 - r) * 45] : [(7 - f) * 45, r * 45]; };
+  function svg(ply) {
+    const rows = P[ply].fen.split('/'), last = P[ply].uci, hi = last ? [last.slice(0, 2), last.slice(2, 4)] : [];
+    let out = '';
+    for (let r = 7; r >= 0; r--) for (let f = 0; f < 8; f++) {
+      const sq = 'abcdefgh'[f] + (r + 1), [x, y] = sqXY(sq), light = (f + r) % 2 === 1;
+      const on = hi.includes(sq);
+      out += `<rect x="${x}" y="${y}" width="45" height="45" fill="${on ? (light ? '#cdd16a' : '#aaa23b') : (light ? '#ffce9e' : '#d18b47')}"/>`;
+    }
+    rows.forEach((row, i) => { let f = 0; for (const ch of row) {
+      if (/\\d/.test(ch)) { f += +ch; continue; }
+      const sq = 'abcdefgh'[f] + (8 - i), [x, y] = sqXY(sq);
+      const id = (ch === ch.toUpperCase() ? 'white-' : 'black-') + NAME[ch.toLowerCase()];
+      out += `<use href="#${id}" xlink:href="#${id}" transform="translate(${x}, ${y})"/>`; f++; } });
+    return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 360 360">${out}</svg>`;
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('.mv'), back = e.target.closest('.mvback');
+    const slide = (b || back) && (b || back).closest('.slide');
+    if (!slide) return;
+    let board = slide.querySelector('.board');
+    if (!board) {  // a card without a board: give it one
+      const v = document.createElement('div'); v.className = 'visual'; v.dataset.made = '1'; v.innerHTML = '<div class="board"></div>';
+      slide.querySelector('.inner').prepend(v); board = v.querySelector('.board');
+    }
+    if (board.dataset.orig === undefined) board.dataset.orig = board.innerHTML;
+    let cap = slide.querySelector('.mvcap');
+    if (back) { const made = board.closest('[data-made]'); if (made) made.remove(); else board.innerHTML = board.dataset.orig;
+      if (cap) cap.remove();
+      slide.querySelectorAll('.mv.on').forEach(x => x.classList.remove('on')); return; }
+    const ply = +b.dataset.ply;
+    board.innerHTML = svg(ply);
+    slide.querySelectorAll('.mv.on').forEach(x => x.classList.remove('on')); b.classList.add('on');
+    if (!cap) { cap = document.createElement('p'); cap.className = 'mvcap'; board.after(cap); }
+    cap.innerHTML = `${ply ? 'After ' + P[ply].label : 'The start'} &middot; <button type="button" class="mvback">back to this card</button>`;
+  });
+})();
+"""
 
 CSS = """
 * { box-sizing:border-box; } html, body { margin:0; height:100%; background:#0b0b0c; color:#fff; overflow:hidden;
@@ -1017,6 +1105,10 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
 }
 .curve.mood circle { stroke:#0b0b0c; stroke-width:1.5; }
 .moodkey { justify-content:flex-start; }
+.mv { font:inherit; color:inherit; background:#ffffff1a; border:0; border-bottom:1px dashed #ffffffaa; border-radius:4px;
+  padding:0 3px; cursor:pointer; } .mv:hover, .mv.on { background:#ffffff38; } .mv:focus-visible { outline:2px solid #fff; }
+.mvcap { margin:6px 0 0; text-align:center; font-size:13px; color:#ffffffcc; }
+.mvback { font:inherit; font-size:13px; color:#fff; background:none; border:0; text-decoration:underline; cursor:pointer; padding:0; }
 .note { margin:0; font-size:13px; line-height:1.45; color:#ffffff99; border-top:1px solid #ffffff22; padding-top:8px; }
 .lastfocus { margin:0 0 10px; padding:10px 14px; border-radius:10px; background:#ffffff12; font-size:15px; color:#ffffffd9; }
 .flag { position:absolute; top:26px; right:12px; z-index:6; background:none; border:0; color:#ffffff73; font:inherit;

@@ -75,7 +75,7 @@ def _pace(g) -> float:
     return statistics.mean(times) if times else 0
 
 
-NOT = {"not", "don't", "dont", "never", "no", "isn't", "isnt", "wasn't", "doubt", "hardly"}
+NOT = {"not", "don't", "dont", "doesn't", "doesnt", "didn't", "won't", "aren't", "never", "no", "isn't", "isnt", "wasn't", "doubt", "hardly"}
 
 
 def defeated(text: str) -> bool:
@@ -108,11 +108,13 @@ def gave_up(g, v: Voice) -> list[dict]:
         nxt = _next_moves(g, pos)
         lost = sum(m["wp_loss"] for m in nxt)
         secs = statistics.mean([m.get("own_time_s") or m.get("time_spent_pgn") or 0 for m in nxt]) if nxt else 0
-        body = f"Around move {g.move_number(pos)} you said '{_clean(c['text'])}'. The engine still had you at {pct(now)}."
+        body = (f"Around move {g.move_number(pos)} you said '{_clean(c['text'])}'. But the engine still gave you a "
+                f"{pct(now)} chance.")
         if peak and peak[1] >= now + 0.1:
-            body += f" Before {g.label(peak[0])} you were back to {pct(peak[1])}: the game wasn't over."
+            body += f" Later, before {g.label(peak[0])}, you were back up to {pct(peak[1])}: the game wasn't over."
         if nxt:
-            body += f" Your next {len(nxt)} moves took {secs:.0f}s each (game average {_pace(g):.0f}s) and lost {pct(lost)}."
+            body += (f" Over your next {len(nxt)} moves your win chance went from {pct(nxt[0]['wp_before'])} to "
+                     f"{pct(nxt[-1]['wp_after'])}.")
         return [{"kind": "gave_up", "ply": pos, "weight": 0.6 + now + (0.2 if peak and peak[1] >= now + 0.1 else 0),
                  "head": "You called it lost too early", "body": body, "wp": round(now, 3)}]
     return []
@@ -135,11 +137,13 @@ def tide(g, v: Voice | None) -> list[dict]:
         t0 = v.landed[their_ply]
         heard = [_clean(c["text"]) for c in v.said_between(t0, t0 + NOTICE_S * 1000) if NOTICED.search(c["text"].lower())]
     took = nxt["wp_loss"] < 0.05
-    body = (f"{g.label(their_ply)} handed the game back: your win chance went from {pct(before)} to {pct(nxt['wp_before'])}. "
-            + (f"You said '{heard[0]}'. " if heard else "Nothing you said showed you'd noticed. ")
-            + ("You took it." if took else f"Then {g.label(my_ply)} gave {pct(nxt['wp_loss'])} back."))
+    body = (f"{g.label(their_ply)} was a mistake by your opponent: your win chance jumped from {pct(before)} to "
+            f"{pct(nxt['wp_before'])}. "
+            + (f"You noticed: '{heard[0]}'. " if heard else "Nothing you said showed you'd seen it. ")
+            + ("And you made the most of it." if took else
+               f"But then {g.label(my_ply)} gave it back ({pct(nxt['wp_before'])} → {pct(nxt['wp_after'])})."))
     return [{"kind": "tide", "ply": their_ply, "weight": 0.5 + swing + (0.2 if not took else 0),
-             "head": "The tide turned", "body": body, "noticed": bool(heard), "took": took}]
+             "head": "They gave you a chance", "body": body, "noticed": bool(heard), "took": took}]
 
 
 def instinct(g) -> list[dict]:
@@ -158,23 +162,36 @@ def instinct(g) -> list[dict]:
     if not talked_out and not rescued:
         return []
     lost = sum(m["wp_loss"] for _, m, _ in talked_out)
-    parts = [f"{g.label(p)} (your first idea was {f['move_san']})" for p, m, f in talked_out[:3]]
-    body = "System 1 (your first, fast idea) against System 2 (where calculation took you): "
+    parts = [f"at {g.label(p)} your first idea {f['move_san']} was good ({pct(m['wp_before'])} → {pct(m['wp_after'])} "
+             f"with the move you played)" for p, m, f in talked_out[:2]]
+    body = "The first move you drew, against the move you played. "
     if talked_out:
-        body += (f"{len(talked_out)} time{'s' * (len(talked_out) != 1)} your first arrow was already a good move and you "
-                 f"talked yourself out of it, costing {pct(lost)}: {', '.join(parts)}. ")
+        n = len(talked_out)
+        body += (f"{'Once' if n == 1 else f'{n} times'} your first idea was already a good move, and you went with "
+                 f"something else: {'; '.join(parts)}. ")
     if rescued:
-        body += f"Calculation rescued a poor first idea {len(rescued)} time{'s' * (len(rescued) != 1)}."
+        n = len(rescued)
+        body += f"{'Once' if n == 1 else f'{n} times'} your first idea was poor, and thinking it through found a good move."
     head = "Your instinct was right" if len(talked_out) > len(rescued) else "Thinking it through paid off"
     return [{"kind": "instinct", "ply": (talked_out or rescued)[0][0], "weight": 0.45 + lost + 0.05 * len(talked_out),
              "head": head, "body": body.strip(), "talked_out": len(talked_out), "rescued": len(rescued),
              "loss": round(lost, 3)}]
 
 
+def judging(text: str) -> bool:
+    """A verdict on yourself, not denied: "so stupid" yes, "it's not horrible" no."""
+    low = text.lower().replace("’", "'")
+    for m in JUDGING.finditer(low):
+        before = set(re.findall(r"[a-z']+", low[:m.start()])[-3:])
+        if not before & NOT:
+            return True
+    return False
+
+
 def inner(g, v: Voice) -> list[dict]:
     remarks = []
     for c in v.clauses:
-        if JUDGING.search(c["text"].lower()):
+        if judging(c["text"]):
             pos = v.position_at(c["t"])
             if pos is not None:
                 remarks.append((pos, _clean(c["text"])))
@@ -186,12 +203,16 @@ def inner(g, v: Voice) -> list[dict]:
         after += _next_moves(g, pos)
     after_rate = statistics.mean(m["wp_loss"] for m in after) if after else 0
     pos, text = remarks[0]
-    body = (f"The judging voice spoke up {len(remarks)} time{'s' * (len(remarks) != 1)}, first around move "
-            f"{g.move_number(pos)}: '{text}'. In the {FOLLOW} moves after it your average move went {avg_went(after)}, "
-            f"against {avg_went(list(g.mine.values()))} over the whole game. Noticing what happened ('this drops the knight') helps; "
-            "a verdict on yourself doesn't.")
+    nxt = _next_moves(g, pos)
+    more = f" (and {len(remarks) - 1} more time{'s' * (len(remarks) != 2)})" if len(remarks) > 1 else ""
+    body = (f"Around move {g.move_number(pos)} you said '{text}'{more}. Being harsh with yourself in the middle of a game "
+            f"tends to make the next moves worse.")
+    if nxt:
+        body += (f" Your next {len(nxt)} moves took your win chance from {pct(nxt[0]['wp_before'])} to "
+                 f"{pct(nxt[-1]['wp_after'])}.")
+    body += " Next time, say what happened instead ('that drops the knight') and get straight back to the board."
     return [{"kind": "inner", "ply": pos, "weight": 0.4 + max(0.0, after_rate - per_move) * 5,
-             "head": "The inner game", "body": body, "count": len(remarks),
+             "head": "Hard on yourself", "body": body, "count": len(remarks),
              "loss": round(max(0.0, after_rate - per_move) * FOLLOW * len(remarks), 3)}]
 
 

@@ -106,3 +106,19 @@ def test_ahead_reply_and_caught():
            "time_spent": 12, "clock_before": 200, "played_line_san": "27...Nxc3+ 28. Qxc3"}
     [m] = ahead.caught({"moves": [rec]}, {"thresholds": {"time_trouble": 30}})
     assert m["reply"] == "Qxc3" and m["tactic"] and m["zone"] == "ahead"
+
+
+
+def test_moves_in_a_card_become_buttons():
+    st = {"color": "black", "plies": [{"fen": "", "label": "the start", "uci": ""}] + [
+        {"fen": "", "label": f"x {i}", "uci": ""} for i in range(1, 60)]}
+    st["plies"][54] = {"fen": "", "label": "27... Nxc3+", "uci": "d5c3"}
+    html = story._link_moves("At 27... Nxc3+ only Nb6 held; around move 11 you said", st)
+    assert "data-ply='54'>27... Nxc3+</button>" in html
+    assert "data-ply='21'>move 11</button>" in html  # black: your move 11 is ply 22, the position before it 21
+    assert story._link_moves("At 27... Qd2 something", st) == "At 27... Qd2 something"  # not the game's move: left alone
+
+
+def test_not_horrible_is_not_judging():
+    from thoughtcoach.psych import judging
+    assert judging("so stupid") and not judging("it's not horrible") and not judging("it doesn't look horrible")
