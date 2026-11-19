@@ -1,7 +1,9 @@
 # Thought Coach review worker: the whole pipeline (Stockfish, Whisper, the speech tagger) in one
 # Linux image, so nobody has to install any of it. Build from the repository root:
 #   docker build -f deploy/worker/Dockerfile -t thoughtcoach-worker .
-FROM python:3.11-slim
+# The official Python image, from the AWS mirror of Docker Hub (Docker Hub limits anonymous pulls
+# from shared build machines).
+FROM public.ecr.aws/docker/library/python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates zstd \
     && rm -rf /var/lib/apt/lists/*
