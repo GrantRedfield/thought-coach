@@ -23,7 +23,7 @@ import chess
 
 from .align import match_positions
 from .voice import WEAKNESS_WORDS, tokens
-from .fmt import pct, spct
+from .fmt import pct, spct, move_went, went
 
 # Words and phrases that carry a feeling. Matched on whole words, lower case.
 REACTIONS = {
@@ -156,7 +156,7 @@ def called_it(g: Game, windows: list[dict], mistake: float) -> list[dict]:
                 "kind": "called_it", "ply": m["ply"], "weight": 1.0 + m["wp_loss"],
                 "head": "You called it",
                 "body": f"You {how} around move {g.move_number(ply - 1)}. {when}, {g.label(m['ply'])} "
-                        f"({_signed(-m['wp_loss'])}) let {g.label(reply)} land on exactly that square"
+                        f"({move_went(m)}) let {g.label(reply)} land on exactly that square"
                         + (", and the game ended there." if last else "."),
             })
             break
@@ -175,7 +175,7 @@ def one_track(g: Game, mistake: float) -> list[dict]:
         out.append({
             "kind": "one_track", "ply": m["ply"], "weight": 0.6 + m["wp_loss"],
             "head": "One idea at the key moment",
-            "body": f"At {g.label(m['ply'])} ({_signed(-m['wp_loss'])}) the only move you considered was the one you "
+            "body": f"At {g.label(m['ply'])} ({move_went(m)}) the only move you considered was the one you "
                     + (f"played, picked while they were thinking and played "
                        f"{'instantly' if took < 1 else str(round(took)) + 's later'}. "
                        if (drawn[0].get("first_drawn_s") or 0) < 0 or took < 1 else
@@ -198,7 +198,7 @@ def right_piece(g: Game) -> list[dict]:
                 out.append({
                     "kind": "right_piece", "ply": m["ply"], "weight": 0.45 + m["wp_loss"],
                     "head": "Right piece, other move",
-                    "body": f"At {g.label(m['ply'])} ({spct(-m['wp_loss'])}) you picked up the "
+                    "body": f"At {g.label(m['ply'])} ({move_went(m)}) you picked up the "
                             f"{PIECE_NAME.get(p['piece'], 'piece')} on {p['square']}, the piece for the engine's best "
                             f"move {m['best_move_san']}, then moved something else.",
                 })
@@ -280,8 +280,9 @@ def planned(g: Game, windows: list[dict]) -> list[dict]:
     parts = []
     for ply, later, early, legal in uniq[:2]:
         note = " before it was even possible" if legal is False else ""
-        loss = g.mine.get(later, {}).get("wp_loss")
-        verdict = f" ({_signed(-loss)})" if loss is not None else ""
+        mm = g.mine.get(later)
+        verdict = ("" if not mm or mm.get("wp_loss") is None else f" (held at {pct(mm['wp_after'])})"
+                   if mm["wp_loss"] < 0.01 else f" ({move_went(mm)})")
         parts.append(f"{g.label(later)}{verdict} was considered {early} move{'s' * (early != 1)} early{note}")
     return [{
         "kind": "planned", "ply": uniq[0][1], "weight": 0.3,
@@ -337,14 +338,14 @@ def hindsight(g: Game, recording: dict | None, transcript: dict | None, utteranc
         if why != "best" and not any(HINDSIGHT_RE.search(k.lower()) for k in keep):
             continue
         quote = " … ".join(dict.fromkeys(k.rstrip(",.") for k in keep))[:120]
-        hits.append({"ply": ply, "loss": m["wp_loss"], "quote": quote, "best": best, "why": why,
+        hits.append({"ply": ply, "loss": m["wp_loss"], "wp_before": m["wp_before"], "wp_after": m["wp_after"], "quote": quote, "best": best, "why": why,
                      "reply": g.label(ply + 1) if reply else None})
     if not hits:
         return []
     parts = []
     for h in sorted(hits, key=lambda h: -h["loss"])[:3]:
         what = {"best": f"{h['best']} was the move", "reply": f"and {h['reply']} came", "regret": f"{h['best']} was the move"}[h["why"]]
-        parts.append(f"after {g.label(h['ply'])} ({_signed(-h['loss'])}): '{h['quote']}', {what}")
+        parts.append(f"after {g.label(h['ply'])} ({move_went(h)}): '{h['quote']}', {what}")
     n = len(hits)
     lost = sum(h["loss"] for h in hits)
     return [{
@@ -397,8 +398,8 @@ def reactions(g: Game, recording: dict | None, transcript: dict | None, utteranc
             avg_after = statistics.mean([m.get("own_time_s") or 0 for m in later]) if later else 0
             if tt:
                 worst = max(tt, key=lambda m: m["wp_loss"])
-                tail = (f" After that, moves played under 30s cost {pct(sum(m['wp_loss'] for m in tt))} WP, "
-                        f"most of it {g.label(worst['ply'])} ({_signed(-worst['wp_loss'])}).")
+                tail = (f" After that, {len(tt)} move{'s' * (len(tt) != 1)} played under 30s; the costliest "
+                        f"{g.label(worst['ply'])} ({move_went(worst)}).")
             else:
                 tail = " You kept out of time trouble after that."
             out.append({
@@ -436,21 +437,23 @@ def reactions(g: Game, recording: dict | None, transcript: dict | None, utteranc
         avg = statistics.mean([m.get("own_time_s") or 0 for m in nxt]) if nxt else 0
 
         if feeling == "shock":
-            read = (f"a real blow (WP {pct(before)} -> {pct(now)})" if swing is not None and swing <= -0.10
-                    else f"the engine had it as {_signed(swing)} for you, still {pct(now)} WP" if swing is not None
-                    else f"the engine had you at {pct(now)} WP")
+            read = (f"a real blow (your win chance {went(before, now)})" if swing is not None and swing <= -0.10
+                    else f"the engine still had you at {pct(now)} ({went(before, now)})" if swing is not None
+                    else f"the engine had you at {pct(now)}")
         elif feeling == "confident":
-            read = (f"the engine agreed: {pct(now)} WP" if now >= 0.6
-                    else f"the engine was cooler: {pct(now)} WP")
+            read = (f"the engine agreed: {pct(now)} win chance" if now >= 0.6
+                    else f"the engine was cooler: {pct(now)} win chance")
         elif feeling == "regret" and [p for p in g.mine if p <= position]:
             mine = g.mine[max(p for p in g.mine if p <= position)]
-            read = (f"the engine agrees, {g.label(mine['ply'])} cost {pct(mine['wp_loss'])} WP" if mine["wp_loss"] >= 0.05
-                    else f"the engine was fine with {g.label(mine['ply'])} ({_signed(-mine['wp_loss'])})")
+            read = (f"the engine agrees, {g.label(mine['ply'])} took you from {pct(mine['wp_before'])} to "
+                    f"{pct(mine['wp_after'])}" if mine["wp_loss"] >= 0.05
+                    else f"the engine was fine with {g.label(mine['ply'])} ({move_went(mine)})")
         else:
-            read = f"the engine had {pct(now)} WP"
+            read = f"the engine had you at {pct(now)}"
         follow = ""
         if nxt:
-            follow = f" Your next {len(nxt)} moves: {pct(lost)} WP lost, {avg:.0f}s each (game average {pace:.0f}s)."
+            follow = (f" Your next {len(nxt)} moves took you from {pct(nxt[0]['wp_before'])} to "
+                      f"{pct(nxt[-1]['wp_after'])}, {avg:.0f}s each (game average {pace:.0f}s).")
             if feeling == "shock" and lost >= 0.10 and avg < pace:
                 follow += " Speeding up after a shock is worth watching."
             elif feeling == "shock" and lost < 0.05:
@@ -565,7 +568,7 @@ def verdict(report: dict, analysis: dict | None, insights: list[dict]) -> dict:
         gap, ms = max(by_gap.items(), key=lambda kv: sum(m["wp_loss"] for m in kv[1]))
         worst = max(ms, key=lambda m: m["wp_loss"])
         lost = round(sum(m["wp_loss"] for m in ms) * 100)
-        many = (f" Across the game, {len(ms)} moves like this took {lost} points off your win chance."
+        many = (f" It happened {len(ms)} times this game."
                 if len(ms) > 1 else "")
         swing = lambda m: f"{pct(m['wp_before'])} to {pct(m['wp_after'])}"  # noqa: E731
         had = [d["move_san"] for d in worst.get("drawn_candidates", []) if d.get("legal") and not d.get("played")]
@@ -582,16 +585,16 @@ def verdict(report: dict, analysis: dict | None, insights: list[dict]) -> dict:
                     f" and played {worst['move_san']} instead, which took your win chance from {swing(worst)}.{many}")
         elif gap == "opponent_idea":
             text = (f"Check their idea first. {label(worst)} let {worst['q3']['threat_san']} through "
-                    f"({spct(-worst['wp_loss'])}).{many}")
+                    f"({move_went(worst)}).{many}")
         else:
             if had:  # you looked at other moves, just not the right one
                 more = f" (+{len(had) - 3} more)" if len(had) > 3 else ""
-                text = (f"Widen the search. At {label(worst)} ({spct(-worst['wp_loss'])}) you looked at "
+                text = (f"Widen the search. At {label(worst)} ({move_went(worst)}) you looked at "
                         f"{', '.join(had[:3])}{more}, but {worst['best_move_san']} never came up.{many}")
             else:
                 one = any(d.get("played") for d in worst.get("drawn_candidates", []))
                 what = "you considered only the move you played" if one else "you showed no candidates"
-                text = (f"A second candidate. At {label(worst)} ({spct(-worst['wp_loss'])}) {what}; "
+                text = (f"A second candidate. At {label(worst)} ({move_went(worst)}) {what}; "
                         f"{worst['best_move_san']} was best.{many}")
         watch = {"ply": worst["ply"], "text": text}
 

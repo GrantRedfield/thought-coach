@@ -42,4 +42,4 @@ def test_dashboard_renders_everything_on_one_page():
               "thresholds": {"time_trouble": 30}}
     assert "3. d3 instead of Bb5" in takeaways(report, ".")[0]
     page = render(report, {"moves": [costly]}, {"windows": [{**win(), "fen": costly["fen"]}]})
-    assert "class='timeline'" in page and "Where the WP went" in page and page.count("class='tab'") == 1
+    assert "class='timeline'" in page and "What went wrong, by cause" in page and page.count("class='tab'") == 1

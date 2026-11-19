@@ -31,7 +31,7 @@ def test_cashing_in_a_blunder_is_not_a_strike():
     analysis = {"moves": [rec(2, 0.5, 0.5), rec(4, 0.5, 0.48), rec(6, 0.45, 0.0)]}
     s = find(game(MATE), analysis, chess.BLACK)
     assert s["side"] is None and s["decided_by"] == "3... Nf6"
-    assert s["text"] == "None: the game was decided by your 3... Nf6 (-45%), cashed in with 4. Qxf7#."
+    assert s["text"] == "None: the game was decided by your 3... Nf6 (your win chance 45% → 0%), cashed in with 4. Qxf7#."
 
 
 def test_an_even_trade_is_not_a_strike():

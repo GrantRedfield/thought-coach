@@ -190,7 +190,7 @@ def find(game: chess.pgn.Game, analysis: dict, me: chess.Color, threat: dict | N
                 mine = striker != me
                 door = _label(i - 1, boards[i - 2].san(moves[i - 2]))
                 loss = abs(wp[i - 2] - wp[i - 1]) if (i - 2) in wp else None
-                size = "" if loss is None else f" ({pct(-loss)})" if mine else f" ({'+' + pct(loss)} for you)"
+                size = "" if loss is None else f" (your win chance {pct(wp[i - 2])} → {pct(wp[i - 1])})"
                 return {"side": None, "ply": i - 1, "decided_by": door, "decided_side": "you" if mine else "them",
                         "text": f"None: the game was decided by {'your' if mine else 'their'} {door}{size}, "
                                 f"cashed in with {_label(i, boards[i - 1].san(moves[i - 1]))}."}

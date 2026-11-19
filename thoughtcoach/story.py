@@ -33,7 +33,7 @@ import chess.svg
 from .critical import _said
 from .gametype import classify
 from . import timing
-from .fmt import game_url, home_url, pct
+from .fmt import move_went, went, game_url, home_url, pct
 
 MAX_BEATS = 6
 MIN_SCORE = 0.3  # a quiet game gets a shorter story rather than filler
@@ -189,7 +189,7 @@ def turning_point(c: Ctx) -> list[dict]:
     return [_beat("turning", m["ply"], m["wp_loss"] * 3 + 0.3, f"The turning point · move {m['move_number']}",
                   f"{_label(m['ply'], m['move_san'])}", f"Your win chance went from {pct(m['wp_before'])} to "
                   f"{pct(m['wp_after'])}. {why}", c.quote(m["ply"]), board, arrows,
-                  stat=f"−{pct(m['wp_loss'])}")]
+                  stat=move_went(m))]
 
 
 def rushed(c: Ctx) -> list[dict]:
@@ -221,7 +221,7 @@ def trust(c: Ctx) -> list[dict]:
         board = chess.Board(m["fen"])
         out.append(_beat("trust", m["ply"], m["wp_loss"] * 2.5, f"Trust your candidates · move {m['move_number']}",
                          f"You had {rejected[0]}", f"You drew {rejected[0]}, then played {m['move_san']} "
-                         f"({pct(-m['wp_loss'])}). The first idea was the right one.", c.quote(m["ply"]), board,
+                         f"({move_went(m)}). The first idea was the right one.", c.quote(m["ply"]), board,
                          [_arrow(board, rejected[0], GREEN), _arrow(board, m["move_san"], DARK_BLUE)]))
     return out
 
@@ -238,7 +238,7 @@ def threats(c: Ctx) -> list[dict]:
             out.append(_beat("threat", m["ply"], q3["swing"] * 2 + m["wp_loss"],
                              f"Aagaard's question 3 · move {m['move_number']}", "What did they want?",
                              f"{q3['threat_san']}, worth {pct(q3['swing'])} to them. You didn't draw it, and "
-                             f"{m['move_san']} didn't stop it ({pct(-m['wp_loss'])}).", c.quote(m["ply"]), board, [arrow]))
+                             f"{m['move_san']} didn't stop it ({move_went(m)}).", c.quote(m["ply"]), board, [arrow]))
         elif q3.get("status") == "spotted" and q3["swing"] >= 0.2:
             out.append(_beat("threat_seen", m["ply"], q3["swing"] * 0.9,
                              f"Aagaard's question 3 · move {m['move_number']}", "You saw it coming",
@@ -508,18 +508,25 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
             score["trust"] -= p["wp_loss"]
         elif p["gap"] in ("missed_candidate", "no_thoughts"):
             score["candidates"] -= p["wp_loss"]
-    why = {"q3": f"Threats you didn't see took {_pts(score['q3'])} off your win chance this game.",
-           "candidates": f"Moves where the good move never came up took {_pts(score['candidates'])} off your win chance.",
-           "trust": f"Good moves you drew and then dropped took {_pts(score['trust'])} off your win chance.",
-           "time": f"Moves in time trouble took {_pts(score['time'])} off your win chance.",
+    reassigned = explained | {p["ply"] for p in c.timing["rushed"]}
+
+    def costly(*gaps) -> list:
+        return [m for m in c.moves if m["mistake"] and m.get("gap") in gaps and m["ply"] not in reassigned]
+
+    made_moves = [m for m in c.moves if m["mistake"]
+                  and any(w.get("created_by") for w in (m.get("q1") or {}).get("weaknesses", []))]
+    why = {"q3": f"Threats you didn't see: {_tally(costly('opponent_idea'))}.",
+           "candidates": f"Moves where the good move never came up: {_tally(costly('missed_candidate', 'no_thoughts'))}.",
+           "trust": f"Good moves you drew and then dropped: {_tally(costly('wrongly_rejected'))}.",
+           "time": f"Moves in time trouble: {_tally([m for m in c.moves if m['mistake'] and m.get('gap') == 'time_trouble'])}.",
            "sharp": "",
-           "q1": f"Weaknesses your own moves created took {_pts(score['q1'])} off your win chance.",
+           "q1": f"Weaknesses your own moves created: {_tally(made_moves)}.",
            "q2": f"{worst_missed} passive piece{'s' * (worst_missed != 1)} never came up in your thinking.",
            "play_on": next((f"You called it lost while the engine still gave you {pct(i['wp'])}." for i in
                             c.report.get("insights") or [] if i["kind"] == "gave_up"), ""),
            "inner": "The judging voice cost you more than the position did.",
            "check": "You found the right idea, out loud, just after moving: " + next(
-               (f"{i['count']} time{'s' * (i['count'] != 1)}, worth {_pts(i['loss'])} of win chance." for i in
+               (f"{i['count']} time{'s' * (i['count'] != 1)}." for i in
                 c.report.get("insights") or [] if i["kind"] == "hindsight"), "")}
     thin = _thin_input(c)
     if thin:
@@ -535,20 +542,20 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
     if key == "sharp" and c.timing["rushed"]:
         p = c.timing["rushed"][0]
         reason = (f"At {timing.label(p, c.white)} only {p['best']} held, and you took {p['time']:.0f} s. "
-                  f"It cost {_pts(p['wp_loss'])}.")
+                  f"Your win chance went {went(p['wp_before'], p['wp_after'])}.")
         long = next((q for q in c.timing["lingered"] if q["ply"] < p["ply"]), None)
         if long:
             reason += f" You'd spent {long['time']:.0f} s on {timing.label(long, c.white)}, where several moves were fine."
     if key in ("q1", "q2") and causes[key]:
         m, w = max(causes[key], key=lambda x: x[0]["wp_loss"])
-        move, cost = _label(m["ply"], m["move_san"]), _pts(m["wp_loss"])
+        move, cost = _label(m["ply"], m["move_san"]), f"took your win chance from {pct(m['wp_before'])} to {pct(m['wp_after'])}"
         if key == "q2":
             reason = (f"At {move} the best move was {w['engine_move']}, bringing your {w['piece']} on {w['square']} "
-                      f"into the game. It never came up in your thinking, and {m['move_san']} cost {cost}.")
+                      f"into the game. It never came up in your thinking, and {m['move_san']} {cost}.")
         else:
             whose = "their" if w["side"] == "theirs" else "your"
             reason = (f"At {move} the engine's best line went after {whose} {w['kind']} on {w['square']}, which you "
-                      f"never marked. {m['move_san']} cost {cost}.")
+                      f"never marked. {m['move_san']} {cost}.")
             if w["side"] == "theirs":
                 habit = ("Every few moves, circle the weakest point in their camp (a hole, a loose piece, a pawn "
                          "no pawn can defend) and aim a candidate at it.")
@@ -570,10 +577,15 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
     return {"key": key, "title": title, "tag": tag, "habit": habit, "why": reason, "across": across}
 
 
-def _pts(x: float) -> str:
-    """Win chance lost, in percentage points: 0.39 -> '39 points'."""
-    v = x * 100
-    return f"{v:.0f} point{'s' * (round(v) != 1)}" if v >= 1 else "under 1 point"
+def _tally(ms: list[dict]) -> str:
+    """'3 times this game, the worst 22... Nf4 (75% → 56%)'."""
+    if not ms:
+        return "none this game"
+    worst = max(ms, key=lambda m: m["wp_loss"])
+    n = len(ms)
+    head = "once this game" if n == 1 else f"{n} times this game, the worst"
+    return f"{head} {_label(worst['ply'], worst['move_san'])} ({move_went(worst)})"
+
 
 
 def history_from_profile(p: dict) -> dict:

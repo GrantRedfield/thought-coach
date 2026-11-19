@@ -21,7 +21,7 @@ import re
 import statistics
 
 from .align import match_positions
-from .fmt import pct
+from .fmt import pct, avg_went
 
 GAVE_UP_WP = 0.25
 TIDE = 0.15
@@ -167,8 +167,8 @@ def inner(g, v: Voice) -> list[dict]:
     after_rate = statistics.mean(m["wp_loss"] for m in after) if after else 0
     pos, text = remarks[0]
     body = (f"The judging voice spoke up {len(remarks)} time{'s' * (len(remarks) != 1)}, first around move "
-            f"{g.move_number(pos)}: '{text}'. In the {FOLLOW} moves after it you lost {pct(after_rate)} per move, "
-            f"against {pct(per_move)} over the whole game. Noticing what happened ('this drops the knight') helps; "
+            f"{g.move_number(pos)}: '{text}'. In the {FOLLOW} moves after it your average move went {avg_went(after)}, "
+            f"against {avg_went(list(g.mine.values()))} over the whole game. Noticing what happened ('this drops the knight') helps; "
             "a verdict on yourself doesn't.")
     return [{"kind": "inner", "ply": pos, "weight": 0.4 + max(0.0, after_rate - per_move) * 5,
              "head": "The inner game", "body": body, "count": len(remarks),

@@ -145,8 +145,8 @@ def _wp_text(wp, best_wp) -> str:
     if wp is None:
         return ""
     loss = best_wp - wp
-    tail = "the best move" if loss <= 0.005 else ("also good" if loss <= 0.05 else f"gives up {pct(loss)}")
-    return f"WP {pct(wp)} &mdash; {tail}"
+    tail = "the best move" if loss <= 0.005 else ("also good" if loss <= 0.05 else f"best was {pct(best_wp)}")
+    return f"win chance {pct(wp)} &mdash; {tail}"
 
 
 def reel(move: dict, record: dict, window: dict | None, me: chess.Color, lastmove, line_for=None) -> Reel:
@@ -163,7 +163,7 @@ def reel(move: dict, record: dict, window: dict | None, me: chess.Color, lastmov
     clock = move.get("clock_before")
     if move.get("gap") == "time_trouble" and clock is not None:
         opp += f" You had {clock:.0f}s on your clock."
-    r.add(board, f"{side} to move, WP {pct(best_wp)}.{opp}", "", lastmove=lastmove, ms=2500)
+    r.add(board, f"{side} to move, win chance {pct(best_wp)}.{opp}", "", lastmove=lastmove, ms=2500)
 
     said = {}
     for s in shapes:
@@ -214,7 +214,7 @@ def reel(move: dict, record: dict, window: dict | None, me: chess.Color, lastmov
     # 3. What you played
     r.idea(board, played, BLUE, f"played {move['move_san']}",
            f"You played <b>{html.escape(move['move_san'])}</b>{quote(played)}",
-           f"WP {pct(record['wp_after'])} (&minus;{pct(record['wp_loss'])})", record.get("played_line_san"), lastmove)
+           f"win chance {pct(record['wp_before'])} &rarr; {pct(record['wp_after'])}", record.get("played_line_san"), lastmove)
 
     # 4. The engine
     found = set(move["q4"]["found"])
@@ -223,18 +223,18 @@ def reel(move: dict, record: dict, window: dict | None, me: chess.Color, lastmov
         m = chess.Move.from_uci(best["move_uci"])  # its line was already shown as one of yours
         r.chapter(f"best {best['move_san']}", GREEN)
         r.add(board, f"Engine's best: <b>{html.escape(best['move_san'])}</b> &mdash; you had it, then played "
-                     f"{html.escape(move['move_san'])}<br><b>WP {pct(best['wp'])} vs {pct(record['wp_after'])}</b>",
+                     f"{html.escape(move['move_san'])}<br><b>win chance {pct(best['wp'])} vs {pct(record['wp_after'])}</b>",
               GREEN, [chess.svg.Arrow(m.from_square, m.to_square, color=GREEN)], lastmove=lastmove, ms=3500)
     elif best and best["move_uci"] != record["move_uci"]:
         had = "not considered"
         r.idea(board, chess.Move.from_uci(best["move_uci"]), GREEN, f"best {best['move_san']}",
                f"Engine's best: <b>{html.escape(best['move_san'])}</b> &mdash; {had}",
-               f"WP {pct(best['wp'])}", best.get("line_san"), lastmove)
+               f"win chance {pct(best['wp'])}", best.get("line_san"), lastmove)
     missed = [c for c in record["candidates"] if c["move_san"] in move["q4"]["missed"] and c is not best][:2]
     for c in missed:
         r.idea(board, chess.Move.from_uci(c["move_uci"]), ORANGE, f"missed {c['move_san']}",
                f"Also good, not considered: <b>{html.escape(c['move_san'])}</b>",
-               f"WP {pct(c['wp'])}", c.get("line_san"), lastmove)
+               f"win chance {pct(c['wp'])}", c.get("line_san"), lastmove)
     q3, threat = move["q3"], record.get("threat")
     if threat and q3["status"] in ("spotted", "handled", "not_drawn"):
         state = {"spotted": "you saw it", "handled": "your move dealt with it", "not_drawn": "not spotted, and your move didn't stop it"}
@@ -294,7 +294,7 @@ def _table(move: dict, record: dict) -> str:
         f"<td class='line'>{html.escape(line or '')}</td></tr>"
         for san, wp, tags, line, cls in rows
     )
-    return f"<table><tr><th>Move</th><th>WP</th><th></th><th>Line</th></tr>{body}</table>"
+    return f"<table><tr><th>Move</th><th>Win chance</th><th></th><th>Line</th></tr>{body}</table>"
 
 
 def _said(window: dict | None) -> list[str]:
@@ -417,7 +417,7 @@ def render_html(report: dict, analysis: dict, thinking: dict | None, n: int = 3,
 <title>Critical moments {html.escape(g['id'])}</title>{THEME_HEAD}<style>{CSS}</style></head><body>{THEME_BUTTON}
 <h1>Critical moments</h1>
 <p class="sub">{html.escape(g['white'])} vs {html.escape(g['black'])} &middot; {html.escape(g['result'])} &middot;
-you played {g['my_color']} &middot; WP lost {pct(s['wp_lost_total'])} in total</p>
+you played {g['my_color']} &middot; {sum(1 for m in report['moves'] if m['mistake'])} costly moves</p>
 {LEGEND}
 {sections}
 <script>{JS}</script>

@@ -23,10 +23,10 @@ def test_latest_game_is_the_hero_with_its_story():
                                             {"kind": "turning", "title": "t", "body": "the moment", "eyebrow": "Turning point", "fen": None}],
              "focus": {"title": "Checks, captures and threats first", "habit": "Look at forcing moves"}, "arrows": 12, "said": 3}
     rows = home.facts(loaded, _prof(loaded))
-    page = home.hero(rows[-1], story, 0.02)
+    page = home.hero(rows[-1], story, (0.02, 0.5, 0.48))
     assert "You lost to" in page and "Opp" in page and "It came down to one move: 29. b5" in page
     assert "/games/BBBBBBBB/story" in page and "Checks, captures and threats first" in page
-    assert "worse than your average" in page and "the moment" in page and "other" not in page
+    assert "than usual (your average move: 50% → 48%)" in page and "the moment" in page and "other" not in page
 
 
 def test_render_without_games_invites_a_first_game():

@@ -18,7 +18,7 @@ import chess.svg
 from . import profile
 from .gametype import classify
 from . import timing
-from .fmt import game_url
+from .fmt import game_url, went
 
 RECENT = 5  # "your form": the last few games against the ones before
 
@@ -26,9 +26,6 @@ RECENT = 5  # "your form": the last few games against the ones before
 def _e(x) -> str:
     return html.escape(str(x), quote=True)
 
-
-def _pct1(x: float) -> str:
-    return f"{x * 100:.1f}%"
 
 
 # ---------------------------------------------------------------- per-game facts
@@ -51,6 +48,7 @@ def facts(loaded: list[dict], prof: dict) -> list[dict]:
             "elo": int(elo) if str(elo or "").isdigit() else None, "result": res,
             "outcome": "draw" if res == "1/2-1/2" else "won" if won else "lost", "opening": r.get("opening"),
             "per_move": p.get("per_move", 0.0), "costly": p.get("costly", 0), "moves": p.get("moves", 0),
+            "before": p.get("before"), "after": p.get("after"),
             "curve": [(m["ply"], 1.0 if m["move_san"].endswith("#") else m["wp_after"])
                       for m in g["analysis"].get("moves", []) if m.get("wp_after") is not None],
             "strike": (p.get("strike") or {}).get("side"),
@@ -105,14 +103,13 @@ def _games_chart(rows: list[dict]) -> str:
     parts = []
     for frac in (0.5, 1.0):
         v = top * frac / 1.15
-        parts.append(f"<line class='grid' x1='{L}' x2='{W - R}' y1='{y(v):.1f}' y2='{y(v):.1f}'/>"
-                     f"<text class='ax' x='{L - 6}' y='{y(v) + 3:.1f}' text-anchor='end'>{_pct1(v)}</text>")
+        parts.append(f"<line class='grid' x1='{L}' x2='{W - R}' y1='{y(v):.1f}' y2='{y(v):.1f}'/>")
     parts.append(f"<line class='base' x1='{L}' x2='{W - R}' y1='{y(0):.1f}' y2='{y(0):.1f}'/>")
     avg = []
     for i, r in enumerate(rows):
         cx = L + slot * (i + 0.5)
         h = max(2.0, y(0) - y(r["per_move"]))
-        tip = (f"{r['date'] or ''} vs {r['opp']} ({r['outcome']}): {_pct1(r['per_move'])} of your win chance lost per move, "
+        tip = (f"{r['date'] or ''} vs {r['opp']} ({r['outcome']}): your average move {went(r['before'], r['after'])}, "
                f"{r['costly']} costly move{'s' * (r['costly'] != 1)}")
         parts.append(f"<a href='{_e(game_url(r['id']))}' class='col {r['outcome']}' data-tip='{_e(tip)}'>"
                      f"<rect class='hit' x='{cx - slot / 2:.1f}' y='{T}' width='{slot:.1f}' height='{H - T - B}'/>"
@@ -124,7 +121,7 @@ def _games_chart(rows: list[dict]) -> str:
     if n >= 3:
         parts.append("<polyline class='avg' points='" + " ".join(f"{cx:.1f},{y(v):.1f}" for cx, v in avg) + "'/>")
     return (f"<div class='chartwrap'><svg class='games' viewBox='0 0 {W} {H}' role='img' "
-            f"aria-label='Win chance lost per move in each game'>{''.join(parts)}</svg><div class='tip' hidden></div></div>"
+            f"aria-label='How much your average move cost in each game'>{''.join(parts)}</svg><div class='tip' hidden></div></div>"
             "<p class='legend'><span><i class='sw won'></i>won</span><span><i class='sw lost'></i>lost</span>"
             "<span><i class='sw draw'></i>draw</span><span><i class='sw avg'></i>average of the last 5</span>"
             "<span class='muted'>lower is better · games oldest to newest · click a column to open the game</span></p>")
@@ -157,7 +154,8 @@ def _type_chip(t: dict | None, big: bool = False) -> str:
     return f"<p class='gtype {t['kind']}{' big' if big else ''}' title='{_e(t['why'])}'>{_e(t['label'])}{why}</p>"
 
 
-def hero(last: dict, story: dict | None, avg_before: float | None) -> str:
+def hero(last: dict, story: dict | None, avg_before: tuple | None) -> str:
+    """avg_before: your earlier games' (win chance lost per move, average move before, after)."""
     s = story or {}
     beats = s.get("beats") or []
     top = beats[0] if beats else None
@@ -174,13 +172,13 @@ def hero(last: dict, story: dict | None, avg_before: float | None) -> str:
     focus = s.get("focus")
     compare = ""
     if avg_before is not None and last["moves"]:
-        d = last["per_move"] - avg_before
-        better = d <= 0
-        compare = (f"<div class='chip {'up' if better else 'down'}'><b>{'▼' if better else '▲'} {abs(d) * 100:.1f}</b>"
-                   f"points per move {'better' if better else 'worse'} than your average</div>")
+        better = last["per_move"] <= avg_before[0]
+        compare = (f"<div class='chip {'up' if better else 'down'}'><b>{'better' if better else 'worse'}</b>"
+                   f"than usual (your average move: {went(avg_before[1], avg_before[2])})</div>")
     elo = f" ({_e(last['opp_elo'])})" if last.get("opp_elo") else ""
     stats = [(s.get("arrows"), "arrows drawn"), (s.get("said"), "things said aloud"),
-             (last["costly"], "costly moves"), (_pct1(last["per_move"]), "win chance lost per move")]
+             (last["costly"], "costly moves"), (went(last["before"], last["after"]) if last.get("before") is not None
+                                                   else None, "your average move")]
     chips = "".join(f"<div class='chip'><b data-count>{_e(v)}</b>{_e(t)}</div>" for v, t in stats if v is not None)
     board = _board(key, s.get("orientation") or last["color"])
     figure = (f"<figure class='hfig'><div class='brd'>{board}</div><figcaption>{_e(key['eyebrow'])}</figcaption></figure>"
@@ -227,11 +225,15 @@ def form(rows: list[dict], prof: dict) -> str:
     per = [r["per_move"] for r in rows]
     if before:
         d = statistics.mean(x["per_move"] for x in recent) - statistics.mean(x["per_move"] for x in before)
-        delta = f"last {len(recent)}: {'▼' if d <= 0 else '▲'} {abs(d) * 100:.1f} points vs before"
+        mean = lambda rs, k: statistics.mean(x[k] for x in rs if x.get(k) is not None)  # noqa: E731
+        delta = (f"last {len(recent)}: {went(mean(recent, 'before'), mean(recent, 'after'))} · "
+                 f"before: {went(mean(before, 'before'), mean(before, 'after'))}")
         tone = "up" if d <= 0 else "down"
     else:
         delta, tone = "", ""
-    tile(_pct1(statistics.mean(per)), "Win chance lost per move", _trend(per), delta, tone)
+    known = [r for r in rows if r.get("before") is not None]
+    avg = went(statistics.mean(r["before"] for r in known), statistics.mean(r["after"] for r in known)) if known else "?"
+    tile(avg, "Your average move", _trend(per), delta, tone)
     tile(f"{statistics.mean(r['costly'] for r in rows):.1f}", "Costly moves per game", _trend([r["costly"] for r in rows]))
     tm = [r["timing"] for r in rows if r.get("timing")]
     if tm:
@@ -273,7 +275,7 @@ def cards(rows: list[dict], statuses: dict[str, dict]) -> str:
         out.append(f"""<a class='gcard {r['outcome']}' href='{_e(game_url(r['id']))}'>
 <p class='gtop'><span class='res'>{res}</span><b>vs {_e(r['opp'])}</b><span class='gdate'>{_e(r['date'] or '')}</span></p>{_type_chip(r.get('type'))}
 {_spark(r['curve'])}
-<p class='gmeta'>{_e(r['tc'] or '')} · {_e(r['color'])} · {r['costly']} costly · {_pct1(r['per_move'])}/move</p>
+<p class='gmeta'>{_e(r['tc'] or '')} · {_e(r['color'])} · {r['costly']} costly · avg move {went(r['before'], r['after']) if r.get('before') is not None else '?'}</p>
 <span class='gplay' data-href='{_e(game_url(r['id'], story=True))}'>&#9654; story</span></a>""")
     return "".join(out)
 
@@ -291,11 +293,12 @@ minutes after it ends, its story shows up here. Draw an arrow for each move you 
 loud: the more the review sees, the more it can tell you.</p><div class="cta"><a class="btn play" href="https://lichess.org/">Play on lichess</a>
 <a class="btn ghost" href="https://thoughtcoach.org/play">Tips for your first games</a></div></div></section>{f"<div class='grid'>{waiting}</div>" if waiting else ''}"""
     last = rows[-1]
-    before = [r["per_move"] for r in rows[:-1] if r["moves"]]
+    before = [r for r in rows[:-1] if r["moves"] and r.get("before") is not None]
     patterns = profile.render(prof) if len(rows) >= 2 else ""
-    return f"""{hero(last, stories.get(last['id']), statistics.mean(before) if before else None)}
+    return f"""{hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before), statistics.mean(r["before"] for r in before),
+                                                        statistics.mean(r["after"] for r in before)) if before else None)}
 {form(rows, prof)}
-<section class="chart"><h2>Every game at a glance</h2><p class="cap">How much of your win chance slipped away per move, game by game</p>
+<section class="chart"><h2>Every game at a glance</h2><p class="cap">How much your average move cost, game by game (hover a column: where your average move took your win chance)</p>
 {_games_chart(rows)}</section>
 <section><h2>Your games</h2><div class="grid">{cards(rows, statuses)}</div></section>
 {patterns}"""

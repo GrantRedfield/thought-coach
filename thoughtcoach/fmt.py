@@ -11,6 +11,24 @@ def pct(x: float | None) -> str:
     return f"{v:.0f}%"
 
 
+def went(before: float | None, after: float | None) -> str:
+    """How a win chance changed, shown as where it went: '80% → 16%' (never as a difference)."""
+    return f"{pct(before)} → {pct(after)}"
+
+
+def move_went(m: dict) -> str:
+    """'80% → 16%' for one move (anything with wp_before / wp_after)."""
+    return went(m.get("wp_before"), m.get("wp_after"))
+
+
+def avg_went(moves: list[dict]) -> str:
+    """Your average move, as where it went: '52% → 49%'."""
+    ms = [m for m in moves if m.get("wp_before") is not None and m.get("wp_after") is not None]
+    if not ms:
+        return "?"
+    return went(sum(m["wp_before"] for m in ms) / len(ms), sum(m["wp_after"] for m in ms) / len(ms))
+
+
 def spct(x: float | None, minus: str = "-") -> str:
     """Signed: +3%, -28%, 0% (minus can be '&minus;' or '−' for HTML)."""
     if x is None:

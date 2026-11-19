@@ -38,7 +38,7 @@ def test_called_it_and_one_track():
     marked_only = {"kind": "key_square", "source": "voice", "from": "e5", "said": "e5", "phase": "own_time"}
     game, report, thinking = setup([{"ply": 5, "shapes": [weak, marked_only]}])
     found = {i["kind"]: i for i in build(game, chess.WHITE, report, thinking)}
-    assert "4. Nxe5 (-30%) let 4... Qg5 land on exactly that square" in found["called_it"]["body"]
+    assert "4. Nxe5 (55% → 25%) let 4... Qg5 land on exactly that square" in found["called_it"]["body"]
     assert "said 'weak g5'" in found["called_it"]["body"]
     assert "Nxd4 (best) never came up" in found["one_track"]["body"]
 
@@ -50,7 +50,7 @@ def test_read_plan_and_planned():
                                     {"ply": 7, "shapes": [idea("g5", "g2"), plan]}])
     found = {i["kind"]: i for i in build(game, chess.WHITE, report, thinking)}
     assert "3... Nd4" in found["read_plan"]["body"] and "5... Qxg2" in found["read_plan"]["body"]
-    assert "5. Nxf7 (0%) was considered 1 move early before it was even possible" in found["planned"]["body"]
+    assert "5. Nxf7 (held at 25%) was considered 1 move early before it was even possible" in found["planned"]["body"]
 
 
 def test_percent_format():

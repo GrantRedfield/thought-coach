@@ -61,7 +61,9 @@ def classify(analysis: dict, game: dict) -> dict | None:
     if me <= 0.5 and hi >= 1 - SWINDLE:
         return out("swindled", f"You were up to {pct(hi)} and {'lost' if me == 0 else 'only drew'}.")
     if mine and theirs and mine + theirs >= CRAZY:
-        return out("crazy", f"The win chance swung {SWING * 100:.0f} points or more in one move {mine + theirs} times.")
+        k = max(range(len(deltas)), key=lambda j: abs(deltas[j]))
+        return out("crazy", f"{mine + theirs} single moves swung the game; the biggest took your win chance "
+                            f"from {pct(w[k])} to {pct(w[k + 1])}.")
     if me != 0.5:
         won = me == 1
         ahead = w if won else [1 - x for x in w]  # the winner's win chance

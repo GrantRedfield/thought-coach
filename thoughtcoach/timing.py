@@ -54,7 +54,7 @@ def positions(analysis: dict, report: dict) -> list[dict]:
         out.append({"ply": r["ply"], "move_number": r["move_number"], "move_san": r["move_san"], "fen": r["fen"],
                     "time": float(r["time_spent"]), "good": good, "best": r.get("best_move_san"),
                     "critical": good == 1 and not obvious, "obvious": obvious, "wp_loss": r["wp_loss"],
-                    "wp_before": r.get("wp_before"), "gap": (costly.get(r["ply"]) or {}).get("gap")})
+                    "wp_before": r.get("wp_before"), "wp_after": r.get("wp_after"), "gap": (costly.get(r["ply"]) or {}).get("gap")})
     return out
 
 

@@ -20,7 +20,7 @@ from .critical import CSS as REEL_CSS
 from .critical import _last_move, pick, player_html, reel, sharpness
 from .gaps import GAP_LABEL, GAPS
 from .gametype import classify
-from .fmt import game_url, pct
+from .fmt import avg_went, game_url, move_went, pct
 from .fmt import THEME_BUTTON, THEME_HEAD
 from . import questions, timing
 
@@ -64,14 +64,14 @@ def takeaways(report: dict, dots: str) -> list[str]:
         if not ms:
             continue
         lost = sum(m["wp_loss"] for m in ms)
-        ex = "; ".join(_example(m, dots) for m in ms[:2])
+        ex = "; ".join(f"{_example(m, dots)}, {move_went(m)}" for m in ms[:2])
+        n = f"{len(ms)} move{'s' if len(ms) > 1 else ''}"
         if gap == "time_trouble":
-            out.append((lost, f"<b>Time trouble</b> cost <b>{pct(lost)}</b> WP in {len(ms)} move{'s' if len(ms) > 1 else ''} "
-                              f"played under {report['thresholds'].get('time_trouble', 30):.0f}s, "
-                              f"from move {min(m['move_number'] for m in ms)} on."))
+            out.append((lost, f"<b>Time trouble</b>: {n} played under {report['thresholds'].get('time_trouble', 30):.0f}s, "
+                              f"from move {min(m['move_number'] for m in ms)} on; the worst {_e(_label(ms[0], dots))} "
+                              f"<b>{move_went(ms[0])}</b>."))
         else:
-            out.append((lost, f"<b>{_e(GAP_LABEL[gap].capitalize())}</b>: <b>{pct(lost)}</b> WP in {len(ms)} "
-                              f"move{'s' if len(ms) > 1 else ''} &mdash; {_e(ex)}."))
+            out.append((lost, f"<b>{_e(GAP_LABEL[gap].capitalize())}</b>: {n} &mdash; {_e(ex)}."))
     out.sort(key=lambda x: -x[0])
     picked = [m for m in moves if any(p["best_piece"] and not p["moved"] for p in m.get("picked_up", []))]
     lines = [t for _, t in out[: 2 if picked else 3]]  # four lines at most, to fit the screen
@@ -227,7 +227,7 @@ def game_chart(report: dict, analysis: dict, critical_plies: list[int], dots: st
         if m:
             rows.append([pct(m["wp_after"]), "win % after", "wp"])
             if m["mistake"]:
-                rows.append([f"−{pct(m['wp_loss'])}", SHORT.get(m["gap"], "costly"), ""])
+                rows.append([move_went(m), SHORT.get(m["gap"], "costly"), ""])
             drawn = len([d for d in m.get("drawn_candidates", []) if d.get("legal")])
             rows.append([str(drawn), "candidates considered", ""])
         elif r.get("wp_after") is not None and r.get("skipped") == "decided":
@@ -268,7 +268,7 @@ def time_card(report: dict, analysis: dict) -> str:
     items = []
     for p in t["rushed"][:3]:
         items.append(f"<li class='rushed'><b>{_e(timing.label(p, white))}</b> {p['time']:.0f} s. Only {_e(p['best'])} held, "
-                     f"and this cost {pct(p['wp_loss'])} (your usual think: {t['usual']:.0f} s).</li>")
+                     f"and your win chance went {pct(p['wp_before'])} → {pct(p['wp_after'])} (your usual think: {t['usual']:.0f} s).</li>")
     for p in t["lingered"][:2]:
         items.append(f"<li class='lingered'><b>{_e(timing.label(p, white))}</b> {p['time']:.0f} s, with {p['good']} moves "
                      f"about equally good.</li>")
@@ -291,10 +291,12 @@ def gap_bars(report: dict) -> str:
                 none.append(SHORT[gap].lower())
             continue
         width = b["wp_lost"] / top * 100
+        worst = max((m for m in report["moves"] if m["mistake"] and m["gap"] == gap), key=lambda m: m["wp_loss"], default=None)
+        moves = f"{b['count']} move{'s' if b['count'] != 1 else ''}"
         rows.append(f"<div class='bar-row{' muted' if gap == 'time_trouble' else ''}' "
-                    f"data-tip='{_e(GAP_LABEL[gap])}: {pct(b['wp_lost'])} WP in {b['count']} move(s)'>"
+                    f"data-tip='{_e(GAP_LABEL[gap])}: {moves}" + (f", the worst {move_went(worst)}" if worst else "") + "'>"
                     f"<span class='bar-label'>{_e(SHORT[gap])}</span>"
-                    f"<span class='bar-val'>{pct(b['wp_lost'])}<small> &middot; {b['count']} move{'s' if b['count'] != 1 else ''}</small></span>"
+                    f"<span class='bar-val'>{moves}" + (f"<small> &middot; worst {move_went(worst)}</small>" if worst else "") + "</span>"
                     f"<span class='bar-track'><span class='bar' style='width:{width:.1f}%'></span></span></div>")
     if none:
         rows.append(f"<p class='more'>Nothing lost to: {_e(', '.join(none))}.</p>")
@@ -401,7 +403,7 @@ def costly_list(report: dict, dots: str, critical_plies: list[int], limit: int =
         elif m["gap"] in ("missed_candidate", "no_thoughts"):
             extra = f"best {m['best_move_san']}"
         rows.append(f"<tr class='{'muted' if m['gap'] == 'time_trouble' else ''}'{f' data-moment={num - 1}' if num else ''}>"
-                    f"<td class='mv'>{badge}{_e(_label(m, dots))}</td><td class='loss'>&minus;{pct(m['wp_loss'])}</td>"
+                    f"<td class='mv'>{badge}{_e(_label(m, dots))}</td><td class='loss'>{move_went(m)}</td>"
                     f"<td>{_e(SHORT.get(m['gap'], ''))}</td><td class='ex'>{_e(extra)}</td></tr>")
     more = f"<p class='more'>+{len(costly) - limit} more in the text report</p>" if len(costly) > limit else ""
     return f"<table class='costly'>{''.join(rows)}</table>{more}" if rows else "<p class='more'>No costly moves.</p>"
@@ -624,8 +626,8 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
     thinking_n = sum(b["count"] for k, b in s["by_gap"].items() if k != "time_trouble")
     tt_n = s["by_gap"].get("time_trouble", {}).get("count", 0)
     kpis = [
-        (f"{thinking_n}", f"costly moves with time to think: −{pct(thinking_lost)} WP"),
-    ] + ([(f"{tt_n}", f"costly in time trouble (under {report['thresholds'].get('time_trouble', 30):.0f}s): −{pct(tt_lost)} WP")] if tt_n else []) + [
+        (f"{thinking_n}", "costly moves with time to think"),
+    ] + ([(f"{tt_n}", f"costly in time trouble (under {report['thresholds'].get('time_trouble', 30):.0f}s)")] if tt_n else []) + [
         (f"{s['q3_spotted'] + s.get('q3_handled', 0)}/{real}" if real else "–", "real threats seen or stopped"),
         (f"{s['q4_best_considered']}/{s['q4_positions']}" if s["q4_positions"] else "–", "best move among yours"),
     ]
@@ -664,7 +666,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
         <span><i class="tri"></i>only one move held</span></div></div>
       {thoughts}
       <div class="bottom">
-        <div class="card"><h3>Where the WP went</h3><div class="gapbars">{gap_bars(report)}</div></div>
+        <div class="card"><h3>What went wrong, by cause</h3><div class="gapbars">{gap_bars(report)}</div></div>
       </div>
     </div>
   </div>
