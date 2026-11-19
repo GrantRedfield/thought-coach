@@ -18,7 +18,7 @@ from pathlib import Path
 
 import chess
 import chess.pgn
-from . import bayes, questions, tone
+from . import ahead, bayes, questions, tone
 from .fmt import game_url, went
 
 SOLID = 30  # moves a comparison needs before it is more than an early signal
@@ -156,6 +156,7 @@ def compute(games: list[dict]) -> dict:
         "good": [(name, _rate([x for x in thinking_rows if x["cands"] and x["good"] == want]))
                  for name, want in (("yes", True), ("no", False))],
         "aagaard": questions.compute(games),
+        "ahead": ahead.summary([r for g in games for r in ahead.rows(g["analysis"], g["report"])]),
         "tone": {"stats": tone.stats([r for g in games for r in (g["report"].get("tone") or {}).get("moves", [])],
                                      tone.MIN_MOVES_ALL),
                  "games": sum(1 for g in games if (g["report"].get("tone") or {}).get("moves"))},
@@ -573,6 +574,7 @@ that it's a real pattern and not luck.</p>
   <div class="pcard"><h3>What went wrong, by cause, all games</h3><p class="cap">Share of what your costly moves cost you, by cause</p>{gaps}</div>
   <div class="pcard"><h3>Who struck first</h3><p class="cap">The first tactic in each game once it's out of the opening book (a capture,
     check or threat that changes the game; even trades don't count), and how those games ended</p>{_strike_card(p['strikes'])}</div>
+  {f"<div class='pcard'><h3>When you're winning</h3><p class='cap'>Your moves at 65%+ against your moves when it's level</p><p class='tone-find'>{_e(ahead.sentence(p['ahead']))}</p></div>" if p.get('ahead') else ''}
   <div class="pcard"><h3>Costly moves by piece</h3><p class="cap">Which piece you moved (5+ moves)</p>{SPLIT_KEY}{pieces}</div>
 </div></section>""",
         "voice": f"<section class='profile'><div class='pgrid one'>{voice_card}</div></section>" if p["tone"]["games"] else "",

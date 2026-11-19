@@ -96,3 +96,13 @@ def test_a_rushed_critical_move_makes_time_the_focus():
     assert "only Bb5 held, and you took 4 s" in s["focus"]["why"] and "70 s on 5. a3" in s["focus"]["why"]
     turning = next(b for b in s["beats"] if b["kind"] == "turning")
     assert "Only Bb5 held, and you took 4 s" in turning["body"]
+
+
+def test_ahead_reply_and_caught():
+    from thoughtcoach import ahead
+    assert ahead._reply("27...Nxc3+ 28. Qxc3 Qxc3") == "Qxc3"
+    assert ahead._reply("18. e4 a5 19. Nd2") == "a5"
+    rec = {"ply": 54, "move_number": 27, "move_san": "Nxc3+", "wp_before": 0.8, "wp_after": 0.16, "wp_loss": 0.64,
+           "time_spent": 12, "clock_before": 200, "played_line_san": "27...Nxc3+ 28. Qxc3"}
+    [m] = ahead.caught({"moves": [rec]}, {"thresholds": {"time_trouble": 30}})
+    assert m["reply"] == "Qxc3" and m["tactic"] and m["zone"] == "ahead"

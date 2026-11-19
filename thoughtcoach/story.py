@@ -33,7 +33,7 @@ import chess.svg
 from .critical import _said
 from .gametype import classify
 from .strike import EXPLAIN as STRIKE_EXPLAIN
-from . import bayes, timing, tone
+from . import ahead, bayes, timing, tone
 from .fmt import move_went, went, game_url, home_url, pct
 
 MAX_BEATS = 6
@@ -49,7 +49,7 @@ ACCENT = {  # card background accents, by kind
     "weak_made": "#e67700", "weak_found": "#2b8a3e", "weak_missed": "#e67700", "worst": "#7048e8",
     "worst_named": "#2b8a3e", "insight": "#0c8599", "strike": "#f08c00", "decided": "#c92a2a", "clock": "#495057",
     "result": "#343a40", "focus": "#2f9e44", "tide": "#1098ad", "gave_up": "#862e9c", "instinct": "#1c7ed6",
-    "inner": "#5f3dc4", "voice": "#0b7285", "truths": "#5c7cfa", "rosy": "#d9480f", "worry_held": "#e67700", "gloomy": "#1971c2",
+    "inner": "#5f3dc4", "voice": "#0b7285", "truths": "#5c7cfa", "caught": "#e8590c", "rosy": "#d9480f", "worry_held": "#e67700", "gloomy": "#1971c2",
 }
 MOOD_COLOR = {"upbeat": "#51cf66", "worried": "#ff922b", "neutral": "#ffffffaa"}
 MOOD_WORD = {"upbeat": "upbeat", "worried": "worried", "neutral": "calculating", "quiet": "quiet"}
@@ -79,6 +79,8 @@ class Ctx:
         self.windows = {w["ply"]: w for w in (thinking or {}).get("windows", [])}
         self.timing = timing.game(analysis, report) or {"rushed": [], "lingered": [], "usual": 0}
         self.tone = {r["ply"]: r for r in (report.get("tone") or {}).get("moves", [])}
+        self.caught = ahead.caught(analysis, report)  # costly moves while you were winning
+        self.ahead_note = None  # the cross-game pattern, set by build() from history
         self.white = report["game"]["my_color"] == "white"
         tt = report["thresholds"].get("time_trouble", 30)
         self.tt = tt
@@ -232,7 +234,8 @@ def moods(c: Ctx) -> list[dict]:
                              f"Around move {r['move_number']} you said “{r['quote']}”, with your win chance at "
                              f"{pct(r['wp_before'])}. {later}, {_label(m['ply'], m['move_san'])} took it from "
                              f"{pct(m['wp_before'])} to {pct(m['wp_after'])}. Feeling good is fine; it is a good "
-                             f"moment to look once more.", None, c.board_before(m["ply"])))
+                             f"moment to look once more." + (f" Across your games, {c.ahead_note[0].lower()}{c.ahead_note[1:]}" if c.ahead_note else ""),
+                             None, c.board_before(m["ply"])))
             break
     for r in rows:
         if r["mood"] == "worried" and r["best_forcing"] and not r["played_forcing"] and r["wp_loss"] >= 0.05 and r["quote"]:
@@ -252,6 +255,24 @@ def moods(c: Ctx) -> list[dict]:
                          f"You said “{r['quote']}” while the engine had you at {pct(r['wp_before'])}, and you kept it "
                          f"there ({pct(r['wp_before'])} → {pct(r['wp_after'])}).", None, c.board_before(r["ply"])))
     return out
+
+
+def comfortable(c: Ctx) -> list[dict]:
+    """A costly move while you were winning: how fast it was, and what came back (ahead.py)."""
+    if not c.caught:
+        return []
+    m = c.caught[0]
+    if m["ply"] not in c.by_ply:
+        return []
+    board = chess.Board(c.by_ply[m["ply"]]["fen"])
+    usual = c.timing.get("usual") or 0
+    pace = f", against your usual {usual:.0f} s" if usual else ""
+    return [_beat("caught", m["ply"], m["wp_loss"] * 2.2, f"When you're ahead · move {m['move_number']}",
+                  "Comfortable, then caught",
+                  f"You were at {pct(m['wp_before'])} and played {_label(m['ply'], m['move_san'])} in {m['time']:.0f} s"
+                  f"{pace}. {m['reply'] or 'Their reply'} took you to {pct(m['wp_after'])}.",
+                  c.quote(m["ply"]), board, [_arrow(board, m["move_san"], DARK_BLUE),
+                                             _arrow(board, c.by_ply[m['ply']].get('best_move_san'), GREEN)])]
 
 
 def voice_card(c: Ctx) -> dict | None:
@@ -462,7 +483,7 @@ def clock(c: Ctx) -> list[dict]:
                   f"those {len(tt_moves)} moves.", c.quote(first["ply"]), stat=f"{first['clock_before']:.0f}s")]
 
 
-SOURCES = (turning_point, rushed, moods, trust, threats, weaknesses, worst_piece, insights, strike, clock)
+SOURCES = (turning_point, rushed, moods, comfortable, trust, threats, weaknesses, worst_piece, insights, strike, clock)
 
 
 def decisive(c: Ctx) -> bool:
@@ -514,6 +535,9 @@ FOCUS = {
               "back to the board. No verdicts on yourself."),
     "check": ("Look once more before you let go", "Blunder check",
               "Before you release the piece, ask one question: what does this move allow?"),
+    "ahead": ("Stay alert when you're winning", "When you're ahead",
+              "When the game is going your way, keep one question on every move: what are their checks, captures "
+              "and threats? A good position is where their tactics hide."),
     "sharp": ("Slow down when it's sharp", "Time usage",
               "After a capture, a check or a surprise, ask before you move: is there only one move here? "
               "If there is, that's where your time goes."),
@@ -578,7 +602,19 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
         score["candidates"] -= lost
     # A costly move played fast where only one move held: the time is the cause (an unseen threat
     # or a missed weakness / worst piece stays with its question).
-    explained = {m["ply"] for q in causes.values() for m, _ in q}
+    explained = {m["ply"] for q in causes.values() for m, _ in q}  # plies a cause already explains
+    # Comfortable, then caught: a costly move while you were winning (ahead.py).
+    score["ahead"] = 0.0
+    for m in c.caught:
+        if m["ply"] in explained:
+            continue
+        score["ahead"] += m["wp_loss"]
+        gap = c.by_ply.get(m["ply"], {}).get("gap")
+        if gap == "wrongly_rejected":
+            score["trust"] -= m["wp_loss"]
+        elif gap in ("missed_candidate", "no_thoughts"):
+            score["candidates"] -= m["wp_loss"]
+        explained.add(m["ply"])
     score["sharp"] = 0.0
     for p in c.timing["rushed"]:
         if p["ply"] in explained or p["gap"] in ("opponent_idea", "time_trouble"):
@@ -600,6 +636,7 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
            "trust": f"Good moves you drew and then dropped: {_tally(costly('wrongly_rejected'))}.",
            "time": f"Moves in time trouble: {_tally([m for m in c.moves if m['mistake'] and m.get('gap') == 'time_trouble'])}.",
            "sharp": "",
+           "ahead": "",
            "q1": f"Weaknesses your own moves created: {_tally(made_moves)}.",
            "q2": f"{worst_missed} passive piece{'s' * (worst_missed != 1)} never came up in your thinking.",
            "play_on": next((f"You called it lost while the engine still gave you {pct(i['wp'])}." for i in
@@ -619,6 +656,14 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
     title, tag, habit = FOCUS[key]
     across = hist.get("note", {}).get(key)
     reason = why[key]
+    if key == "ahead" and c.caught:
+        m = c.caught[0]
+        reason = (f"At {_label(m['ply'], m['move_san'])} you were at {pct(m['wp_before'])} and took {m['time']:.0f} s; "
+                  f"{m['reply'] or 'their reply'} took it to {pct(m['wp_after'])}.")
+        said = [r for r in c.tone.values() if r["mood"] == "upbeat" and r["quote"] and m["ply"] - 4 <= r["ply"] <= m["ply"]]
+        if said:
+            reason += f" Just before, you'd said “{said[-1]['quote']}”."
+        across = (history or {}).get("ahead")
     if key == "sharp" and c.timing["rushed"]:
         p = c.timing["rushed"][0]
         reason = (f"At {timing.label(p, c.white)} only {p['best']} held, and you took {p['time']:.0f} s. "
@@ -694,7 +739,9 @@ def history_from_profile(p: dict) -> dict:
         strong, weak = findings(p)
         sure = [dict(f, good=f in strong) for f in strong + weak if f.get("sure") is not None]
         truths = sorted(sure, key=lambda f: -f["sure"])[:3]
-    return {"share": share, "note": note, "truths": truths, "games": n}
+    al = p.get("ahead")
+    return {"share": share, "note": note, "truths": truths, "games": n,
+            "ahead": ahead.sentence(al) if al else None}
 
 
 # ---------------------------------------------------------------- putting it together
@@ -703,6 +750,7 @@ def history_from_profile(p: dict) -> dict:
 def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.Game | None,
           history: dict | None = None) -> dict:
     c = Ctx(report, analysis, thinking, game)
+    c.ahead_note = (history or {}).get("ahead")
     one = decisive(c)
     every = [b for src in SOURCES for b in src(c)]
     beats = pick(every, DECISIVE_BEATS if one else MAX_BEATS)

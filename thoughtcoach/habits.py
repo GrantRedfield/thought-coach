@@ -37,6 +37,13 @@ def _clock(g):
     return sum(1 for m in moves if m.get("clock_before") is not None and m["clock_before"] < tt), len(moves)
 
 
+def _ahead(g):
+    from .ahead import rows
+
+    rs = [r for r in rows(g["analysis"], g["report"]) if r["zone"] == "ahead"]
+    return sum(r["costly"] for r in rs), len(rs)
+
+
 def _shown(g):
     s = g["report"]["summary"]
     return s.get("moves_with_thoughts", 0), s.get("moves_reviewed", 0)
@@ -52,6 +59,7 @@ MEASURE = {
     "sharp": ("critical positions that went wrong", _sharp, False),
     "time": ("moves played in time trouble", _clock, False),
     "input": ("moves with an arrow or words", _shown, True),
+    "ahead": ("moves that went wrong while you were winning", _ahead, False),
 }
 
 
