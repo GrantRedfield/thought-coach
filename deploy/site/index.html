@@ -9,17 +9,18 @@
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="/site.css">
 <style>
-  main.wide { max-width:1240px; }
+  main.wide { max-width:1480px; } main.wide nav.top { margin-bottom:20px; }
   .eyebrow-s { font:700 12px ui-monospace, Consolas, monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 8px; }
-  section.block { margin:72px 0 0; } section.block > h2 { font-size:clamp(24px, 3vw, 32px); margin:0 0 6px; }
-  section.block > .sub { color:var(--fg2); margin:0 0 22px; max-width:70ch; }
+  section.block { margin:40px 0 0; } section.block > h2 { font-size:clamp(20px, 2.2vw, 26px); margin:0 0 4px; }
+  section.block > .sub { color:var(--fg2); margin:0 0 14px; max-width:70ch; font-size:14.5px; }
 
   /* hero */
-  .hero { display:grid; grid-template-columns:minmax(0, 1.05fr) minmax(0, 1fr); gap:48px; align-items:center; margin-top:8px; }
-  .hero h1 { font-size:clamp(34px, 5vw, 56px); }
+  .hero { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:40px; align-items:center; margin-top:0; }
+  .hero h1 { font-size:clamp(32px, 3.6vw, 48px); margin-top:0; }
+  .hero .lead { margin-bottom:18px; }
   .storycard { border-radius:20px; padding:22px; color:#fff; box-shadow:0 24px 60px #0007;
     background:radial-gradient(120% 90% at 50% 0%, #8a3a12 0%, #241411 55%, #0b0b0c 100%); }
-  .storycard .row2 { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:18px; align-items:center; }
+  .storycard .row2 { display:grid; grid-template-columns:minmax(0, 250px) minmax(0, 1fr); gap:18px; align-items:center; }
   .storycard img { width:100%; border-radius:8px; display:block; box-shadow:0 10px 30px #0008; }
   .sc-eye { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:#ffffffb3; margin:0 0 6px; }
   .sc-title { font-size:24px; font-weight:800; line-height:1.1; margin:0 0 10px; }
@@ -31,43 +32,48 @@
   .sc-cap { font-size:12px; color:var(--muted); text-align:center; margin:10px 0 0; }
 
   /* steps */
-  .steps4 { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; }
-  .step { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; display:flex; flex-direction:column; gap:10px; }
-  .step .pic { height:170px; border-radius:10px; background:var(--soft); display:grid; place-items:center; overflow:hidden; position:relative; }
-  .step .pic img { width:150px; height:150px; }
-  .step h3 { margin:0; font-size:16px; } .step p { margin:0; color:var(--fg2); font-size:14px; }
+  .duo { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:28px; margin-top:40px; }
+  .duo section.block { margin:0; }
+  .steps4 { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+  .step { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; display:grid;
+    grid-template-columns:128px minmax(0, 1fr); column-gap:12px; row-gap:2px; align-content:center; }
+  .step .pic, .cap .pic { grid-row:1 / span 3; }
+  .step .pic { height:112px; border-radius:10px; background:var(--soft); display:grid; place-items:center; overflow:hidden; position:relative; }
+  .step .pic img { width:104px; height:104px; }
+  .step h3 { margin:0; font-size:15px; } .step p { margin:0; color:var(--fg2); font-size:13px; line-height:1.45; }
   .step .n { font:700 12px ui-monospace, Consolas, monospace; color:var(--accent); }
-  .log { width:100%; padding:10px 12px; font:12px/1.55 ui-monospace, Consolas, monospace; color:var(--fg2); align-self:stretch; }
+  .log { width:100%; padding:4px 6px; font:9.5px/1.35 ui-monospace, Consolas, monospace; color:var(--fg2); align-self:stretch; }
   .log b { color:var(--fg); font-weight:600; } .log .t { color:var(--muted); margin-right:6px; }
   .log .v { color:#ff922b; } .log .a { color:var(--accent); }
-  .stack { position:relative; width:118px; height:150px; }
+  .stack { position:relative; width:96px; height:92px; }
   .stack div { position:absolute; inset:0; border-radius:12px; border:1px solid #ffffff22; }
   .stack div:nth-child(1) { transform:translate(18px, -10px) rotate(6deg); background:#1c3f6b; }
   .stack div:nth-child(2) { transform:translate(9px, -5px) rotate(3deg); background:#5c2a0e; }
-  .stack div:nth-child(3) { background:linear-gradient(160deg, #2b6b3f, #0f2417); padding:12px; color:#fff; font-size:11px; }
-  .stack b { display:block; font-size:13px; margin:6px 0 4px; } .stack small { color:#ffffffb3; }
+  .stack div:nth-child(3) { background:linear-gradient(160deg, #2b6b3f, #0f2417); padding:8px; color:#fff; font-size:9.5px; }
+  .stack b { display:block; font-size:11px; margin:3px 0 2px; } .stack small { color:#ffffffb3; }
 
   /* captures */
-  .caps { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:14px; }
-  .cap { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; }
-  .cap h3 { margin:10px 0 4px; font-size:16px; } .cap p { margin:0; color:var(--fg2); font-size:14px; }
-  .cap .pic { height:150px; border-radius:10px; background:var(--soft); display:grid; place-items:center; overflow:hidden; padding:10px; }
-  .cap .pic img { width:130px; height:130px; }
-  .said { width:100%; display:grid; gap:6px; font-size:12.5px; }
-  .said span { display:block; padding:5px 9px; border-radius:8px; background:var(--card); border:1px solid var(--line); }
+  .caps { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
+  .cap { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; display:grid;
+    grid-template-columns:128px minmax(0, 1fr); column-gap:12px; row-gap:2px; align-content:center; }
+  .cap h3 { margin:0; font-size:15px; } .cap p { margin:0; color:var(--fg2); font-size:13px; line-height:1.45; }
+  .cap .pic { height:112px; padding:6px; border-radius:10px; background:var(--soft); display:grid; place-items:center; overflow:hidden; padding:10px; }
+  .cap .pic img { width:100px; height:100px; }
+  .said { width:100%; display:grid; gap:3px; font-size:9.5px; }
+  .said span { display:block; padding:2px 5px; border-radius:8px; background:var(--card); border:1px solid var(--line); }
   .said .up { border-left:3px solid #2f9e44; } .said .wo { border-left:3px solid #ff922b; } .said .ca { border-left:3px solid var(--muted); }
-  .wave { width:100%; height:28px; } .wave rect { fill:var(--accent); opacity:.75; }
-  .pick { font-size:13px; color:var(--fg2); width:100%; display:grid; gap:8px; }
-  .pick .pc { display:flex; align-items:center; gap:10px; } .pick .glyph { font-size:30px; line-height:1; }
+  .wave { width:100%; height:18px; } .wave rect { fill:var(--accent); opacity:.75; }
+  .pick { font-size:10px; color:var(--fg2); width:100%; display:grid; gap:3px; }
+  .pick .pc { display:flex; align-items:center; gap:10px; } .pick .glyph { font-size:17px; line-height:1; }
   .pick em { font-style:normal; color:var(--fg); font-weight:600; }
   .tbars { width:100%; height:100%; }
 
   /* metrics */
-  .metrics { display:grid; grid-template-columns:1.4fr 1fr 1fr; gap:14px; }
-  .metric { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px; }
+  .metrics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; }
+  .metric { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
   .metric h3 { margin:0 0 2px; font-size:15px; } .metric .cap2 { margin:0 0 12px; color:var(--muted); font-size:13px; }
-  .metric .big { font-size:34px; font-weight:800; line-height:1; } .metric .big small { font-size:16px; color:var(--fg2); font-weight:600; }
-  .metric p.t { margin:10px 0 0; color:var(--fg2); font-size:14px; }
+  .metric .big { font-size:28px; font-weight:800; line-height:1; } .metric .big small { font-size:16px; color:var(--fg2); font-weight:600; }
+  .metric p.t { margin:8px 0 0; color:var(--fg2); font-size:13px; }
   .curve { width:100%; height:auto; display:block; }
   .key { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:8px; }
   .key i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
@@ -79,15 +85,19 @@
   .focus .cap2 { color:#ffffffb3; } .focus p.t { color:#ffffffd9; }
   .focus .habit { background:#ffffff14; border-radius:10px; padding:10px 12px; font-weight:600; margin:8px 0 0; }
   .wide2 { grid-column:span 2; }
-  .notes { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:56px; }
+  .small-note { border-left:3px solid var(--accent); } .small-note b { color:var(--fg); }
+  .notes { display:grid; grid-template-columns:1fr 1fr auto; gap:18px; margin-top:32px; align-items:center; }
+  .notes .note { margin:0; font-size:13.5px; } .notes .row { flex-wrap:nowrap; }
 
+  @media (max-width:1180px) { .duo { grid-template-columns:1fr; } .metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
   @media (max-width:980px) {
     .hero { grid-template-columns:1fr; gap:28px; }
     .steps4, .caps { grid-template-columns:repeat(2, minmax(0, 1fr)); }
     .metrics { grid-template-columns:1fr; } .wide2 { grid-column:auto; }
-    .notes { grid-template-columns:1fr; }
+    .notes { grid-template-columns:1fr; } .notes .row { flex-wrap:wrap; }
   }
   @media (max-width:560px) {
+    .step, .cap { grid-template-columns:1fr; } .step .pic, .cap .pic { grid-row:auto; }
     .steps4, .caps { grid-template-columns:1fr; }
     .storycard .row2 { grid-template-columns:1fr; }
   }
@@ -134,6 +144,7 @@
     </figure>
   </div>
 
+  <div class="duo">
   <!-- ============ how it works ============ -->
   <section class="block">
     <p class="eyebrow-s">How it works</p>
@@ -198,6 +209,8 @@
     </div>
   </section>
 
+  </div>
+
   <!-- ============ what you get ============ -->
   <section class="block">
     <p class="eyebrow-s">What you get</p>
@@ -207,14 +220,14 @@
       <div class="metric wide2">
         <h3>Your win chance, and how you sounded</h3>
         <p class="cap2">One game, move by move: the dots are what you said before each move</p>
-        <svg class="curve" viewBox="0 0 600 150" role="img" aria-label="A win-chance curve that stays high, then collapses after an upbeat comment">
+        <svg class="curve" viewBox="0 0 600 130" role="img" aria-label="A win-chance curve that stays high, then collapses after an upbeat comment">
           <line x1="10" x2="590" y1="75" y2="75" stroke="var(--line)" stroke-dasharray="4 4"/>
-          <polyline fill="none" stroke="var(--fg)" stroke-width="3" points="10,80 50,70 90,62 130,60 170,52 210,48 250,40 290,44 330,36 370,40 410,34 450,30 490,28 530,26 560,32 575,118 590,124"/>
+          <polyline fill="none" stroke="var(--fg)" stroke-width="3" points="10,80 50,70 90,62 130,60 170,52 210,48 250,40 290,44 330,36 370,40 410,34 450,30 490,28 530,26 560,32 575,104 590,110"/>
           <g stroke="var(--card)" stroke-width="2"><circle cx="90" cy="62" r="6" fill="#adb5bd"/><circle cx="170" cy="52" r="6" fill="#adb5bd"/>
           <circle cx="250" cy="40" r="7" fill="#ff922b"/><circle cx="330" cy="36" r="6" fill="#adb5bd"/><circle cx="410" cy="34" r="7" fill="#51cf66"/>
           <circle cx="490" cy="28" r="7" fill="#51cf66"/><circle cx="530" cy="26" r="7" fill="#51cf66"/></g>
           <text x="532" y="16" fill="var(--fg2)" font-size="12" text-anchor="end">“I have a good position now”</text>
-          <text x="590" y="144" fill="#ffa8a8" font-size="13" font-weight="700" text-anchor="end">80% → 16%</text></svg>
+          <text x="590" y="128" fill="#ffa8a8" font-size="13" font-weight="700" text-anchor="end">80% → 16%</text></svg>
         <div class="key"><span><i style="background:#51cf66"></i>upbeat</span><span><i style="background:#ff922b"></i>worried</span><span><i style="background:#adb5bd"></i>calculating</span></div>
       </div>
       <div class="metric focus">
@@ -243,18 +256,17 @@
         <p class="t" style="margin-top:0"><b style="color:var(--fg)">Long thinks go wrong.</b> 27% of moves you thought 8 s+ about were costly, against 11% for quick ones.</p>
         <p class="t">Almost certainly real · from 95 moves</p>
       </div>
+      <div class="metric small-note"><p class="t" style="margin:0"><b>Fair play.</b> Nothing is shown during a game: the extension only records. A review starts
+      only once lichess says the game is over, and only for games you played.</p></div>
+      <div class="metric small-note"><p class="t" style="margin:0"><b>Privacy.</b> Signing in only asks lichess for your username: no password, no access to your
+      account. Voice recordings are deleted once they are transcribed. Your review pages aren't listed anywhere,
+      but anyone you give a link to can open them.</p></div>
     </div>
   </section>
 
-  <div class="notes">
-    <p class="note"><b>Fair play.</b> Nothing is shown during a game: the extension only records. A review starts
-      only once lichess says the game is over, and only for games you played.</p>
-    <p class="note"><b>Privacy.</b> Signing in only asks lichess for your username: no password, no access to your
-      account. Voice recordings are deleted once they are transcribed. Your review pages aren't listed anywhere,
-      but anyone you give a link to can open them.</p>
-  </div>
-  <div class="row" style="margin-top:28px"><a class="btn primary" href="/api/login">Sign in with lichess</a>
+  <div class="row" style="margin-top:22px"><a class="btn primary" href="/api/login">Sign in with lichess</a>
     <a class="btn" href="/play">Tips for your first games</a></div>
+  </div>
 
   <footer>Thought Coach · <a href="https://github.com/GrantRedfield/thought-coach">open source</a> · engine: Stockfish · <a href="/privacy">Privacy</a> · not affiliated with lichess.org</footer>
 </main>
