@@ -433,7 +433,7 @@
       if (!d.exported) {
         d.exported = true;
         save(rec);
-        stopVoice().then(() => uploadGame(d));
+        stopVoice().then(() => askThenUpload(d));
       }
     }
   }
@@ -511,6 +511,85 @@
     } catch (err) {
       voice.error = `handing over the recording: ${err}`; // kept here; the popup can send it again
     }
+  }
+
+  // ------------------------------------------------------------------ ask before reviewing
+  //
+  // Once the game is over (never during it), a small panel asks whether to review it. No answer in
+  // ASK_SECONDS means yes, so a review isn't lost because nobody looked. "Don't ask again" holds
+  // until Chrome is closed (the extension's session storage). A skipped game stays here: the
+  // popup's "Send again" can still send it.
+
+  const ASK_SECONDS = 20;
+
+  async function askThenUpload(data) {
+    let ask = true;
+    try {
+      ask = (await chrome.runtime.sendMessage({ type: 'should_ask' })).ask;
+    } catch (err) {
+      ask = false; // the extension was reloaded: just send it
+    }
+    if (!ask) return uploadGame(data);
+    const answer = await askPanel();
+    if (answer.quiet) chrome.runtime.sendMessage({ type: 'quiet_session' }).catch(() => {});
+    if (answer.review) return uploadGame(data);
+    data.skipped = true;
+    store.set(STORE_PREFIX + data.game_id, JSON.stringify(data));
+  }
+
+  function askPanel() {
+    return new Promise((resolve) => {
+      const host = document.createElement('div');
+      host.id = 'thoughtcoach-ask';
+      const root = host.attachShadow({ mode: 'closed' });  // lichess's styles stay out
+      root.innerHTML = `<style>
+        .card { position:fixed; right:20px; bottom:20px; z-index:2147483647; width:320px; box-sizing:border-box;
+          font:14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color:#f0efec; background:#1f1f1d;
+          border:1px solid #3a3a37; border-radius:14px; padding:16px 16px 14px; box-shadow:0 12px 40px #0009;
+          animation:in .25s ease both; }
+        @keyframes in { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+        @media (prefers-reduced-motion: reduce) { .card { animation:none; } }
+        h2 { margin:0 0 4px; font-size:15px; display:flex; align-items:center; gap:8px; }
+        h2 i { width:18px; height:18px; border-radius:4px; background:#2a78d6; display:inline-block; transform:rotate(45deg) scale(.7); }
+        p { margin:0 0 12px; color:#c3c2b7; font-size:13px; }
+        .row { display:flex; gap:8px; }
+        button { font:inherit; font-size:13.5px; font-weight:600; border-radius:10px; padding:8px 12px; cursor:pointer; border:1px solid #3a3a37; }
+        .yes { flex:1; background:#2a78d6; border-color:#2a78d6; color:#fff; }
+        .no { background:transparent; color:#f0efec; }
+        button:focus-visible, input:focus-visible { outline:2px solid #86b6ef; outline-offset:2px; }
+        label { display:flex; gap:8px; align-items:center; margin-top:10px; font-size:12.5px; color:#c3c2b7; cursor:pointer; }
+        .bar { height:3px; background:#3a3a37; border-radius:2px; margin-top:12px; overflow:hidden; }
+        .bar span { display:block; height:100%; width:100%; background:#2a78d6; transform-origin:left; }
+      </style>
+      <div class="card" role="dialog" aria-labelledby="t" aria-describedby="d">
+        <h2 id="t"><i></i>Review this game with Thought Coach?</h2>
+        <p id="d">Your arrows${voiceEnabled() ? ', voice' : ''} and moves go to thoughtcoach.org. Your story is ready a few minutes later.</p>
+        <div class="row"><button class="yes" type="button">Review it <span class="n"></span></button>
+          <button class="no" type="button">Skip this game</button></div>
+        <label><input type="checkbox" class="quiet"> Don't ask again until I close Chrome</label>
+        <div class="bar"><span></span></div>
+      </div>`;
+      document.body.append(host);
+      const yes = root.querySelector('.yes'), no = root.querySelector('.no'), quiet = root.querySelector('.quiet');
+      const n = root.querySelector('.n'), bar = root.querySelector('.bar span');
+      let left = ASK_SECONDS;
+      const finish = (review) => {
+        clearInterval(timer);
+        host.remove();
+        resolve({ review, quiet: quiet.checked });
+      };
+      const tick = () => {
+        n.textContent = `(${left}s)`;
+        bar.style.transform = `scaleX(${left / ASK_SECONDS})`;
+        if (left-- <= 0) finish(true);
+      };
+      const timer = setInterval(tick, 1000);
+      tick();
+      quiet.addEventListener('change', () => { if (quiet.checked) { clearInterval(timer); n.textContent = ''; bar.parentElement.hidden = true; } });
+      yes.addEventListener('click', () => finish(true));
+      no.addEventListener('click', () => finish(false));
+      yes.focus({ preventScroll: true });
+    });
   }
 
   function storedGames() {

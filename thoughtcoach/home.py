@@ -356,6 +356,9 @@ CSS = bayes.RANGE_CSS + """
 .hometabs .tab.story[aria-selected="true"] { outline:2px solid var(--fg); outline-offset:2px; }
 .hometabs .tab:focus-visible { outline:2px solid var(--accent, #2a78d6); outline-offset:2px; }
 .panel[hidden] { display:none; }
+@media (max-width:640px) { .hometabs { flex-wrap:wrap; overflow:visible; gap:6px; }
+  .hometabs .tab { font-size:13px; padding:7px 12px; }
+  .hometabs .tab.story { flex:1 1 100%; justify-content:center; font-size:15px; padding:12px 16px; } }
 
 .wrap { max-width:1180px; margin:0 auto; }
 .topbar { display:flex; align-items:center; gap:18px; margin:0 0 22px; }

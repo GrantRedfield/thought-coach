@@ -153,6 +153,10 @@ async function showTab() {
 }
 
 $('voice').onchange = (e) => chrome.storage.sync.set({ voice_enabled: e.target.checked });
+$('ask').onchange = async (e) => {
+  await chrome.storage.sync.set({ ask_before_review: e.target.checked });
+  if (e.target.checked) await chrome.storage.session.set({ quiet: false });  // asking again from now on
+};
 $('save').onclick = async () => {
   const url = $('server').value.trim().replace(/\/+$/, '') || DEFAULT_SERVER;
   if (!LOCAL.test(url) && url !== DEFAULT_SERVER) {
@@ -180,6 +184,9 @@ $('setup').onclick = async () => chrome.tabs.create({ url: `${await server()}/st
 
 (async () => {
   $('voice').checked = (await chrome.storage.sync.get({ voice_enabled: true })).voice_enabled;
+  const { ask_before_review: askSetting } = await chrome.storage.sync.get({ ask_before_review: true });
+  const { quiet } = await chrome.storage.session.get({ quiet: false });
+  $('ask').checked = askSetting && !quiet;
   $('key').value = (await chrome.storage.sync.get({ key: '' })).key;
   checkServer();
   showGames();

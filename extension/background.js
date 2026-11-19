@@ -176,6 +176,16 @@ chrome.runtime.onMessage.addListener((msg, _sender, reply) => {
     });
     return true;
   }
+  if (msg.type === 'should_ask') {
+    // Ask before reviewing, unless switched off in the popup or "don't ask again" this session.
+    Promise.all([chrome.storage.sync.get({ ask_before_review: true }), chrome.storage.session.get({ quiet: false })])
+      .then(([sync, session]) => reply({ ask: sync.ask_before_review && !session.quiet }));
+    return true;
+  }
+  if (msg.type === 'quiet_session') {
+    chrome.storage.session.set({ quiet: true }).then(() => reply({ ok: true }));
+    return true;
+  }
   if (msg.type === 'dismiss' && msg.game_id) {
     forget([msg.game_id]).then(() => reply({ ok: true }));
     return true;
