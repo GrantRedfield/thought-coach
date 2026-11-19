@@ -26,13 +26,15 @@ from .bayes import LIKELY, odds, prob_greater_prior, sceptic, verdict
 
 UPBEAT = ["good", "great", "nice", "i like", "love", "winning", "better for me", "i'm better",
           "comfortable", "solid", "fine", "should be good", "should be fine", "easy", "crushing", "happy", "perfect", "beautiful", "got him", "got it", "free pawn", "up a pawn", "in trouble",
-          "good position", "no problem", "not bad", "not worried", "safe", "excellent", "let's go", "jackpot",
+          "good position", "decent position", "no problem", "not bad", "not worried", "safe", "excellent", "jackpot",
           "he's lost", "she's lost", "they're lost", "much better", "promising", "confident"]
 WORRIED = ["worried", "worry", "scary", "scared", "dangerous", "danger", "careful", "nervous", "trouble", "problem",
            "problems", "hate", "ugly", "awkward", "uncomfortable", "worse", "losing", "lost", "bad", "terrible",
            "don't like", "annoying", "pressure", "sketchy", "risky", "afraid", "oh no", "uh oh", "ugh", "damn",
            "i'm dead", "busted", "blunder", "oops", "panic", "concerned", "yikes",
-           "not good", "i'm in trouble", "under attack", "attack on me", "tough", "difficult"]
+           "not good", "i'm in trouble", "under attack", "attack on me", "tough", "difficult",
+           "not what i expected", "what was that", "what the fuck", "what the hell", "so confused", "unfortunate",
+           "too late", "collapse", "collapsed"]
 NEGATIONS = {"not", "don't", "dont", "isn't", "wasn't", "doesn't", "no", "never", "nothing", "isnt"}
 # Chess words that describe the position, not a mood, are left out on purpose: "weak" (a weak
 # pawn), "strong", "like this" (a move), "hanging".

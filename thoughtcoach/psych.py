@@ -28,7 +28,7 @@ TIDE = 0.15
 FOLLOW = 3
 NOTICE_S = 30
 
-DEFEAT = re.compile(r"\b(i'?m lost|i am lost|lost here|busted|it'?s over|game over|i'?m done|resign|hopeless|"
+DEFEAT = re.compile(r"\b(i'?m lost|i am lost|lost here|busted|it'?s over|game over|i'?m done|resign\w*|stop the game|too late|a loss here|collaps\w*|i have nothing( else)?|nothing left|throwing (this|it|the game)|hopeless|"
                     r"(white|black|he|she|they)('s| is| are)( probably| just| clearly)? winning|"
                     r"no moves|not finding a single move|completely losing|this (just )?loses|just losing|i'?m losing)\b")
 NOTICED = re.compile(r"\b(oh wait|wait|nice|interesting|what|chance|free|blunder|now i|good for me|"
