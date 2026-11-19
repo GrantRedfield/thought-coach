@@ -221,6 +221,7 @@ def write_story(report: dict, analysis: dict, thinking: dict | None, game, out_d
         loaded, history = [], None
     # Last game's focus, and how this game went on it (habits.py).
     from . import habits
+    from .bayes import odds as bayes_odds
 
     gid = report["game"]["id"]
     ids = [g["id"] for g in loaded]
@@ -234,6 +235,16 @@ def write_story(report: dict, analysis: dict, thinking: dict | None, game, out_d
         line = habits.this_game(focus.get("key"), loaded[i], loaded[:i])  # before: every earlier game
         if line:
             history["last_focus"] = {"key": focus["key"], "title": focus.get("title"), "line": line}
+            stories = {}
+            for g in loaded[: i + 1]:
+                try:
+                    stories[g["id"]] = json.loads((out_dir / f"{g['id']}.story.json").read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    pass
+            check = next((e for e in habits.compute(loaded[: i + 1], stories) if e["key"] == focus["key"]), None)
+            if check and check["games"] >= habits.MIN_GAMES and check["p"] is not None:
+                history["last_focus"]["check"] = (f"Over the {check['games']} games since you got it: "
+                                                  f"{bayes_odds(check['p'])} that it's helping.")
     built = story.build(report, analysis, thinking, game, history)
     # The home page's "latest game" card reads this: the headline, the key position and the focus.
     write(out_dir / f"{built['id']}.story.json", json.dumps(story.summary(built)))

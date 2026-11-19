@@ -317,18 +317,46 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
 <a class="btn ghost" href="https://thoughtcoach.org/play">Tips for your first games</a></div></div></section>{f"<div class='grid'>{waiting}</div>" if waiting else ''}"""
     last = rows[-1]
     before = [r for r in rows[:-1] if r["moves"] and r.get("before") is not None]
-    patterns = profile.render(prof) if len(rows) >= 2 else ""
-    return f"""{hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before), statistics.mean(r["before"] for r in before),
-                                                        statistics.mean(r["after"] for r in before)) if before else None)}
-{form(rows, prof)}
-{focus_check(loaded, stories)}
+    parts = profile.sections(prof) if len(rows) >= 2 else {}
+    focus = focus_check(loaded, stories)
+    res = {"won": "you won", "lost": "you lost", "draw": "a draw"}[last["outcome"]]
+    tabs = [("story", f"&#9654; Your latest story<small>vs {_e(last['opp'])} · {res}</small>",
+             hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before),
+                                                  statistics.mean(r["before"] for r in before),
+                                                  statistics.mean(r["after"] for r in before)) if before else None)),
+            ("form", "Your form", f"""{form(rows, prof)}
 <section class="chart"><h2>Every game at a glance</h2><p class="cap">How much your average move cost, game by game (hover a column: where your average move took your win chance)</p>
-{_games_chart(rows)}</section>
-<section><h2>Your games</h2><div class="grid">{cards(rows, statuses)}</div></section>
-{patterns}"""
+{_games_chart(rows)}</section>"""),
+            ("focus", "Is your focus working?", focus),
+            ("games", f"Your games<small>{len(rows)}</small>", f"<section><h2>Your games</h2><div class='grid'>{cards(rows, statuses)}</div></section>"),
+            ("patterns", "Patterns", parts.get("summary", "") + parts.get("charts", "")),
+            ("questions", "Aagaard's questions", parts.get("questions", "")),
+            ("voice", "Your voice", parts.get("voice", ""))]
+    tabs = [t for t in tabs if t[2]]
+    nav = "".join(f"<button type='button' role='tab' class='tab{' story' if k == 'story' else ''}' data-tab='{k}' "
+                  f"aria-selected='{'true' if k == 'story' else 'false'}'>{label}</button>" for k, label, _ in tabs)
+    panels = "".join(f"<div class='panel' role='tabpanel' data-panel='{k}'{'' if k == 'story' else ' hidden'}>{html_}</div>"
+                     for k, _, html_ in tabs)
+    return f"""<nav class="hometabs" role="tablist" aria-label="Your home page">{nav}</nav>
+{panels}"""
 
 
 CSS = bayes.RANGE_CSS + """
+.hometabs { display:flex; gap:8px; align-items:stretch; margin:4px 0 18px; overflow-x:auto; padding:2px 2px 6px;
+  scrollbar-width:thin; }
+.hometabs .tab { flex:none; font:inherit; font-size:14px; font-weight:600; color:var(--fg2); background:var(--card);
+  border:1px solid var(--line); border-radius:999px; padding:8px 16px; cursor:pointer; white-space:nowrap;
+  display:flex; align-items:center; gap:8px; }
+.hometabs .tab small { font-weight:500; color:var(--muted); font-size:12px; }
+.hometabs .tab:hover { color:var(--fg); border-color:var(--fg2); }
+.hometabs .tab[aria-selected="true"] { color:var(--fg); border-color:var(--fg); }
+.hometabs .tab.story { font-size:15.5px; padding:10px 20px; color:#fff; border:0;
+  background:linear-gradient(135deg, #e8590c, #d9480f 55%, #c2255c); box-shadow:0 6px 20px #d9480f40; }
+.hometabs .tab.story small { color:#ffffffcc; }
+.hometabs .tab.story[aria-selected="true"] { outline:2px solid var(--fg); outline-offset:2px; }
+.hometabs .tab:focus-visible { outline:2px solid var(--accent, #2a78d6); outline-offset:2px; }
+.panel[hidden] { display:none; }
+
 .wrap { max-width:1180px; margin:0 auto; }
 .topbar { display:flex; align-items:center; gap:18px; margin:0 0 22px; }
 .topbar .brand { font-weight:700; font-size:17px; color:var(--fg); text-decoration:none; display:flex; align-items:center; gap:8px; }
@@ -449,6 +477,22 @@ svg.games { width:100%; height:auto; display:block; } .games .ax { fill:var(--mu
 
 JS = """
 (() => {
+  // Home page tabs: one section at a time; the address remembers which (#games...).
+  const tabs = [...document.querySelectorAll('.hometabs .tab')], panels = [...document.querySelectorAll('.panel')];
+  const open = (k, push) => {
+    if (!tabs.some(t => t.dataset.tab === k)) k = 'story';
+    tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.tab === k)));
+    panels.forEach(p => { p.hidden = p.dataset.panel !== k; });
+    if (push) history.replaceState(null, '', k === 'story' ? location.pathname : '#' + k);
+  };
+  tabs.forEach(t => t.addEventListener('click', () => open(t.dataset.tab, true)));
+  document.querySelector('.hometabs')?.addEventListener('keydown', (e) => {
+    const i = tabs.findIndex(t => t.getAttribute('aria-selected') === 'true');
+    const j = e.key === 'ArrowRight' ? i + 1 : e.key === 'ArrowLeft' ? i - 1 : null;
+    if (j === null || !tabs[(j + tabs.length) % tabs.length]) return;
+    const t = tabs[(j + tabs.length) % tabs.length]; t.focus(); open(t.dataset.tab, true);
+  });
+  if (tabs.length) open(location.hash.slice(1) || 'story', false);
   // Chart tooltips, and the "story" shortcut inside each game card.
   document.querySelectorAll('.chartwrap').forEach((wrap) => {
     const tip = wrap.querySelector('.tip');

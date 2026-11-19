@@ -354,6 +354,7 @@ CSS = bayes.RANGE_CSS + """
 .pgrid { display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:10px; }
 .pcard { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 14px; }
 .tone-find { margin:8px 0 0; font-size:13.5px; }
+.pgrid.one { grid-template-columns:minmax(0, 640px); }
 .pcard h3 { margin:0 0 2px; font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--fg2); font-weight:600; }
 .pcard .cap { margin:0 0 8px; color:var(--muted); font-size:12px; }
 .hb { display:grid; grid-template-columns:150px 1fr 70px; gap:6px; align-items:center; font-size:12.5px; margin:5px 0; }
@@ -513,9 +514,16 @@ def _clock_line(clock: list[tuple[int, float, int]]) -> str:
 
 
 def render(p: dict) -> str:
-    """The 'Patterns across your games' section of the home page."""
+    """The 'Patterns across your games' section, all in one (your own PC's home page)."""
+    parts = sections(p)
+    return "".join(parts[k] for k in ("summary", "questions", "charts", "voice")) if parts else ""
+
+
+def sections(p: dict) -> dict[str, str]:
+    """The patterns in parts, so the home page can show them one tab at a time: summary (the
+    findings), questions (Aagaard), charts, voice. Empty under two games."""
     if len(p["games"]) < 2:
-        return ""
+        return {}
     strong, weak = findings(p)
     games = p["games"]
     wins = sum(g["won"] for g in games)
@@ -542,13 +550,19 @@ def render(p: dict) -> str:
         (f"{statistics.mean(g['costly'] for g in games):.1f}", "costly moves per game"),
         (_pct(p["tt"]["share"]), "of all loss in time trouble"),
     ]
-    return f"""<section class="profile">
+    voice_card = (f"<div class='pcard'><h3>Your voice and your play</h3><p class='cap'>What you sounded like before "
+                  f"each move, and how often those moves went wrong (time trouble left out)</p>{SPLIT_KEY}"
+                  f"{_tone_card(p['tone'])}</div>")
+    return {
+        "summary": f"""<section class="profile">
 <h2>Patterns across your games</h2>
-<p class="sub">Things one game is too small to show. Each line says how many moves it rests on; under {SOLID} it's an early signal.</p>
+<p class="sub">Things one game is too small to show. Each line says how many moves it rests on, and how sure we can be
+that it's a real pattern and not luck.</p>
 <div class="pkpis">{''.join(f"<div class='pkpi'><b>{v}</b><span>{_e(t)}</span></div>" for v, t in kpis)}</div>
 <div class="findings">{col('good', '&#10003;', 'Strong points', strong)}{col('weak', '!', 'Weak points', weak)}</div>
-{questions.render(p["aagaard"])}
-<div class="pgrid">
+</section>""",
+        "questions": f"<section class='profile'>{questions.render(p['aagaard'])}</section>",
+        "charts": f"""<section class="profile"><h2>Your play in charts</h2><div class="pgrid">
   <div class="pcard"><h3>Costly moves by think time</h3><p class="cap">Time-trouble moves left out</p>{SPLIT_KEY}{_rate_bars(p['think'])}</div>
   <div class="pcard"><h3>Your candidate moves</h3><p class="cap">Candidates = moves you drew an arrow for or said, before playing</p>{SPLIT_KEY}
     <h4>How many you considered</h4>{_rate_bars(p['cands'], {"none": "None", "one": "1 move", "two or more": "2 or more"})}
@@ -558,8 +572,7 @@ def render(p: dict) -> str:
   <div class="pcard"><h3>Each game</h3><p class="cap">How much your average move cost, oldest to newest (lower is better); orange = a game you lost. Click a dot.</p>{_per_game_line(games)}</div>
   <div class="pcard"><h3>What went wrong, by cause, all games</h3><p class="cap">Share of what your costly moves cost you, by cause</p>{gaps}</div>
   <div class="pcard"><h3>Who struck first</h3><p class="cap">The first tactic in each game, and how those games ended</p>{_strike_card(p['strikes'])}</div>
-  <div class="pcard"><h3>Your voice and your play</h3><p class="cap">What you sounded like before each move, and how
-    often those moves went wrong (time trouble left out)</p>{SPLIT_KEY}{_tone_card(p['tone'])}</div>
   <div class="pcard"><h3>Costly moves by piece</h3><p class="cap">Which piece you moved (5+ moves)</p>{SPLIT_KEY}{pieces}</div>
-</div>
-</section>"""
+</div></section>""",
+        "voice": f"<section class='profile'><div class='pgrid one'>{voice_card}</div></section>" if p["tone"]["games"] else "",
+    }

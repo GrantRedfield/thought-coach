@@ -32,7 +32,7 @@ import chess.svg
 
 from .critical import _said
 from .gametype import classify
-from . import timing, tone
+from . import bayes, timing, tone
 from .fmt import move_went, went, game_url, home_url, pct
 
 MAX_BEATS = 6
@@ -48,7 +48,7 @@ ACCENT = {  # card background accents, by kind
     "weak_made": "#e67700", "weak_found": "#2b8a3e", "weak_missed": "#e67700", "worst": "#7048e8",
     "worst_named": "#2b8a3e", "insight": "#0c8599", "strike": "#f08c00", "decided": "#c92a2a", "clock": "#495057",
     "result": "#343a40", "focus": "#2f9e44", "tide": "#1098ad", "gave_up": "#862e9c", "instinct": "#1c7ed6",
-    "inner": "#5f3dc4", "voice": "#0b7285", "rosy": "#d9480f", "worry_held": "#e67700", "gloomy": "#1971c2",
+    "inner": "#5f3dc4", "voice": "#0b7285", "truths": "#5c7cfa", "rosy": "#d9480f", "worry_held": "#e67700", "gloomy": "#1971c2",
 }
 MOOD_COLOR = {"upbeat": "#51cf66", "worried": "#ff922b", "neutral": "#ffffffaa"}
 MOOD_WORD = {"upbeat": "upbeat", "worried": "worried", "neutral": "calculating", "quiet": "quiet"}
@@ -676,12 +676,20 @@ def history_from_profile(p: dict) -> dict:
     note = {k: f"Across your {n} games, {cause[k]} account for {pct(v)} of all the win chance you've lost."
             for k, v in share.items() if v}
     if q.get("q3", [0, 0])[1]:
-        note["q3"] = f"Across your {n} games you spotted {q['q3'][0]} of {q['q3'][1]} real threats before they happened."
+        note["q3"] = (f"Across your {n} games you spotted {q['q3'][0]} of {q['q3'][1]} real threats before they "
+                      f"happened: {bayes.span(*q['q3'])}.")
     if q.get("q1", [0, 0])[1]:
-        note["q1"] = f"Across your {n} games you pointed at {q['q1'][0]} of {q['q1'][1]} weaknesses."
+        note["q1"] = f"Across your {n} games you pointed at {q['q1'][0]} of {q['q1'][1]} weaknesses: {bayes.span(*q['q1'])}."
     if q.get("q2", [0, 0])[1]:
-        note["q2"] = f"Across your {n} games you noticed {q['q2'][0]} of {q['q2'][1]} worst pieces."
-    return {"share": share, "note": note}
+        note["q2"] = f"Across your {n} games you noticed {q['q2'][0]} of {q['q2'][1]} worst pieces: {bayes.span(*q['q2'])}."
+    truths = []
+    if n >= 3:
+        from .profile import findings
+
+        strong, weak = findings(p)
+        sure = [dict(f, good=f in strong) for f in strong + weak if f.get("sure") is not None]
+        truths = sorted(sure, key=lambda f: -f["sure"])[:3]
+    return {"share": share, "note": note, "truths": truths, "games": n}
 
 
 # ---------------------------------------------------------------- putting it together
@@ -720,7 +728,9 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
             "result": res, "outcome": outcome, "arrows": arrows, "said": said,
             "moves_with_thoughts": report["summary"].get("moves_with_thoughts", 0), "beats": beats,
             "curve": curve, "focus": focus(c, history), "orientation": c.me, "decided_by": decided_by,
-            "type": classify(analysis, g), "voice": voice_card(c), "last_focus": (history or {}).get("last_focus")}
+            "type": classify(analysis, g), "voice": voice_card(c), "last_focus": (history or {}).get("last_focus"),
+            "truths": [{"head": f["head"], "body": f["body"], "sure": f["sure"], "n": f["n"], "good": f["good"]}
+                       for f in (history or {}).get("truths", [])], "games": (history or {}).get("games")}
 
 
 def _type_tag(t: dict | None) -> str:
@@ -854,8 +864,17 @@ def render(story: dict) -> str:
 <h2>{_e(b['title'])}</h2>{stat}{visual}
 <p class='body'>{_e(b['body'])}</p>{quote}"""))
     f = story["focus"]
+    if story.get("truths"):
+        items = "".join(
+            f"<div class='truth {'good' if t['good'] else 'weak'}'><p class='th'>{_e(t['head'])}</p><p class='tb'>{_e(t['body'])}</p>"
+            f"<p class='ts'>{bayes.odds_dots(t['sure'])}<span>{_e(bayes.verdict(t['sure']).capitalize())}: "
+            f"{_e(bayes.odds(t['sure']))} it's a real pattern, from {t['n']} moves</span></p></div>"
+            for t in story["truths"])
+        slides.append(("truths", f"""<p class='eyebrow'>Across your {story.get('games') or ''} games</p><h2>What your games say</h2>
+<p class='lead'>One game can be luck. These held up across all of them.</p><div class='truths'>{items}</div>"""))
     lf = story.get("last_focus")
-    last = (f"<p class='lastfocus'><span>Last game's focus: <b>{_e(lf['title'])}</b></span>{_e(lf['line'])}</p>"
+    last = (f"<p class='lastfocus'><span>Last game's focus: <b>{_e(lf['title'])}</b></span>{_e(lf['line'])}"
+            + (f"<small>{_e(lf['check'])}</small>" if lf.get("check") else "") + "</p>"
             if lf and lf.get("line") else "")
     slides.append(("focus", f"""{last}<p class='eyebrow'>Your focus for the next game · {_e(f['tag'])}</p><h2>{_e(f['title'])}</h2>
 <p class='habit'>{_e(f['habit'])}</p><p class='body'>{_e(f['why'])}{(' ' + _e(f['across'])) if f.get('across') else ''}</p>
@@ -937,6 +956,13 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
 .curve.mood circle { stroke:#0b0b0c; stroke-width:1.5; }
 .moodkey { justify-content:flex-start; }
 .lastfocus { margin:0 0 10px; padding:10px 14px; border-radius:10px; background:#ffffff12; font-size:15px; color:#ffffffd9; }
+.lastfocus small { display:block; margin-top:4px; font-size:13px; color:#ffffffb3; }
+.truths { display:grid; gap:10px; }
+.truth { padding:12px 14px; border-radius:12px; background:#ffffff12; border-left:3px solid #ffffff55; }
+.truth.good { border-left-color:#51cf66; } .truth.weak { border-left-color:#ff922b; }
+.truth .th { margin:0; font-weight:700; font-size:17px; } .truth .tb { margin:2px 0 6px; font-size:15px; color:#ffffffd9; }
+.truth .ts { margin:0; display:flex; align-items:center; gap:10px; font-size:13px; color:#ffffffb3; }
+.odots { width:118px; height:10px; flex:none; } .odots .on { fill:#fff; } .odots .off { fill:#ffffff33; }
 .lastfocus span { display:block; font-size:12.5px; color:#ffffffa6; margin-bottom:2px; } .lastfocus b { color:#fff; }
 .curve circle { fill:#f08c00; stroke:#0b0b0c; stroke-width:2; } .curve text { fill:#fff; font-size:14px; font-weight:700; text-anchor:middle; }
 .end { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; position:relative; z-index:5; }
