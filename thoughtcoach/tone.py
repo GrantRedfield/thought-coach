@@ -61,8 +61,8 @@ Examples:
 "he's in big trouble now" -> {"mood": "upbeat", "gave_up": false}"""
 _read_cache: dict[tuple[str, str], dict | None] = {}
 # No mood word, but a mood that needs the whole sentence to read: whose king is exposed, better than whose.
-CONTEXT = re.compile(r"(exposed|than (mine|his|hers|theirs|yours|me|him|her|them)|better for (me|him|her|them)|"
-                     r"worse for (me|him|her|them))")
+CONTEXT = re.compile(r"\b(exposed|than (mine|his|hers|theirs|yours|me|him|her|them)|better for (me|him|her|them)|"
+                     r"worse for (me|him|her|them))\b")
 
 
 def llm_read(prev: str, text: str) -> dict | None:
