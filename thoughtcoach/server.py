@@ -167,7 +167,7 @@ LIST_CSS = """
 :root[data-theme="dark"] { color-scheme: dark; --bg:#121211; --card:#1a1a19; --fg:#f0efec; --fg2:#c3c2b7; --muted:#8f8e86; --line:#2e2e2b;
   --accent:#3987e5; --s1:#3987e5; --s1-soft:#3987e533; --s2:#d95926; --s1-light:#184f95; --bar-tt:#5d5c57; --good:#3fa95c; --warn:#d98a1c; }
 body { background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; margin:0; padding:24px 16px; }
-main { max-width:1100px; margin:0 auto; } h1 { font-size:22px; margin:0 0 4px; } p.sub { color:var(--fg2); margin:0 0 18px; }
+main { max-width:1680px; margin:0 auto; } h1 { font-size:22px; margin:0 0 4px; } p.sub { color:var(--fg2); margin:0 0 18px; }
 table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
 td, th { padding:8px 12px; border-bottom:1px solid var(--line); text-align:left; } th { color:var(--fg2); font-weight:600; font-size:13px; }
 a { color:var(--accent); } .state { color:var(--fg2); } .error { color:#c0392b; font-size:13px; }

@@ -94,7 +94,7 @@ def _games_chart(rows: list[dict]) -> str:
     """Win chance lost per move in every game (columns, coloured by result), with the 5-game average."""
     if len(rows) < 2:
         return "<p class='cap'>Your games show up here from the second one on.</p>"
-    W, H, L, R, T, B = 760, 220, 40, 8, 12, 26
+    W, H, L, R, T, B = 1000, 220, 4, 4, 8, 6
     top = max(r["per_move"] for r in rows) * 1.15 or 0.01
     n = len(rows)
     slot = (W - L - R) / n
@@ -116,15 +116,13 @@ def _games_chart(rows: list[dict]) -> str:
                      f"<rect class='bar' x='{cx - bw / 2:.1f}' y='{y(0) - h:.1f}' width='{bw:.1f}' height='{h:.1f}' rx='3'/></a>")
         window = [x["per_move"] for x in rows[max(0, i - 4): i + 1]]
         avg.append((cx, statistics.mean(window)))
-        if n <= 20 or i % max(1, n // 10) == 0 or i == n - 1:
-            parts.append(f"<text class='ax' x='{cx:.1f}' y='{H - 8}' text-anchor='middle'>{i + 1}</text>")
     if n >= 3:
         parts.append("<polyline class='avg' points='" + " ".join(f"{cx:.1f},{y(v):.1f}" for cx, v in avg) + "'/>")
-    return (f"<div class='chartwrap'><svg class='games' viewBox='0 0 {W} {H}' role='img' "
+    return (f"<div class='chartwrap'><svg class='games' viewBox='0 0 {W} {H}' preserveAspectRatio='none' role='img' "
             f"aria-label='How much your average move cost in each game'>{''.join(parts)}</svg><div class='tip' hidden></div></div>"
             "<p class='legend'><span><i class='sw won'></i>won</span><span><i class='sw lost'></i>lost</span>"
             "<span><i class='sw draw'></i>draw</span><span><i class='sw avg'></i>average of the last 5</span>"
-            "<span class='muted'>lower is better · games oldest to newest · click a column to open the game</span></p>")
+            "<span class='muted'>lower is better · oldest game on the left, newest on the right · click a column to open it</span></p>")
 
 
 # ---------------------------------------------------------------- the latest game
@@ -243,17 +241,17 @@ def form(rows: list[dict], prof: dict) -> str:
         rushed = sum(len(t["rushed"]) for t in tm)
         n_crit, n_all = sum(t["critical"] for t in tm), sum(t["positions"] for t in tm)
         worse = bayes.prob_greater_prior(cc, n_crit, costly - cc, n_all - n_crit, bayes.sceptic(costly / n_all if n_all else 0.25))
-        tile(f"{crit:.0f}s<small> vs {other:.0f}s</small>", "Think time when only one move holds",
-             "", f"{cc} of {costly} costly moves came there · {rushed} played fast · "
-                 f"{bayes.verdict(worse).capitalize()} that they cost you more than other positions",
+        tile(f"{crit:.0f}s<small> vs {other:.0f}s</small>", "Think time, one move holds vs rest",
+             "", f"{cc} of {costly} costly moves · {rushed} fast · "
+                 f"{bayes.verdict(worse).capitalize()}: costlier",
              "down" if crit <= other else "up")
     q = prof["questions"]
     if q["q3"][1]:
         tile(f"{q['q3'][0] / q['q3'][1] * 100:.0f}%", "Their threats you saw coming", bayes.range_svg(*q['q3'], 200),
-             f"{q['q3'][0]} of {q['q3'][1]}; {bayes.span(*q['q3'])}")
+             f"{q['q3'][0]} of {q['q3'][1]} · probably {bayes.interval(*q['q3'])[0] * 100:.0f}–{bayes.interval(*q['q3'])[1] * 100:.0f}%")
     if q["q4"][1]:
         tile(f"{q['q4'][0] / q['q4'][1] * 100:.0f}%", "Best move among your candidates", bayes.range_svg(*q['q4'], 200),
-             f"{q['q4'][0]} of {q['q4'][1]} positions; {bayes.span(*q['q4'])}")
+             f"{q['q4'][0]} of {q['q4'][1]} · probably {bayes.interval(*q['q4'])[0] * 100:.0f}–{bayes.interval(*q['q4'])[1] * 100:.0f}%")
     st = prof["strikes"]
     if st["games"]:
         tile(f"{st['you']['n']}<small>/{st['games']}</small>", "Games where you struck first", "",
@@ -429,10 +427,10 @@ figure.hfig { margin:0; } .hfig .brd svg { width:100%; max-width:360px; height:a
 .fmeter span { display:block; height:100%; background:var(--fg2); } .fcard.up .fmeter span { background:#2f9e44; }
 .fcard.down .fmeter span { background:#e03131; }
 .ftext { margin:0; font-size:13.5px; color:var(--fg2); }
-.tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; }
+.tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(122px, 1fr)); gap:8px; }
 .tile { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:2px;
   animation:rise .5s ease-out both; }
-.tile .lab { color:var(--fg2); font-size:12.5px; } .tile b { font-size:28px; font-variant-numeric:tabular-nums; line-height:1.15; }
+.tile .lab { color:var(--fg2); font-size:12px; line-height:1.3; } .tile b { font-size:24px; font-variant-numeric:tabular-nums; line-height:1.15; }
 .tile b small { font-size:16px; color:var(--fg2); font-weight:600; } .tile .delta { font-size:12px; color:var(--muted); }
 .tile.up .delta { color:var(--good); } .tile.down .delta { color:var(--warn); }
 svg.trend { width:100%; height:30px; margin-top:4px; } .trend polyline { fill:none; stroke:var(--accent); stroke-width:2; }
@@ -440,7 +438,8 @@ svg.trend { width:100%; height:30px; margin-top:4px; } .trend polyline { fill:no
 
 /* every game */
 .chart { } .chartwrap { position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 8px 2px; }
-svg.games { width:100%; height:auto; display:block; } .games .ax { fill:var(--muted); font-size:11px; }
+svg.games { width:100%; height:clamp(140px, calc(100vh - 525px), 440px); display:block; }
+svg.games line, svg.games polyline { vector-effect:non-scaling-stroke; } .games .ax { fill:var(--muted); font-size:11px; }
 .games .grid { stroke:var(--line); } .games .base { stroke:var(--muted); }
 .games .bar { fill:var(--s1); } .games .lost .bar { fill:var(--s2); } .games .draw .bar { fill:var(--bar-tt); }
 .games .hit { fill:transparent; } .games .col:hover .bar { filter:brightness(1.25); }
