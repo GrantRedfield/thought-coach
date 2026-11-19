@@ -52,6 +52,8 @@ def _status(s3, site: str, user: str, gid: str, state: str, **extra) -> None:
     what the live page has been shown)."""
     body = {**_read_status(s3, site, user, gid), "game_id": gid, "user": user, "state": state,
             "updated": time.time(), **extra}
+    if state != "error":
+        body.pop("error", None)  # a review that runs (again) is no longer the earlier failure
     if state == "done":
         body.update(dashboard=f"/u/{user}/games/{gid}", story=f"/u/{user}/games/{gid}/story")
     s3.put_object(Bucket=site, Key=f"status/{user}/{gid}.json", Body=json.dumps(body).encode(),
