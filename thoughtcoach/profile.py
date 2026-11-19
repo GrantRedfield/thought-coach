@@ -339,7 +339,7 @@ def _e(x) -> str:
     return html.escape(str(x), quote=True)
 
 
-CSS = """
+CSS = bayes.RANGE_CSS + """
 .profile h2 { font-size:15px; margin:26px 0 4px; } .profile .sub { color:var(--fg2); margin:0 0 12px; font-size:13px; }
 .pkpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; margin-bottom:12px; }
 .pkpi { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:8px 12px; }
@@ -524,7 +524,7 @@ def render(p: dict) -> str:
         body = "".join(
             f"<p><b>{_e(f['head'])}{'<span class=early>early signal</span>' if f['early'] else ''}</b>{_e(f['body'])}"
             f" <span class='n'>({f['n']} {f.get('unit', 'moves')}"
-            + (f" · {bayes.chance(f['sure'])} likely real" if f.get("sure") is not None else "") + ")</span></p>" for f in items) or "<p class='n'>Nothing clear yet.</p>"
+            + (f" · {bayes.verdict(f['sure'])}" if f.get("sure") is not None else "") + ")</span></p>" for f in items) or "<p class='n'>Nothing clear yet.</p>"
         return f"<div class='fcol {cls}'><h3><i>{icon}</i>{title}</h3>{body}</div>"
 
     from .gaps import GAP_LABEL

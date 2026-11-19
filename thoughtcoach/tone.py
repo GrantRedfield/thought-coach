@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 import statistics
 
-from .bayes import LIKELY, chance, prob_greater_prior, sceptic
+from .bayes import LIKELY, odds, prob_greater_prior, sceptic, verdict
 
 UPBEAT = ["good", "great", "nice", "i like", "love", "winning", "better for me", "i'm better",
           "comfortable", "solid", "fine", "should be good", "should be fine", "easy", "crushing", "happy", "perfect", "beautiful", "got him", "got it", "free pawn", "up a pawn", "in trouble",
@@ -149,12 +149,12 @@ def stats(rows: list[dict], min_moves: int = MIN_MOVES) -> dict:
             better, worse = ("upbeat", "worried") if p >= 0.5 else ("worried", "upbeat")
             out["findings"].append(
                 f"You play better when you sound {better}: {by[worse]['rate']:.0%} of your {worse} moves went wrong, "
-                f"against {by[better]['rate']:.0%} of your {better} ones. {chance(max(p, 1 - p))} chance that's real, "
-                f"not luck ({counts}).")
+                f"against {by[better]['rate']:.0%} of your {better} ones: {verdict(max(p, 1 - p))} "
+                f"({odds(max(p, 1 - p))} it's not luck; {counts}).")
         else:
             out["notes"].append(
                 f"No clear link yet between your mood and your play: {wo['rate']:.0%} of worried moves went wrong, "
-                f"{up['rate']:.0%} of upbeat ones. The chance worried moves really go wrong more often is {chance(p)} "
+                f"{up['rate']:.0%} of upbeat ones. The odds that worried moves really go wrong more often: {odds(p)} "
                 f"({counts}).")
     (wf, wn), (of, on) = out["aggression"]["worried"], out["aggression"]["other"]
     if wn >= 3 and on >= 3:
@@ -164,14 +164,14 @@ def stats(rows: list[dict], min_moves: int = MIN_MOVES) -> dict:
         if p >= LIKELY and wn >= FINDING_MIN:
             out["findings"].append(
                 f"Worry holds back your attacking moves: when the best move was a capture or a check you played one "
-                f"{wf / wn:.0%} of the time while worried, {of / on:.0%} otherwise. {chance(p)} chance that's real "
-                f"({wn} and {on} positions).")
+                f"{wf / wn:.0%} of the time while worried, {of / on:.0%} otherwise: {verdict(p)} ({odds(p)}; "
+                f"{wn} and {on} positions).")
         elif p <= 1 - LIKELY and wn >= FINDING_MIN:
             out["findings"].append(
                 f"Worry doesn't stop you attacking: with a capture or check as the best move you played one "
-                f"{wf / wn:.0%} of the time while worried, {of / on:.0%} otherwise ({chance(1 - p)} sure).")
+                f"{wf / wn:.0%} of the time while worried, {of / on:.0%} otherwise ({verdict(1 - p)}).")
         else:
             out["notes"].append(
-                f"Does worry hold back your attacking moves? {chance(p)} chance, from {wn} worried positions where the "
+                f"Does worry hold back your attacking moves? {odds(p).capitalize()} so far, from {wn} worried positions where the "
                 f"best move was a capture or a check: too few to say.")
     return out

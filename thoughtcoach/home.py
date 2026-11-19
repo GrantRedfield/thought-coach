@@ -245,15 +245,15 @@ def form(rows: list[dict], prof: dict) -> str:
         worse = bayes.prob_greater_prior(cc, n_crit, costly - cc, n_all - n_crit, bayes.sceptic(costly / n_all if n_all else 0.25))
         tile(f"{crit:.0f}s<small> vs {other:.0f}s</small>", "Think time when only one move holds",
              "", f"{cc} of {costly} costly moves came there · {rushed} played fast · "
-                 f"{bayes.chance(worse)} likely they cost you more than other positions",
+                 f"{bayes.verdict(worse).capitalize()} that they cost you more than other positions",
              "down" if crit <= other else "up")
     q = prof["questions"]
     if q["q3"][1]:
-        tile(f"{q['q3'][0] / q['q3'][1] * 100:.0f}%", "Their threats you saw coming", "",
-             f"{q['q3'][0]} of {q['q3'][1]} · {bayes.span(*q['q3'])}")
+        tile(f"{q['q3'][0] / q['q3'][1] * 100:.0f}%", "Their threats you saw coming", bayes.range_svg(*q['q3'], 200),
+             f"{q['q3'][0]} of {q['q3'][1]}; {bayes.span(*q['q3'])}")
     if q["q4"][1]:
-        tile(f"{q['q4'][0] / q['q4'][1] * 100:.0f}%", "Best move among your candidates", "",
-             f"{q['q4'][0]} of {q['q4'][1]} positions · {bayes.span(*q['q4'])}")
+        tile(f"{q['q4'][0] / q['q4'][1] * 100:.0f}%", "Best move among your candidates", bayes.range_svg(*q['q4'], 200),
+             f"{q['q4'][0]} of {q['q4'][1]} positions; {bayes.span(*q['q4'])}")
     st = prof["strikes"]
     if st["games"]:
         tile(f"{st['you']['n']}<small>/{st['games']}</small>", "Games where you struck first", "",
@@ -298,12 +298,12 @@ def focus_check(loaded: list[dict], stories: dict[str, dict]) -> str:
         p = e["p"] if e["games"] >= habits.MIN_GAMES else None
         tone = "up" if p is not None and p >= bayes.LIKELY else "down" if p is not None and p <= 1 - bayes.LIKELY else ""
         badge = ("working" if tone == "up" else "not yet" if tone == "down" else "too early")
-        meter = (f"<span class='fmeter'><span style='width:{p * 100:.0f}%'></span></span>" if p is not None else "")
+        meter = bayes.odds_dots(p) if p is not None else ""
         cards_.append(f"<div class='fcard {tone}'><p class='ftop'><b>{_e(e['title'])}</b><span class='fbadge'>{badge}</span></p>"
                       f"{meter}<p class='ftext'>{_e(e['text'])}</p></div>")
     return (f"<section class='focuscheck'><h2>Is your focus working?</h2><p class='cap'>Each game's story gives you one "
             f"thing to work on. Here is the rate it should move, in the games before you got it and the games since, "
-            f"with the chance the change is real and not luck.</p><div class='fgrid'>{''.join(cards_)}</div></section>")
+            f"and how sure we can be that the change is real and not luck (the dots: how many in 10).</p><div class='fgrid'>{''.join(cards_)}</div></section>")
 
 
 def render(loaded: list[dict], prof: dict | None, stories: dict[str, dict], statuses: dict[str, dict]) -> str:
@@ -328,7 +328,7 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
 {patterns}"""
 
 
-CSS = """
+CSS = bayes.RANGE_CSS + """
 .wrap { max-width:1180px; margin:0 auto; }
 .topbar { display:flex; align-items:center; gap:18px; margin:0 0 22px; }
 .topbar .brand { font-weight:700; font-size:17px; color:var(--fg); text-decoration:none; display:flex; align-items:center; gap:8px; }

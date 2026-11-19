@@ -4,7 +4,7 @@ from thoughtcoach.bayes import interval, prob_above, prob_greater, prob_greater_
 def test_interval_and_span():
     lo, hi = interval(6, 16)
     assert 0.20 < lo < 0.23 and 0.57 < hi < 0.60
-    assert span(6, 16) == "likely 21–58%"
+    assert span(6, 16) == "over many games probably 21–58%"
 
 
 def test_chance_one_rate_beats_another():

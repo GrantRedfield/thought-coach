@@ -136,6 +136,72 @@ def sure(p: float) -> str:
 
 
 def span(k: int, n: int) -> str:
-    """'likely 21–58%' for a rate seen k times in n."""
+    """'over many games probably 21–58%' for a rate seen k times in n."""
     lo, hi = interval(k, n)
-    return f"likely {lo * 100:.0f}–{hi * 100:.0f}%"
+    return f"over many games probably {lo * 100:.0f}–{hi * 100:.0f}%"
+
+
+# ---------------------------------------------------------------- for people, not statisticians
+
+
+def odds(p: float) -> str:
+    """'about 7 in 10', 'more than 99 in 100'."""
+    if p >= 0.995:
+        return "more than 99 in 100"
+    if p <= 0.005:
+        return "less than 1 in 100"
+    return f"about {min(9, max(1, round(p * 10)))} in 10"
+
+
+def verdict(p: float) -> str:
+    """Whether a pattern is real, in words (p: the chance it is)."""
+    if p >= VERY:
+        return "almost certainly real"
+    if p >= LIKELY:
+        return "probably real"
+    if p >= 0.65:
+        return "leaning that way, but could still be luck"
+    return "could easily be luck"
+
+
+def range_sentence(k: int, n: int, what: str = "positions") -> str:
+    lo, hi = interval(k, n)
+    return (f"With {n} {what} behind it, your real rate is probably between {lo * 100:.0f}% and {hi * 100:.0f}% "
+            f"(the shaded band).")
+
+
+def range_svg(k: int, n: int, width: int = 240) -> str:
+    """A 0-100% strip: the dot is what you did, the shaded band where your real rate probably is
+    (the 90% credible interval). It narrows as more games come in."""
+    if not n:
+        return ""
+    lo, hi = interval(k, n)
+    W, L, R = width, 8, 8
+    x = lambda v: L + v * (W - L - R)  # noqa: E731
+    label = (f"{k} of {n} ({k / n * 100:.0f}%). Your real rate is probably between {lo * 100:.0f}% and "
+             f"{hi * 100:.0f}%.")
+    ticks = "".join(f"<text x='{x(v):.1f}' y='29' text-anchor='{a}'>{v * 100:.0f}%</text>"
+                    for v, a in ((0, "start"), (0.5, "middle"), (1, "end")))
+    return (f"<svg class='crange' viewBox='0 0 {W} 32' role='img' aria-label='{label}'><title>{label}</title>"
+            f"<line class='trk' x1='{L}' x2='{W - R}' y1='11' y2='11'/>"
+            f"<rect class='band' x='{x(lo):.1f}' y='5' width='{max(2.0, x(hi) - x(lo)):.1f}' height='12' rx='6'/>"
+            f"<circle class='dot' cx='{x(k / n):.1f}' cy='11' r='5.5'/>{ticks}</svg>")
+
+
+def odds_dots(p: float) -> str:
+    """Ten dots, about p of them filled: how sure, at a glance."""
+    filled = 10 if p >= 0.995 else 0 if p <= 0.005 else min(9, max(1, round(p * 10)))
+    dots = "".join(f"<circle cx='{5 + i * 12}' cy='5' r='4' class='{'on' if i < filled else 'off'}'/>" for i in range(10))
+    return f"<svg class='odots' viewBox='0 0 118 10' role='img' aria-label='{odds(p)}'><title>{odds(p)}</title>{dots}</svg>"
+
+
+RANGE_CSS = """
+.crange { width:100%; max-width:300px; height:auto; display:block; margin:4px 0 2px; overflow:visible; }
+.crange .trk { stroke:var(--line); stroke-width:6; stroke-linecap:round; }
+.crange .band { fill:var(--s1); opacity:.5; }
+.crange .dot { fill:var(--fg); stroke:var(--card); stroke-width:2; }
+.crange text { fill:var(--muted); font-size:9px; }
+.crange .bl { fill:var(--fg2); font-size:9px; }
+.odots { width:118px; height:10px; display:block; margin:4px 0 6px; }
+.odots .on { fill:var(--fg2); } .odots .off { fill:var(--line); }
+"""
