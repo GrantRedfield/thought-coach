@@ -32,6 +32,12 @@
   .sc-cap { font-size:12px; color:var(--muted); text-align:center; margin:10px 0 0; }
 
   /* steps */
+  .tips2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:28px; }
+  .tip2 { display:flex; gap:12px; align-items:flex-start; background:var(--soft); border:1px solid var(--line);
+    border-radius:14px; padding:12px 14px; }
+  .tip2 .ti { font-size:22px; line-height:1; flex:none; margin-top:2px; }
+  .tip2 b { display:block; font-size:15px; margin-bottom:2px; } .tip2 p { margin:0; color:var(--fg2); font-size:13.5px; line-height:1.45; }
+  @media (max-width:760px) { .tips2 { grid-template-columns:1fr; } }
   .duo { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:28px; margin-top:40px; }
   .duo section.block { margin:0; }
   .steps4 { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
@@ -142,6 +148,17 @@
       </div>
       <figcaption class="sc-cap">A card from a real game's story: what you said, set against what the engine saw.</figcaption>
     </figure>
+  </div>
+
+  <!-- ============ two things to know before you start ============ -->
+  <div class="tips2">
+    <div class="tip2"><span class="ti" aria-hidden="true">&#9201;</span><div><b>Longer games work best</b>
+      <p>Play 10+5 or 15+10 rapid: there's time to draw your ideas and say them. In bullet there's no room to think out
+        loud, and moves played with under 30 seconds left aren't judged on your thinking.</p></div></div>
+    <div class="tip2"><span class="ti" aria-hidden="true">&#127897;</span><div><b>Give it a few games</b>
+      <p>Drawing arrows and talking while you play feels strange at first, and you may be a little slower for a few
+        games. That passes quickly. Start by drawing their threats, then add your own moves, then talk.
+        <a href="/play">Your first games, step by step</a></p></div></div>
   </div>
 
   <div class="duo">
