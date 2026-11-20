@@ -293,15 +293,56 @@ def focus_check(loaded: list[dict], stories: dict[str, dict]) -> str:
         return ""
     cards_ = []
     for e in items[:4]:
-        p = e["p"] if e["games"] >= habits.MIN_GAMES else None
-        tone = "up" if p is not None and p >= bayes.LIKELY else "down" if p is not None and p <= 1 - bayes.LIKELY else ""
-        badge = ("working" if tone == "up" else "not yet" if tone == "down" else "too early")
-        meter = bayes.odds_dots(p) if p is not None else ""
-        cards_.append(f"<div class='fcard {tone}'><p class='ftop'><b>{_e(e['title'])}</b><span class='fbadge'>{badge}</span></p>"
-                      f"{meter}<p class='ftext'>{_e(e['text'])}</p></div>")
+        cards_.append(_focus_card(e))
     return (f"<section class='focuscheck'><h2>Is your focus working?</h2><p class='cap'>Each game's story gives you one "
-            f"thing to work on. Here is the rate it should move, in the games before you got it and the games since, "
-            f"and how sure we can be that the change is real and not luck (the dots: how many in 10).</p><div class='fgrid'>{''.join(cards_)}</div></section>")
+            f"thing to work on. Each card compares the games before you got it with the games since, and says in "
+            f"words how sure we can be that a change is real and not luck.</p><div class='fgrid'>{''.join(cards_)}</div></section>")
+
+
+def focus_state(e: dict) -> tuple[str, str, str]:
+    """(css tone, badge, plain sentence) for one focus: how sure we are it changed, in words."""
+    (kb, nb), (ka, na) = e["before"], e["since"]
+    p = e["p"]
+    if not na:
+        return "", "waiting", "It hasn't come up yet in the games since."
+    if p is None or e["games"] < habits.MIN_GAMES:
+        g = e["games"]
+        return "", "too early", (f"Only {g} game{'s' * (g != 1)} so far: one game says almost nothing. "
+                                 f"Give it {habits.MIN_GAMES - g} more.")
+    n = round(p * 10)
+    if p >= bayes.LIKELY:
+        if p >= 0.95:
+            return "up", "working", "Working, and almost certainly a real change, not luck."
+        return "up", "working", f"Working. The odds this is a real change, not luck: about {n} in 10."
+    if p >= 0.6:
+        return "lean", "looks promising", (f"Heading the right way, but not sure yet: about {n} in 10 that it's real. "
+                                           "A few more games will settle it.")
+    if p > 0.4:
+        return "", "no change yet", "No real difference yet: it could go either way."
+    if p > 1 - bayes.LIKELY:
+        return "slip", "slipping", "Slightly the wrong way so far, but that could still be luck."
+    return "down", "not yet", f"Going the wrong way: about {10 - n} in 10 that it really got worse."
+
+
+def _focus_card(e: dict) -> str:
+    (kb, nb), (ka, na) = e["before"], e["since"]
+    tone, badge, words = focus_state(e)
+    up = habits.MEASURE[e["key"]][2]
+    rb, ra = (kb / nb if nb else None), (ka / na if na else None)
+    top = max([x for x in (rb, ra) if x is not None] + [0.05])
+
+    def bar(label, r, k, n, cls):
+        if r is None:
+            return f"<div class='fbar'><span class='fl'>{label}</span><span class='ftrk'></span><span class='fv'>none yet</span></div>"
+        return (f"<div class='fbar'><span class='fl'>{label}</span><span class='ftrk'><i class='{cls}' "
+                f"style='width:{max(2, r / top * 100):.0f}%'></i></span><span class='fv'><b>{r:.0%}</b> "
+                f"<small>{k} of {n}</small></span></div>")
+    better = ra is not None and rb is not None and ((ra > rb) == up) and ra != rb
+    bars = bar("Before", rb, kb, nb, "b0") + bar("Since", ra, ka, na, "b1 good" if better else "b1")
+    g = e["games"]
+    return (f"<div class='fcard {tone}'><p class='ftop'><b>{_e(e['title'])}</b><span class='fbadge'>{badge}</span></p>"
+            f"<p class='fwhat'>{_e(e['label'].capitalize())} ({'higher' if up else 'lower'} is better) · "
+            f"{g} game{'s' * (g != 1)} since</p>{bars}<p class='ftext'>{_e(words)}</p></div>")
 
 
 def render(loaded: list[dict], prof: dict | None, stories: dict[str, dict], statuses: dict[str, dict]) -> str:
@@ -425,6 +466,14 @@ figure.hfig { margin:0; } .hfig .brd svg { width:100%; max-width:360px; height:a
 .fmeter { display:block; height:6px; border-radius:3px; background:var(--soft, rgba(127,127,127,.15)); overflow:hidden; margin:0 0 8px; }
 .fmeter span { display:block; height:100%; background:var(--fg2); } .fcard.up .fmeter span { background:#2f9e44; }
 .fcard.down .fmeter span { background:#e03131; }
+.fcard.lean .fbadge { background:color-mix(in srgb, #2f9e44 15%, transparent); }
+.fcard.slip .fbadge { background:color-mix(in srgb, #e03131 13%, transparent); }
+.fwhat { margin:0 0 8px; font-size:12.5px; color:var(--muted); }
+.fbar { display:grid; grid-template-columns:52px 1fr 96px; gap:8px; align-items:center; margin:4px 0; font-size:12.5px; }
+.fbar .fl { color:var(--fg2); } .fbar .fv { text-align:right; } .fbar .fv small { color:var(--muted); }
+.ftrk { height:8px; border-radius:4px; background:var(--line); overflow:hidden; display:block; }
+.ftrk i { display:block; height:100%; border-radius:4px; background:var(--fg2); opacity:.55; }
+.ftrk i.b1 { opacity:1; } .ftrk i.good { background:#2f9e44; }
 .ftext { margin:0; font-size:13.5px; color:var(--fg2); }
 .tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(122px, 1fr)); gap:8px; }
 .tile { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; display:flex; flex-direction:column; gap:2px;

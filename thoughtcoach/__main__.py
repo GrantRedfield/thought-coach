@@ -242,8 +242,8 @@ def write_story(report: dict, analysis: dict, thinking: dict | None, game, out_d
                     pass
             check = next((e for e in habits.compute(loaded[: i + 1], stories) if e["key"] == focus["key"]), None)
             if check and check["games"] >= habits.MIN_GAMES and check["p"] is not None:
-                verdict = ("working" if check["p"] >= 0.8 else "not working yet" if check["p"] <= 0.2 else "too early to tell")
-                history["last_focus"]["check"] = f"Over the {check['games']} games since you got it: {verdict}."
+                from .home import focus_state
+                history["last_focus"]["check"] = f"Over the {check['games']} games since you got it: {focus_state(check)[2]}"
     built = story.build(report, analysis, thinking, game, history)
     # The home page's "latest game" card reads this: the headline, the key position and the focus.
     write(out_dir / f"{built['id']}.story.json", json.dumps(story.summary(built)))

@@ -1005,7 +1005,7 @@ def render(story: dict) -> str:
     if story.get("truths"):
         items = "".join(
             f"<div class='truth {'good' if t['good'] else 'weak'}'><p class='th'>{_e(t['head'])}</p><p class='tb'>{_e(t['body'])}</p>"
-            f"<p class='ts'>{bayes.odds_dots(t['sure'])}<span>{_e(bayes.verdict(t['sure']).capitalize())} · "
+            f"<p class='ts'><span>{_e(bayes.verdict(t['sure']).capitalize())} · "
             f"{t['n']} moves</span></p></div>"
             for t in story["truths"])
         slides.append(("truths", f"""<p class='eyebrow'>Across your {story.get('games') or ''} games</p><h2>What your games say</h2>
