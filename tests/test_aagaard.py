@@ -20,7 +20,9 @@ def test_structural_weaknesses():
 def test_only_weaknesses_the_engine_uses_count():
     board = chess.Board(START)
     found = weaknesses(board, chess.BLACK, PV, None)
-    assert {"square": "d4", "kind": "isolated pawn", "side": "theirs"} in found  # the knight takes it
+    d4 = next(w for w in found if w["square"] == "d4" and w["side"] == "theirs")
+    assert d4["kind"] == "isolated pawn"
+    assert d4["engine_line"].endswith("Nxd4") and not d4["if_passed"]  # the line that takes it, to show why
     assert not any(w["square"] == "e4" and w["side"] == "theirs" for w in found)  # a hole nobody goes to
 
 

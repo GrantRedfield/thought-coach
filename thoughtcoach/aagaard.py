@@ -149,15 +149,29 @@ def _landings(board: chess.Board, moves: list[chess.Move], last_capture: int | N
     return out
 
 
+def _line_to(board: chess.Board, moves: list[chess.Move], square: int, side: chess.Color) -> str | None:
+    """The line up to the move where `side` lands on (or takes on) `square`, in SAN; None if it doesn't."""
+    b = board.copy(stack=False)
+    for i, m in enumerate(moves):
+        if m not in b.legal_moves:
+            return None
+        if b.turn == side and m.to_square == square:
+            return board.variation_san(moves[: i + 1])
+        b.push(m)
+    return None
+
+
 def weaknesses(board: chess.Board, me: chess.Color, best_pv: list[chess.Move], threat: dict | None,
                last_capture: int | None = None) -> list[dict]:
     """Weaknesses (yours and theirs) that the engine's lines use. `last_capture`: the square the
     move before this position captured on, if it was a capture (taking back there is an exchange)."""
     lands = _landings(board, best_pv[:PV_PLIES], last_capture)
+    passed, passed_moves = None, []
     if threat and threat.get("line_san"):
         passed = board.copy(stack=False)
         passed.push(chess.Move.null())
-        theirs_if_passed = _landings(passed, line_moves(passed, threat["line_san"]))[not me]
+        passed_moves = line_moves(passed, threat["line_san"])
+        theirs_if_passed = _landings(passed, passed_moves)[not me]
         for k in ("piece", "capture"):  # pieces it would win are threats (question 3), not weaknesses
             lands[not me][k] |= theirs_if_passed[k]
     out = []
@@ -166,7 +180,13 @@ def weaknesses(board: chess.Board, me: chess.Color, best_pv: list[chess.Move], t
         for sq, kind in structural(board, side).items():
             used = lands[not side]["piece"] if kind == "hole" else lands[not side]["capture"]
             if sq in used:
-                out.append({"square": chess.square_name(sq), "kind": kind, "side": whose})
+                # The line that uses it, so the review can show why it matters.
+                line = _line_to(board, best_pv[:PV_PLIES], sq, not side)
+                if_passed = False
+                if line is None and passed is not None and side == me:
+                    line, if_passed = _line_to(passed, passed_moves, sq, not side), True
+                out.append({"square": chess.square_name(sq), "kind": kind, "side": whose,
+                            "engine_line": line, "if_passed": if_passed and line is not None})
         for sq in lands[not side]["wins"]:
             piece = board.piece_at(sq)
             if piece and piece.color == side and piece.piece_type not in (chess.PAWN, chess.KING):

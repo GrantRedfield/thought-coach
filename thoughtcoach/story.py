@@ -354,6 +354,7 @@ def weaknesses(c: Ctx) -> list[dict]:
         kind = w["kind"].replace("loose ", "") + " loose" if w["kind"].startswith("loose") else w["kind"]
         if w.get("created_by"):
             board = chess.Board(w.get("fen_after") or m["fen"])
+            why, frames = "", None
             out.append(_beat("weak_made", m["ply"], m["wp_loss"] * 2.5 + 0.2,
                              f"Aagaard's question 1 · move {m['move_number']}", "Your move made a weakness",
                              f"{w['created_by']} left your {kind} on {w['square']}, and the engine's reply goes "
@@ -361,17 +362,21 @@ def weaknesses(c: Ctx) -> list[dict]:
                              c.quote(m["ply"]), board, fill={sq: ORANGE}))
         elif w.get("you") and w["side"] == "theirs":
             board = chess.Board(m["fen"])
+            why, frames = _weak_line(board, w, sq, BLUE)
             when = f" at move {w['you_move']}" if w.get("you_move") else ""
             out.append(_beat("weak_found", m["ply"], 0.45, f"Aagaard's question 1 · move {m['move_number']}",
                              f"You found the {w['kind'].replace('loose ', 'loose ')}",
                              f"You pointed at {w['square']}{when}, and the engine's best line goes right for it: "
-                             f"their {kind} on {w['square']}.", c.quote(m["ply"]), board, fill={sq: BLUE}))
+                             f"their {kind} on {w['square']}.{why}", c.quote(m["ply"]), board, fill={sq: BLUE},
+                             frames=frames))
         elif not w.get("you") and 0.3 <= m["wp_before"] <= 0.7:  # a slow question: only while it's in the balance
             board = chess.Board(m["fen"])
             whose = "their" if w["side"] == "theirs" else "your"
+            why, frames = _weak_line(board, w, sq, ORANGE)
             out.append(_beat("weak_missed", m["ply"], 0.3, f"Aagaard's question 1 · move {m['move_number']}",
                              "Where are the weaknesses?", f"{whose.capitalize()} {kind} on {w['square']}: the engine's "
-                             "line used it, and it never came up in your thinking.", None, board, fill={sq: ORANGE}))
+                             f"line used it, and it never came up in your thinking.{why}", None, board,
+                             fill={sq: ORANGE}, frames=frames))
     return out
 
 
@@ -399,9 +404,10 @@ def worst_piece(c: Ctx) -> list[dict]:
     return out
 
 
-def line_frames(board: chess.Board, line_san: str, square: int) -> list[dict]:
-    """The engine's line, move by move, starting with the piece marked where it is stuck."""
-    frames = [{"fen": board.fen(), "arrow": None, "last": None, "fill": {square: PURPLE}, "cap": "Stuck here"}]
+def line_frames(board: chess.Board, line_san: str, square: int, color: str = PURPLE, first: str = "Stuck here",
+                last: str = ": it comes to life") -> list[dict]:
+    """The engine's line, move by move, starting with `square` marked."""
+    frames = [{"fen": board.fen(), "arrow": None, "last": None, "fill": {square: color}, "cap": first}]
     b = board.copy(stack=False)
     for tok in re.sub(r"\d+\.(\.\.)?", " ", line_san).split():
         try:
@@ -411,8 +417,48 @@ def line_frames(board: chess.Board, line_san: str, square: int) -> list[dict]:
         label = _label(2 * b.fullmove_number - (1 if b.turn == chess.WHITE else 0), b.san(mv))
         b.push(mv)
         frames.append({"fen": b.fen(), "arrow": None, "last": (mv.from_square, mv.to_square), "fill": {}, "cap": label})
-    frames[-1]["cap"] += ": it comes to life"
+    frames[-1]["cap"] += last
     return frames
+
+
+PIECE_NAME = {chess.PAWN: "pawn", chess.KNIGHT: "knight", chess.BISHOP: "bishop", chess.ROOK: "rook",
+              chess.QUEEN: "queen", chess.KING: "king"}
+
+
+def _weak_line(board: chess.Board, w: dict, square: int, color: str) -> tuple[str, list[dict] | None]:
+    """Why a weak square matters: the engine's line that uses it, shown move by move, and what the
+    piece that lands there hits from it."""
+    line = w.get("engine_line")
+    if not line:
+        return "", None
+    start = board.copy(stack=False)
+    if w.get("if_passed"):
+        start.push(chess.Move.null())
+    frames = line_frames(start, line, square, color, f"{w['square']}", "")
+    end = chess.Board(frames[-1]["fen"])
+    piece = end.piece_at(square)
+    hits = ""
+    if piece and piece.piece_type != chess.PAWN:
+        targets = sorted((s for s in end.attacks(square) if end.piece_at(s) and end.piece_at(s).color != piece.color
+                          and end.piece_at(s).piece_type != chess.PAWN),
+                         key=lambda s: -VALUE_OF[end.piece_at(s).piece_type])
+        if targets:
+            hits = (f" From {w['square']} the {PIECE_NAME[piece.piece_type]} hits "
+                    + _and([f"the {PIECE_NAME[end.piece_at(s).piece_type]} on {chess.square_name(s)}" for s in targets[:3]]) + ".")
+        else:
+            hits = f" The {PIECE_NAME[piece.piece_type]} settles on {w['square']} and can't be driven away by a pawn."
+    elif w["kind"] != "hole":
+        hits = f" The pawn on {w['square']} falls."
+    frames[-1]["cap"] += f": on {w['square']}"
+    lead = "If you passed, the engine's line is" if w.get("if_passed") else "The engine's line:"
+    return f" {lead} {line}.{hits}", frames
+
+
+VALUE_OF = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3, chess.ROOK: 5, chess.QUEEN: 9, chess.KING: 10}
+
+
+def _and(xs: list[str]) -> str:
+    return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
 
 
 MENTAL = {"tide", "gave_up", "instinct", "inner"}  # from psych.py: their own cards, not counted with "your thoughts"
