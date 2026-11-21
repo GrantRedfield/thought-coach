@@ -24,11 +24,17 @@ def sq(name: str) -> int:
     return chess.parse_square(name)
 
 
-# The hero: a real moment. Black has just been hit by Nxc6, plays Nxc3+ (dark blue) in 12 seconds;
-# only Nb6 (green) held the position.
+# The hero: a master's moment from a streamed rapid game. "Blitzing out every move", the master
+# spent 59 s here, named White's two plans (f5 then f6 or e6, red) and played Rd8 (dark blue),
+# Stockfish's top move.
+master = chess.Board("r3k2r/p1pb1ppp/2p5/2b1P3/3NpP2/4B3/PqPQ2PP/R4RK1 b kq - 1 15")
+save("hero", master, chess.BLACK, arrows=[chess.svg.Arrow(sq("a8"), sq("d8"), color=PLAYED),
+                                          chess.svg.Arrow(sq("f4"), sq("f5"), color=RED),
+                                          chess.svg.Arrow(sq("e5"), sq("e6"), color=RED)])
+
+# A real moment from one of our games: Black has just been hit by Nxc6, plays Nxc3+ (dark blue) in
+# 12 seconds; only Nb6 (green) held the position.
 hero = chess.Board("4r2k/5pp1/2N2p1p/1pqn4/8/p1P2P2/PP1Q2PP/1K1R4 b - - 0 27")
-save("hero", hero, chess.BLACK, arrows=[chess.svg.Arrow(sq("d5"), sq("c3"), color=PLAYED),
-                                        chess.svg.Arrow(sq("d5"), sq("b6"), color=GREEN)])
 
 # What it captures: your arrows (candidates), their idea (red), and a circled weak square.
 caught = chess.Board("r4r1k/5pp1/2p1np1p/1p1q4/p7/2P2N2/PPQ2PPP/1K2R2R w - - 2 21")
