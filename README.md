@@ -455,5 +455,5 @@ tests/                    pytest + a sample PGN
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE). Stockfish is a separate program under GPL-3.0.
+GNU Affero General Public License v3.0 (AGPL-3.0). See [LICENSE](LICENSE). If you run a changed version as a service, you must publish your changes. Stockfish is a separate program under GPL-3.0.
 Thought Coach only talks to it over UCI and does not include it.

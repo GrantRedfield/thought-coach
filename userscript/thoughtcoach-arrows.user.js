@@ -10,7 +10,7 @@
 // @grant        GM_deleteValue
 // @grant        GM_registerMenuCommand
 // @run-at       document-idle
-// @license      Apache-2.0
+// @license      AGPL-3.0-or-later
 // ==/UserScript==
 
 /*
