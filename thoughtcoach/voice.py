@@ -18,6 +18,7 @@ import json
 import re
 import tempfile
 import threading
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -276,10 +277,27 @@ def ollama_available(url: str) -> bool:
 KEEP_ALIVE = "30m"
 
 
+GPU_FAILED = False  # Ollama's GPU runner crashed once (e.g. a CUDA build the driver can't run): CPU from then on
+
+
 def _post(url: str, body: dict, timeout: float) -> dict:
+    """POST to Ollama. If the model can't load on the GPU, the request is made again on the CPU, and so
+    is every later one (else each would wait ~30 s for the GPU runner to crash again)."""
+    global GPU_FAILED
+    if GPU_FAILED and "options" in body:
+        body = {**body, "options": {**body["options"], "num_gpu": 0}}
     request = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(request, timeout=timeout) as response:
-        return json.loads(response.read())
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read())
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")
+        if GPU_FAILED or "options" not in body or body["options"].get("num_gpu") == 0 or not any(
+                w in detail for w in ("CUDA", "llama-server", "terminated")):
+            raise
+        GPU_FAILED = True
+        print("the language model won't load on the GPU: using the CPU from here on", flush=True)
+        return _post(url, body, timeout)
 
 
 def warm_up(model: str, url: str, gpu: bool = False) -> threading.Thread:

@@ -83,10 +83,8 @@ def llm_read(prev: str, text: str) -> dict | None:
             "prompt": f"{LLM_INSTRUCTIONS}\n\nEarlier sentence: \"{prev}\"\nSENTENCE: \"{text}\"\nJSON:"}
     out = None
     try:
-        req = urllib.request.Request(f"{LLM['url']}/api/generate", data=json.dumps(body).encode(),
-                                     headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(req, timeout=120) as r:
-            a = json.loads(json.loads(r.read())["response"])
+        from .voice import _post  # (falls back to the CPU if the model won't load on the GPU)
+        a = json.loads(_post(f"{LLM['url']}/api/generate", body, 120)["response"])
         if a.get("mood") in ("upbeat", "worried", "neutral"):
             out = {"mood": a["mood"], "gave_up": bool(a.get("gave_up"))}
     except Exception:  # noqa: BLE001 - no model, or an odd answer: the word lists decide
