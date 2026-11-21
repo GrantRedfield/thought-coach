@@ -33,7 +33,7 @@ import chess.svg
 from .critical import _said
 from .gametype import classify
 from .strike import EXPLAIN as STRIKE_EXPLAIN
-from . import ahead, bayes, timing, tone
+from . import ahead, bayes, studies, timing, tone
 from .fmt import move_went, went, game_url, home_url, pct
 
 MAX_BEATS = 6
@@ -807,6 +807,9 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
         best = max(voiced, key=lambda b: b["score"])
         if best["ply"] not in {b["ply"] for b in beats}:
             beats = sorted(beats + [best], key=lambda b: b["ply"])
+    # A study chapter to go deeper, for cards whose position a lichess course teaches.
+    studies.attach(beats, lambda b: chess.Board(b["fen"]) if b.get("fen")
+                   else c.boards[b["ply"] - 1] if 0 < b["ply"] <= len(c.boards) else None)
     worst = max((m for m in c.moves if m["mistake"]), key=lambda m: m["wp_loss"], default=None)
     decided_by = _label(worst["ply"], worst["move_san"]) if one and worst else None
     g = report["game"]
@@ -877,7 +880,7 @@ def _link_moves(text: str, story: dict) -> str:
 
 def summary(story: dict) -> dict:
     """What the home page needs from a story (saved as <id>.story.json): no animation frames."""
-    keep = ("kind", "ply", "eyebrow", "title", "body", "quote", "fen", "arrows", "fill", "stat", "note")
+    keep = ("kind", "ply", "eyebrow", "title", "body", "quote", "fen", "arrows", "fill", "stat", "note", "study")
     return {**{k: story[k] for k in ("id", "me", "them", "color", "tc", "result", "outcome", "arrows", "said",
                                      "moves_with_thoughts", "curve", "focus", "decided_by")},
             "voice": story.get("voice"),
@@ -966,6 +969,15 @@ def _curve_svg(curve, marks) -> str:
             f"<text class='ax' x='{W - PAD}' y='{y(0.5) - 5:.1f}'>50%</text><polyline points='{pts}'/>{dots}</svg>")
 
 
+def _study(b: dict) -> str:
+    """The lichess study chapter to go deeper, credited to its author."""
+    st = b.get("study")
+    if not st:
+        return ""
+    return (f"<p class='study'>Go deeper on {_e(st['about'])}: <a href='{_e(st['url'])}' target='_blank' rel='noopener'>"
+            f"{_e(st['chapter'])}</a> <span>in {_e(st['study'])}, a lichess study by {_e(st['by'])}</span></p>")
+
+
 def render(story: dict) -> str:
     slides = []
     o = story["orientation"]
@@ -1000,7 +1012,7 @@ def render(story: dict) -> str:
         quote = f"<blockquote>“{_e(b['quote'])}”<cite>you, during the game</cite></blockquote>" if b.get("quote") else ""
         slides.append((b["kind"], meta + f"""<p class='eyebrow'><span class='n'>{i}</span>{_e(b['eyebrow'])}</p>
 <h2>{_e(b['title'])}</h2>{stat}{visual}
-<p class='body'>{_link_moves(_e(b['body']), story)}</p>{quote}{f"<p class='note'>{_e(b['note'])}</p>" if b.get('note') else ''}"""))
+<p class='body'>{_link_moves(_e(b['body']), story)}</p>{quote}{f"<p class='note'>{_e(b['note'])}</p>" if b.get('note') else ''}{_study(b)}"""))
     f = story["focus"]
     if story.get("truths"):
         items = "".join(
@@ -1157,6 +1169,9 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
   padding:0 3px; cursor:pointer; } .mv:hover, .mv.on { background:#ffffff38; } .mv:focus-visible { outline:2px solid #fff; }
 .mvcap { margin:6px 0 0; text-align:center; font-size:13px; color:#ffffffcc; }
 .mvback { font:inherit; font-size:13px; color:#fff; background:none; border:0; text-decoration:underline; cursor:pointer; padding:0; }
+.study { margin:8px 0 0; font-size:13px; line-height:1.45; color:#ffffffcc; }
+.study a { color:#fff; font-weight:600; text-decoration:underline; text-underline-offset:2px; }
+.study span { color:#ffffff99; }
 .note { margin:0; font-size:13px; line-height:1.45; color:#ffffff99; border-top:1px solid #ffffff22; padding-top:8px; }
 .lastfocus { margin:0 0 10px; padding:10px 14px; border-radius:10px; background:#ffffff12; font-size:15px; color:#ffffffd9; }
 .flag { position:absolute; top:26px; right:12px; z-index:6; background:none; border:0; color:#ffffff73; font:inherit;
