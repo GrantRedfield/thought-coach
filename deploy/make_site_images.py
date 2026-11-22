@@ -24,7 +24,7 @@ def sq(name: str) -> int:
     return chess.parse_square(name)
 
 
-# The hero: a master's moment from a streamed rapid game. "Blitzing out every move", the master
+# The hero: a master's moment from a rapid game. "Blitzing out every move", the master
 # spent 59 s here, named White's two plans (f5 then f6 or e6, red) and played Rd8 (dark blue),
 # Stockfish's top move.
 master = chess.Board("r3k2r/p1pb1ppp/2p5/2b1P3/3NpP2/4B3/PqPQ2PP/R4RK1 b kq - 1 15")

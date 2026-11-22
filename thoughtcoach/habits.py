@@ -51,11 +51,12 @@ def _shown(g):
 
 # focus key: (what is counted, how to count it in one game, True when more is better)
 MEASURE = {
+    # the four questions in the order strong players work in, then the rest
     "q3": ("threats spotted before they happened", _q("q3_spotted", "q3_real_threats"), True),
-    "candidates": ("positions with the best move among yours", _q("q4_best_considered", "q4_positions"), True),
-    "trust": ("good moves you drew and then dropped", _dropped, False),
     "q1": ("weaknesses you pointed at", _q("q1_found", "q1_weaknesses"), True),
-    "q2": ("worst pieces you named", _q("q2_found", "q2_positions"), True),
+    "candidates": ("positions with the best move among yours", _q("q4_best_considered", "q4_positions"), True),
+    "q2": ("least active pieces you named or brought into play", _q("q2_found", "q2_positions"), True),
+    "trust": ("good moves you drew and then dropped", _dropped, False),
     "sharp": ("critical positions that went wrong", _sharp, False),
     "time": ("moves played in time trouble", _clock, False),
     "input": ("moves with an arrow or words", _shown, True),

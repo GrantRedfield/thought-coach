@@ -1,10 +1,11 @@
 """Aagaard's questions across all games: how often you saw each one, what that depends on, and
 real positions from your games (seen and missed) to look at.
 
-  1. Where are the weaknesses?       (structural weaknesses the engine's line went for; aagaard.py)
-  2. Which is your worst piece?      (your least active piece; aagaard.py)
-  3. What does the opponent want?    (real threats: what they would play if it were their move)
-  4. The best move                   (was the engine's best move among your candidates)
+  1. What does the opponent want?    (real threats: what they would play if it were their move)
+  2. Where are the weaknesses?       (structural weaknesses the engine's line went for; aagaard.py)
+  3. What are your candidates?       (was the engine's best move among your candidates)
+  4. Which piece is doing least?     (your least active piece; aagaard.py)
+In the order strong players work in (thoughtcoach.org/questions).
 
 Everything is read from saved reviews: no engine work here. Moves in time trouble are left out
 of 3 and 4 (as in the rest of the review), and games without any thoughts recorded are skipped.
@@ -242,12 +243,16 @@ def best_move(games: list[dict]) -> dict:
             "seen_all": seen[::-1], "missed_all": missed}
 
 
+# In the order strong players work in (their long thinks start with the
+# opponent, weaknesses are what they point at most, they weigh two or three candidates, and they answer
+# the piece question with a candidate that improves it rather than out loud).
 QUESTIONS = [
+    ("q3", "What does your opponent want?", "Real threats: what they'd play if it were their move", threats),
     ("q1", "Where are the weaknesses?", "Weak pawns, holes and loose pieces, on both sides, that the engine's line used",
      weaknesses),
-    ("q2", "Which is your worst piece?", "Your least active piece, when it was clearly passive", worst_piece),
-    ("q3", "What does your opponent want?", "Real threats: what they'd play if it were their move", threats),
-    ("q4", "And the best move?", "Was the engine's best move among the moves you considered", best_move),
+    ("q4", "What are your candidates?", "Was the engine's best move among the two or three moves you considered", best_move),
+    ("q2", "Which piece is doing least?", "Your least active piece, when it was clearly passive: did a candidate bring it "
+     "into play?", worst_piece),
 ]
 
 

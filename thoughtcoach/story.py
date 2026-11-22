@@ -337,12 +337,12 @@ def threats(c: Ctx) -> list[dict]:
         arrow = _arrow(board, q3["threat_san"], RED, theirs=True)
         if q3.get("status") == "not_drawn" and q3["swing"] >= 0.1:
             out.append(_beat("threat", m["ply"], q3["swing"] * 2 + m["wp_loss"],
-                             f"Aagaard's question 3 · move {m['move_number']}", "What did they want?",
+                             f"Question 1, their idea · move {m['move_number']}", "What did they want?",
                              f"{q3['threat_san']}, worth {pct(q3['swing'])} to them. You didn't draw it, and "
                              f"{m['move_san']} didn't stop it ({move_went(m)}).", c.quote(m["ply"]), board, [arrow]))
         elif q3.get("status") == "spotted" and q3["swing"] >= 0.2:
             out.append(_beat("threat_seen", m["ply"], q3["swing"] * 0.9,
-                             f"Aagaard's question 3 · move {m['move_number']}", "You saw it coming",
+                             f"Question 1, their idea · move {m['move_number']}", "You saw it coming",
                              f"You drew {q3['threat_san']} before it could happen. It was worth {pct(q3['swing'])} "
                              "to them.", c.quote(m["ply"]), board, [arrow]))
     return out
@@ -360,7 +360,7 @@ def weaknesses(c: Ctx) -> list[dict]:
             board = chess.Board(w.get("fen_after") or m["fen"])
             why, frames = "", None
             out.append(_beat("weak_made", m["ply"], m["wp_loss"] * 2.5 + 0.2,
-                             f"Aagaard's question 1 · move {m['move_number']}", "Your move made a weakness",
+                             f"Question 2, weaknesses · move {m['move_number']}", "Your move made a weakness",
                              f"{w['created_by']} left your {kind} on {w['square']}, and the engine's reply goes "
                              "straight for it." + (" You'd pointed at it." if w.get("you") else ""),
                              c.quote(m["ply"]), board, fill={sq: ORANGE}))
@@ -368,7 +368,7 @@ def weaknesses(c: Ctx) -> list[dict]:
             board = chess.Board(m["fen"])
             why, frames = _weak_line(board, w, sq, BLUE)
             when = f" at move {w['you_move']}" if w.get("you_move") else ""
-            out.append(_beat("weak_found", m["ply"], 0.45, f"Aagaard's question 1 · move {m['move_number']}",
+            out.append(_beat("weak_found", m["ply"], 0.45, f"Question 2, weaknesses · move {m['move_number']}",
                              f"You found the {w['kind'].replace('loose ', 'loose ')}",
                              f"You pointed at {w['square']}{when}, and the engine's best line goes right for it: "
                              f"their {kind} on {w['square']}.{why}", c.quote(m["ply"]), board, fill={sq: BLUE},
@@ -377,7 +377,7 @@ def weaknesses(c: Ctx) -> list[dict]:
             board = chess.Board(m["fen"])
             whose = "their" if w["side"] == "theirs" else "your"
             why, frames = _weak_line(board, w, sq, ORANGE)
-            out.append(_beat("weak_missed", m["ply"], 0.3, f"Aagaard's question 1 · move {m['move_number']}",
+            out.append(_beat("weak_missed", m["ply"], 0.3, f"Question 2, weaknesses · move {m['move_number']}",
                              "Where are the weaknesses?", f"{whose.capitalize()} {kind} on {w['square']}: the engine's "
                              f"line used it, and it never came up in your thinking.{why}", None, board,
                              fill={sq: ORANGE}, frames=frames))
@@ -396,13 +396,13 @@ def worst_piece(c: Ctx) -> list[dict]:
         plan = f" The engine brings it to life: {line}." if line else ""
         frames = line_frames(board, line, sq) if line else None
         if w.get("you") == "named":
-            out.append(_beat("worst_named", m["ply"], 0.5, f"Aagaard's question 2 · move {m['move_number']}",
+            out.append(_beat("worst_named", m["ply"], 0.5, f"Question 4, least active piece · move {m['move_number']}",
                              "You named your worst piece", f"Your {w['piece']} on {w['square']} could reach only "
                              f"{w['activity'] * 100:.0f}% of its squares, and you said so.{plan}", c.quote(m["ply"]),
                              board, fill={sq: BLUE}, frames=frames))
         elif not w.get("you"):
             out.append(_beat("worst", m["ply"], 0.35 + (0.25 - w["activity"]),
-                             f"Aagaard's question 2 · move {m['move_number']}", f"Your {w['piece']} was stuck",
+                             f"Question 4, least active piece · move {m['move_number']}", f"Your {w['piece']} was stuck",
                              f"On {w['square']} it reached {w['activity'] * 100:.0f}% of its squares, and it never came "
                              f"up in your thinking.{plan}", None, board, fill={sq: PURPLE}, frames=frames))
     return out
@@ -620,16 +620,17 @@ def pick(beats: list[dict], n: int = MAX_BEATS) -> list[dict]:
 # ---------------------------------------------------------------- focus for next game
 
 FOCUS = {
-    "q3": ("Ask: what does my opponent want?", "Aagaard's question 3",
+    "q3": ("Ask: what does my opponent want?", "Question 1, their idea",
            "Before every move, draw one arrow for the move they most want to play."),
-    "candidates": ("Find a second candidate", "Candidate moves",
+    "candidates": ("Find a second candidate", "Question 3, candidates",
                    "Don't play until you've drawn two different moves for yourself."),
     "trust": ("Trust your candidates", "Instinct vs calculation",
               "When your first idea looks good, check it once more before switching to something new."),
-    "q1": ("Ask: where are the weaknesses?", "Aagaard's question 1",
+    "q1": ("Ask: where are the weaknesses?", "Question 2, weaknesses",
            "Before a pawn move, circle the squares it stops guarding, on both sides."),
-    "q2": ("Ask: which is my worst piece?", "Aagaard's question 2",
-           "Once in the opening and once in the middlegame, name your worst piece out loud and find it a square."),
+    "q2": ("Ask: which piece is doing least?", "Question 4, least active piece",
+           "Make one of your candidates a move that brings your least active piece into play: that's how strong "
+           "players answer this one."),
     "play_on": ("Play it out", "Your mindset",
                 "When it feels lost, find the most stubborn move and keep thinking the same way: let the board "
                 "decide it's over, not the mood."),
@@ -776,7 +777,7 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
         worst = max(costly("opponent_idea"), key=lambda m: m["wp_loss"], default=None)
         seen = reply_seen(c, worst) if worst else None
         if seen:  # you saw it; the move didn't answer it
-            title, tag = "Answer the threat you saw", "Aagaard's question 3"
+            title, tag = "Answer the threat you saw", "Question 1, their idea"
             habit = ("When you've drawn their threat, play it on the board in your head after your chosen move: "
                      "does your move still hold? Check where your pieces go after it.")
             reason = (f"At {_label(worst['ply'], worst['move_san'])} you'd drawn their {seen}, and it came next: "

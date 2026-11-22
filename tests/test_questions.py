@@ -27,4 +27,4 @@ def test_each_question_has_counts_and_example_positions():
     assert (q["q4"]["found"], q["q4"]["total"]) == (0, 1)
     assert "Not among your candidates" in q["q4"]["examples"][0]["note"]
     page = questions.render(questions.compute([game()]))
-    assert "Which is your worst piece?" in page and "/games/game0001" in page
+    assert "Which piece is doing least?" in page and "/games/game0001" in page

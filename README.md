@@ -111,8 +111,11 @@ is over. The server reviews it and the extension shows a notification with the d
    ```
    It listens on http://127.0.0.1:8770 (only your own computer can reach it). Your reviewed
    games are listed there.
-2. In Chrome, open `chrome://extensions`, turn on **Developer mode** (top right), click
-   **Load unpacked** and pick the [`extension`](extension) folder. Pin the Thought Coach icon.
+2. Add the extension from the Chrome Web Store:
+   [Thought Coach](https://chromewebstore.google.com/detail/thought-coach/kbkgndgcfghohabjmjmkpnkkcipbcomo)
+   (works in Chrome, Edge, Brave). Pin the Thought Coach icon. To run your own copy of the code
+   instead: open `chrome://extensions`, turn on **Developer mode** (top right), click **Load
+   unpacked** and pick the [`extension`](extension) folder.
 3. If you used the Tampermonkey userscript before, turn it off so the game isn't recorded twice.
 
 **Then just play.** The first time, lichess asks for the microphone (voice can be turned off in

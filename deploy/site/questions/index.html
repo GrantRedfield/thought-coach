@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The four questions · Thought Coach</title>
-<meta name="description" content="Aagaard's three questions and the best-move check: what to ask yourself in every position, and how Thought Coach checks your answers.">
+<meta name="description" content="Aagaard's three questions and the candidates check, in the order strong players use them: what to ask yourself, when to think hard, and how Thought Coach checks your answers.">
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="/site.css">
@@ -34,35 +34,17 @@
     <a class="link" href="/play">First games</a><a class="link" href="/start">Setup</a></nav>
 
   <h1>The four questions</h1>
-  <p class="lead">Grandmaster Jacob Aagaard teaches three questions to ask in every position. Thought Coach adds a fourth
-    about your candidate moves. Ask them while you play, answer them on the board or out loud, and the review shows you
-    which ones you skip and what skipping them cost.</p>
+  <p class="lead">Grandmaster Jacob Aagaard teaches three questions to ask in every position; Thought Coach adds a fourth
+    about your candidate moves. The order below is the order strong players actually work in: we reviewed 136 games by
+    titled players, counting what they drew and said, and put the questions in their order. Ask them while you
+    play, answer them on the board or out loud, and the review shows you which ones you skip and what skipping them cost.</p>
 
   <ol class="qs">
     <li class="q">
-      <header><span class="n">Q1</span><h2>Where are the weaknesses?</h2></header>
-      <p>Weak pawns (isolated, doubled, backward), holes that no pawn can cover again, and pieces left undefended. Look at
-        both sides: the weaknesses you can attack, and the ones your own moves leave behind.</p>
-      <dl>
-        <div><dt>Answer it by</dt><dd><b>Circling the square</b> (right-click it), or saying it: "d5 is a hole", "his e-pawn is weak".</dd></div>
-        <div><dt>The review checks</dt><dd>The weaknesses Stockfish's best line actually goes after, and whether you pointed at them first.</dd></div>
-        <div><dt>The oversight it catches</dt><dd>A pawn move that gives away a square for good, or a piece left hanging.</dd></div>
-      </dl>
-    </li>
-    <li class="q">
-      <header><span class="n">Q2</span><h2>Which is your worst piece?</h2></header>
-      <p>Usually one piece does nothing: a bishop behind its own pawns, a knight on the rim, a rook that hasn't got into
-        the game yet. Improving it is often the best plan when nothing tactical is going on.</p>
-      <dl>
-        <div><dt>Answer it by</dt><dd><b>Saying it</b> ("my bishop is terrible"), or <b>drawing an arrow</b> for a move that brings it back to life.</dd></div>
-        <div><dt>The review checks</dt><dd>Your least active piece by the squares it can reach, and the move Stockfish uses to improve it.</dd></div>
-        <div><dt>The oversight it catches</dt><dd>Playing on with a piece out of the game while the opponent's pieces get better.</dd></div>
-      </dl>
-    </li>
-    <li class="q">
-      <header><span class="n">Q3</span><h2>What does your opponent want?</h2></header>
-      <p>After every move they play, ask what they would do if it were their move again. A threat, a plan, a piece heading
-        somewhere. This is the question most often skipped, and missing it is the most expensive mistake.</p>
+      <header><span class="n">1</span><h2>What does your opponent want?</h2></header>
+      <p>After every move they play, ask what they would do if it were their move again: a threat, a plan, a piece heading
+        somewhere. Masters start here: most of their long thinks begin with the opponent's position, not their own moves.
+        It is also the question club players skip most, and missing it is the most expensive mistake.</p>
       <dl>
         <div><dt>Answer it by</dt><dd><b>Drawing an arrow from their piece</b> for the move they want to play.</dd></div>
         <div><dt>The review checks</dt><dd>Stockfish's best move for them if they could move again. Real threats you drew count as seen.</dd></div>
@@ -70,26 +52,53 @@
       </dl>
     </li>
     <li class="q">
-      <header><span class="n">Q4</span><h2>Is the best move among your candidates?</h2></header>
-      <p>Before you play, list your options. Captures, checks and threats first, then quieter moves. The aim isn't to find
-        everything, just to make sure the right move made the shortlist.</p>
+      <header><span class="n">2</span><h2>Where are the weaknesses?</h2></header>
+      <p>Weak pawns (isolated, doubled, backward), holes that no pawn can cover again, and pieces left undefended. Look at
+        both sides: the weaknesses you can attack, and the ones your own moves leave behind. Of the questions strong players
+        answer out loud, this is the one they answer most consistently.</p>
+      <dl>
+        <div><dt>Answer it by</dt><dd><b>Circling the square</b> (right-click it), or saying it: "d5 is a hole", "his e-pawn is weak".</dd></div>
+        <div><dt>The review checks</dt><dd>The weaknesses Stockfish's best line actually goes after, and whether you pointed at them first.</dd></div>
+        <div><dt>The oversight it catches</dt><dd>A pawn move that gives away a square for good, or a piece left hanging.</dd></div>
+      </dl>
+    </li>
+    <li class="q">
+      <header><span class="n">3</span><h2>What are your two or three candidates?</h2></header>
+      <p>Before you play, list your options: captures, checks and threats first, then quieter moves. Masters usually weigh
+        two or three, rarely more, and when they draw their candidates the best move is almost always among them. The aim
+        isn't to find everything, just to make sure the right move made the shortlist, and to trust it once it has.</p>
       <dl>
         <div><dt>Answer it by</dt><dd><b>Drawing an arrow from your piece</b> for each move you consider.</dd></div>
         <div><dt>The review checks</dt><dd>Whether Stockfish's best move was on your list, or on it and then turned down.</dd></div>
         <div><dt>The oversight it catches</dt><dd>Never even considering the right move, or seeing it and talking yourself out of it.</dd></div>
       </dl>
     </li>
+    <li class="q">
+      <header><span class="n">4</span><h2>Which piece is doing least?</h2></header>
+      <p>Usually one piece does nothing: a bishop behind its own pawns, a knight on the rim, a rook that hasn't got into
+        the game yet. Masters rarely say it out loud: they answer it by making one of their candidates a move that brings
+        that piece into play.</p>
+      <dl>
+        <div><dt>Answer it by</dt><dd><b>Drawing an arrow</b> for a move that brings it back to life, or saying it ("my bishop is terrible").</dd></div>
+        <div><dt>The review checks</dt><dd>Your least active piece by the squares it can reach, and the move Stockfish uses to improve it.</dd></div>
+        <div><dt>The oversight it catches</dt><dd>Playing on with a piece out of the game while the opponent's pieces get better.</dd></div>
+      </dl>
+    </li>
   </ol>
 
   <h2>A routine for each move</h2>
   <ol class="routine">
-    <li><span><b>They moved: what do they want?</b> Draw their threat (Q3).</span></li>
-    <li><span><b>Scan the board.</b> Circle the weaknesses (Q1) and name your worst piece (Q2).</span></li>
-    <li><span><b>List your candidates.</b> An arrow for each one (Q4), then pick.</span></li>
+    <li><span><b>They moved: what do they want?</b> Draw their threat.</span></li>
+    <li><span><b>Scan the board.</b> Circle the weaknesses, both sides.</span></li>
+    <li><span><b>Two or three candidates.</b> An arrow for each, one of them for your least active piece if it has a good square. Then pick.</span></li>
     <li><span><b>One last look</b> at what your move allows before you let go of the piece.</span></li>
   </ol>
-  <p class="note">You don't have to do all four every move. Use them when the position is new to you or when something
-    has just changed. In time trouble, just play: moves played with under 30 seconds left aren't judged on your thinking.</p>
+
+  <h2>When to think hard</h2>
+  <p>Masters don't spend their time evenly. They play the moves they know quickly and save their long thinks for the
+    moments the position changes character: leaving the opening, a pawn break, an exchange that changes the structure,
+    a threat appearing. Do the same: the full routine at those moments, a quick check of question 1 on the rest. In time
+    trouble, just play: moves played with under 30 seconds left aren't judged on your thinking.</p>
 
   <div class="row" style="margin-top:26px">
     <a class="btn primary" href="https://lichess.org/" target="_blank" rel="noopener">Play on lichess</a>

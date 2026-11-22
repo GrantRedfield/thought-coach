@@ -36,8 +36,8 @@
         <p>It records your arrows, piece pickups and voice on lichess, and sends the game here when it's over.
           Works in Chrome, Edge, Brave and other Chromium browsers on a computer.</p>
         <div class="row" id="store-row" hidden><a class="btn primary" id="store-btn" href="#" target="_blank" rel="noopener">Add to Chrome</a>
-          <span class="muted"><small>Free, from the Chrome Web Store. Then come back to this tab.</small></span></div>
-        <details id="manual"><summary class="muted" id="manual-sum">Other ways to install</summary>
+          <span class="muted"><small>Free, from the Chrome Web Store. Then come back to this tab: it ticks itself off.</small></span></div>
+        <details id="manual"><summary class="muted" id="manual-sum">Install by hand instead</summary>
         <ol class="how">
           <li><a class="btn primary" href="/thoughtcoach-extension.zip" download>Download the extension</a>
             then unzip it (right-click the file &rarr; <i>Extract All</i>).</li>
@@ -47,8 +47,7 @@
           <li>Click <b>Load unpacked</b> and choose the unzipped <code>thoughtcoach-extension</code> folder.</li>
           <li>Come back here: this step ticks itself off (or <a href="#" id="recheck">check again</a>).</li>
         </ol>
-        <p class="muted" id="dev-note"><small>Developer mode is only needed until Thought Coach is listed in the Chrome Web Store.
-          The extension is <a href="https://github.com/GrantRedfield/thought-coach">open source</a>: you can read every line it runs.</small></p>
+        <p class="muted" id="dev-note"><small>The extension is <a href="https://github.com/GrantRedfield/thought-coach">open source</a>: you can read every line it runs.</small></p>
         </details>
       </div>
     </li>
@@ -63,7 +62,7 @@
       <p>Play on lichess as you normally would. Nothing appears during the game. The more you draw and say, the more
         the review can tell you: <a href="/play">how to get the most out of your first games</a>.</p>
       <div class="tips">
-        <div class="tip"><b>Ask the four questions</b>Weaknesses, your worst piece, their threat, your candidates. Answer them with arrows, circles or out loud. <a href="/questions">What to ask</a></div>
+        <div class="tip"><b>Ask the four questions</b>Their threat, the weaknesses, your two or three candidates, the piece doing least: the order strong players use. Answer them with arrows, circles or out loud. <a href="/questions">What to ask</a></div>
         <div class="tip"><b>Think out loud</b>Say the lines you calculate, what you think of the position, how you feel. Chrome asks for the microphone at the first game: allow it.</div>
         <div class="tip"><b>Then wait a few minutes</b>Your review is ready about five minutes after the game ends. You'll get a notification.</div>
       </div>
@@ -80,11 +79,10 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   // The Chrome Web Store page, once Thought Coach is listed there ('' until then: install by hand).
-  const STORE_URL = '';
+  const STORE_URL = 'https://chromewebstore.google.com/detail/thought-coach/kbkgndgcfghohabjmjmkpnkkcipbcomo';
   if (STORE_URL) {
     $('store-row').hidden = false;
     $('store-btn').href = STORE_URL;
-    $('dev-note').hidden = true;
   } else {
     $('manual').open = true;
     $('manual-sum').hidden = true;
@@ -159,8 +157,17 @@
     let tries = 0;
     const t = setInterval(() => { if (ext || ++tries > 10) clearInterval(t); else hello(); }, 500);
   });
-  // After installing, people come back to this tab: ask again (the page must be reloaded for a new extension).
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && !ext) hello(); });
+  // After installing, people come back to this tab: ask again. Chrome doesn't add a newly installed
+  // extension to tabs that are already open, so after a trip to the store the page reloads itself once.
+  const flag = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (err) {} };
+  $('store-btn').addEventListener('click', () => flag('tc-store', '1'));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || ext) return;
+    hello();
+    setTimeout(() => {
+      if (!ext && flag('tc-store') === '1' && flag('tc-reloaded') !== '1') { flag('tc-reloaded', '1'); location.reload(); }
+    }, 1500);
+  });
 })();
 </script>
 </body>

@@ -1,6 +1,6 @@
 """How masters do it: your habits next to strong players' (master_baseline.json, when it's there).
 
-The baseline is pooled from reviews of strong players' own streamed games, through this same review
+The baseline is pooled from reviews of strong players' games, through this same review
 (each player weighted equally, so it says "masters", not one person). It's only aggregate rates: no
 names, games or words. Without the file everything here returns nothing and the review is as before.
 """
@@ -16,10 +16,10 @@ from . import habits
 DATA = Path(__file__).with_name("master_baseline.json")
 LABEL = {  # (what is counted, said about you)
     "q3": "Threats spotted before they happened",
-    "candidates": "Best move among your candidates",
-    "trust": "Good moves drawn, then dropped",
     "q1": "Weaknesses pointed at",
-    "q2": "Worst pieces named",
+    "candidates": "Best move among your candidates",
+    "q2": "Least active pieces brought into play",
+    "trust": "Good moves drawn, then dropped",
     "sharp": "Critical positions that went wrong",
     "time": "Moves in time trouble",
     "input": "Moves with an arrow or words",
@@ -105,7 +105,7 @@ def card(yours: dict[str, tuple[int, int]], your_search: dict) -> str:
         f"<em style='left:{m / top * 100:.0f}%'></em></span><span class='val'><b>{mine:.0%}</b> <small>vs {m:.0%}</small></span></div>"
         for label, mine, m, better, n in rows)
     return (f"<div class='pcard vmcard'><h3>You and masters</h3><p class='cap'>Bar = you; line = masters (strong "
-            f"players' own streamed games through this same review, each player counted equally). Green = level or "
+            f"players' games through this same review, each player counted equally). Green = level or "
             f"better.</p>{body}</div>")
 
 
