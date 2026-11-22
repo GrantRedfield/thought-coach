@@ -75,6 +75,9 @@
   .sc-quote { font-style:italic; border-left:3px solid #ff922b; padding:6px 10px; background:#ffffff12; border-radius:0 8px 8px 0; font-size:15px; margin:0 0 10px; }
   .sc-who { font-style:normal; opacity:.7; white-space:nowrap; }
   .sc-stat { display:inline-block; font-weight:800; font-size:20px; color:#ffa8a8; }
+  .sc-time { font-size:13px; color:#ffffffb3; }
+  .sc-credit { font-size:12.5px; color:#ffffffb3; margin:12px 0 0; }
+  .sc-credit a { color:#fff; }
   .sc-bars { display:flex; gap:4px; margin-bottom:14px; } .sc-bars i { flex:1; height:3px; border-radius:2px; background:#ffffff40; } .sc-bars i.on { background:#fff; }
 
   /* three facts, one line each */
@@ -168,20 +171,15 @@
   <!-- what a review looks like -->
   <section class="example">
     <h2>One card from a game's story</h2>
-    <div class="storycard" role="img" aria-label="An example story card from a master's game">
-      <div class="sc-bars"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
-      <div class="row2">
-        <img src="/img/hero.svg" alt="The position: Black to move, with White's two pawn pushes and the rook move to d8 drawn">
-        <div>
-          <p class="sc-eye">A master's voice · move 15</p>
-          <p class="sc-title">Fast talk, slow think</p>
-          <p class="sc-quote">“I'm blitzing out every move” <span class="sc-who">— master</span></p>
-          <p class="sc-body">59 seconds later they'd named both of White's plans and played Stockfish's top move.</p>
-          <span class="sc-stat">59 seconds</span>
-        </div>
-      </div>
-    </div>
+    <div id="example-card"></div>
   </section>
+  <script>
+    // The example card is published with the site but kept outside the code repository (it quotes a
+    // player who gave permission): load it, and leave the section out if it isn't there.
+    fetch('/example/card.html').then((r) => r.ok ? r.text() : Promise.reject())
+      .then((h) => { document.getElementById('example-card').innerHTML = h; })
+      .catch(() => { document.querySelector('section.example').hidden = true; });
+  </script>
 
   <!-- three facts -->
   <section class="fine">
