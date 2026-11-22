@@ -33,7 +33,7 @@ import chess.svg
 from .critical import _said
 from .gametype import classify
 from .strike import EXPLAIN as STRIKE_EXPLAIN
-from . import ahead, bayes, studies, timing, tone
+from . import ahead, bayes, masters, studies, timing, tone
 from .fmt import move_went, went, game_url, home_url, pct
 
 MAX_BEATS = 6
@@ -45,7 +45,7 @@ VOICE_KINDS = {"rosy", "worry_held", "gloomy", "gave_up", "inner", "tide"}  # mo
 BLUE, DARK_BLUE, GREEN, RED, ORANGE, PURPLE = "#3c78d8", "#1f4fa8", "#15781b", "#c0392b", "#eb6834", "#7b2cbf"
 
 ACCENT = {  # card background accents, by kind
-    "intro": "#2a78d6", "turning": "#d9480f", "trust": "#e8590c", "threat": "#c92a2a", "threat_seen": "#2b8a3e",
+    "intro": "#2a78d6", "masters": "#5f3dc4", "turning": "#d9480f", "trust": "#e8590c", "threat": "#c92a2a", "threat_seen": "#2b8a3e",
     "weak_made": "#e67700", "weak_found": "#2b8a3e", "weak_missed": "#e67700", "worst": "#7048e8",
     "worst_named": "#2b8a3e", "insight": "#0c8599", "strike": "#f08c00", "decided": "#c92a2a", "clock": "#495057",
     "result": "#343a40", "focus": "#2f9e44", "tide": "#1098ad", "gave_up": "#862e9c", "instinct": "#1c7ed6",
@@ -81,6 +81,7 @@ class Ctx:
         self.tone = {r["ply"]: r for r in (report.get("tone") or {}).get("moves", [])}
         self.caught = ahead.caught(analysis, report)  # costly moves while you were winning
         self.ahead_note = None  # the cross-game pattern, set by build() from history
+        self.history = None  # set by build()
         self.white = report["game"]["my_color"] == "white"
         tt = report["thresholds"].get("time_trouble", 30)
         self.tt = tt
@@ -185,6 +186,9 @@ def turning_point(c: Ctx) -> list[dict]:
               (f"{best} never came up." if best else "")
     else:
         why = f"No candidates shown. {best} was the move." if best else "No candidates shown."
+    seen = reply_seen(c, m)
+    if seen:
+        why += f" You'd drawn their {seen} yourself, and it came next."
     made = [w for w in (m.get("q1") or {}).get("weaknesses", []) if w.get("created_by")]
     if made:  # the same move also created a weakness (Aagaard's question 1)
         w = made[0]
@@ -529,7 +533,54 @@ def clock(c: Ctx) -> list[dict]:
                   f"those {len(tt_moves)} moves.", c.quote(first["ply"]), stat=f"{first['clock_before']:.0f}s")]
 
 
-SOURCES = (turning_point, rushed, moods, comfortable, trust, threats, weaknesses, worst_piece, insights, strike, clock)
+def _few(x: float) -> str:
+    """2.5 -> '2 or 3', 2 -> '2'."""
+    return f"{int(x)} or {int(x) + 1}" if x != int(x) else f"{int(x)}"
+
+
+def reply_seen(c: Ctx, m: dict) -> str | None:
+    """Their reply to move m, when you'd drawn or said it before playing m (seen, not answered)."""
+    if not c.played or m["ply"] >= len(c.played):
+        return None
+    reply = c.boards[m["ply"]].san(c.played[m["ply"]])
+    ideas = [x.split(" (")[0].rstrip("+#") for x in m.get("drawn_opponent_ideas") or []]
+    return reply if reply.rstrip("+#") in ideas else None
+
+
+def masters_way(c: Ctx) -> list[dict]:
+    """The deciding moment next to how masters handle the same kind of moment: whether a good move
+    you'd found got dropped, and how wide the search was (master_baseline.json, via masters.py)."""
+    drop_m, cands_m, many_m = masters.rate("trust"), masters.rate("search_cands"), masters.rate("search_many")
+    costly = [m for m in c.moves if m["mistake"] and not c.in_tt(m)]
+    if not costly or drop_m is None:
+        return []
+    m = max(costly, key=lambda m: m["wp_loss"])
+    drawn = list(dict.fromkeys(d["move_san"] for d in m.get("drawn_candidates", []) if d.get("move_san")))
+    best, label = m.get("best_move_san"), _label(m["ply"], m["move_san"])
+    dropped = bool(best) and best in drawn and best != m["move_san"]
+    wide = len(drawn) >= 8
+    if not dropped and not wide:
+        return []
+    k, n = ((c.history or {}).get("yours") or {}).get("trust", (0, 0))
+    parts = []
+    if dropped:
+        title = "Masters keep the move they find"
+        parts.append(f"At {label}, {best} was among the moves you drew, and you played {m['move_san']}. Masters drop a "
+                     f"good move they've drawn for a worse one about {drop_m:.0%} of the time"
+                     + (f"; across your games you do it {k / n:.0%} of the time ({k} of {n})." if n >= 10 else "."))
+    else:
+        title = "Masters look at fewer moves"
+    if wide:
+        parts.append(f"You drew {len(drawn)} moves here. Masters usually weigh {_few(cands_m)} at a time and go to 8 or more on "
+                     f"about {many_m:.0%} of their moves: they narrow it down first, then calculate the two that matter.")
+    board = chess.Board(m["fen"])
+    arrows = [_arrow(board, m["move_san"], DARK_BLUE), _arrow(board, best, GREEN) if best else None]
+    return [_beat("masters", m["ply"], m["wp_loss"] * 2.6 + 0.25, f"How masters do it · move {m['move_number']}", title,
+                  " ".join(parts), None, board, arrows, stat=went(m["wp_before"], m["wp_after"]))]
+
+
+SOURCES = (turning_point, rushed, moods, comfortable, trust, threats, weaknesses, worst_piece, insights, strike, clock,
+           masters_way)
 
 
 def decisive(c: Ctx) -> bool:
@@ -548,6 +599,8 @@ def pick(beats: list[dict], n: int = MAX_BEATS) -> list[dict]:
         if b["score"] < floor:
             break
         key = b["kind"] if b["kind"] != "insight" else "insight:" + b["title"]
+        if b["kind"] == "masters":
+            continue  # (added below, after its moment)
         if b["ply"] in plies or key in kinds:
             continue
         if b["kind"] == "insight" and sum(x["kind"] == "insight" for x in chosen) >= 2:
@@ -557,7 +610,11 @@ def pick(beats: list[dict], n: int = MAX_BEATS) -> list[dict]:
         kinds.add(key)
         if len(chosen) == n:
             break
-    return sorted(chosen, key=lambda b: b["ply"])
+    # The masters card comes on top of the n, right after the moment it's about, when that made the cut.
+    mb = max((b for b in beats if b["kind"] == "masters"), key=lambda b: b["score"], default=None)
+    if mb and mb["ply"] in plies:
+        chosen.append(mb)
+    return sorted(chosen, key=lambda b: (b["ply"], b["kind"] == "masters"))
 
 
 # ---------------------------------------------------------------- focus for next game
@@ -698,6 +755,11 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
     hist = history or {}
     for k, share in hist.get("share", {}).items():
         score[k] = score.get(k, 0) + 0.15 * share
+    # Where you're furthest from masters across your games (masters.py) leans a little toward that
+    # habit; level with masters or better adds nothing.
+    for k, ratio in hist.get("vs_masters", {}).items():
+        if k in score:
+            score[k] += 0.05 * min(2.0, max(0.0, ratio - 1))
     key = max(score, key=score.get)
     title, tag, habit = FOCUS[key]
     across = hist.get("note", {}).get(key)
@@ -710,6 +772,19 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
         if said:
             reason += f" Just before, you'd said “{said[-1]['quote']}”."
         across = (history or {}).get("ahead")
+    if key == "q3":
+        worst = max(costly("opponent_idea"), key=lambda m: m["wp_loss"], default=None)
+        seen = reply_seen(c, worst) if worst else None
+        if seen:  # you saw it; the move didn't answer it
+            title, tag = "Answer the threat you saw", "Aagaard's question 3"
+            habit = ("When you've drawn their threat, play it on the board in your head after your chosen move: "
+                     "does your move still hold? Check where your pieces go after it.")
+            reason = (f"At {_label(worst['ply'], worst['move_san'])} you'd drawn their {seen}, and it came next: "
+                      f"your win chance went {move_went(worst)}.")
+            m3 = masters.rate("q3")
+            if m3 is not None:
+                across = (f"Spotting threats early, you're level with masters (they catch about {m3:.0%} before they "
+                          f"happen, through this same review). Answering the one you've seen is where this game went.")
     if key == "sharp" and c.timing["rushed"]:
         p = c.timing["rushed"][0]
         reason = (f"At {timing.label(p, c.white)} only {p['best']} held, and you took {p['time']:.0f} s. "
@@ -796,6 +871,7 @@ def history_from_profile(p: dict) -> dict:
 def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.Game | None,
           history: dict | None = None) -> dict:
     c = Ctx(report, analysis, thinking, game)
+    c.history = history
     c.ahead_note = (history or {}).get("ahead")
     one = decisive(c)
     every = [b for src in SOURCES for b in src(c)]

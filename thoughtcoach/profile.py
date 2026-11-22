@@ -18,7 +18,7 @@ from pathlib import Path
 
 import chess
 import chess.pgn
-from . import ahead, bayes, questions, tone
+from . import ahead, bayes, masters, questions, tone
 from .fmt import ACCURACY_EXPLAIN, acc, accuracy, game_url, went
 
 SOLID = 30  # moves a comparison needs before it is more than an early signal
@@ -172,6 +172,8 @@ def compute(games: list[dict]) -> dict:
         "clock": sorted((n, statistics.mean(v), len(v)) for n, v in clock_diff.items() if len(v) >= 2),
         "color": {c: _rate([x for x in rows if next(g for g in per_game if g["id"] == x["game"])["color"] == c])
                   for c in ("white", "black")},
+        "vs_masters": {"rates": masters.your_rates(games),
+                       "search": masters.search([m for g in games for m in g["report"]["moves"]])},
     }
 
 
@@ -382,7 +384,7 @@ svg.pline { width:100%; height:auto; } .pline .ax { fill:var(--muted); font-size
 .pline .zero { stroke:var(--muted); stroke-dasharray:3 3; } .pline .ln { fill:none; stroke:var(--s1); stroke-width:2; }
 .pline .dot { fill:var(--s1); stroke:var(--card); stroke-width:2; } .pline .dot.lost { fill:var(--s2); }
 @media (max-width: 700px) { .findings { grid-template-columns:1fr; } }
-""" + questions.CSS
+""" + questions.CSS + masters.CSS
 
 
 def _hbars(items: list[tuple[str, float, str, str]], scale: float | None = None, muted: set | None = None) -> str:
@@ -566,6 +568,7 @@ that it's a real pattern and not luck.</p>
 </section>""",
         "questions": f"<section class='profile'>{questions.render(p['aagaard'])}</section>",
         "charts": f"""<section class="profile"><h2>Your play in charts</h2><div class="pgrid">
+  {masters.card(p["vs_masters"]["rates"], p["vs_masters"]["search"]) if p.get("vs_masters") else ""}
   <div class="pcard"><h3>Costly moves by think time</h3><p class="cap">Time-trouble moves left out</p>{SPLIT_KEY}{_rate_bars(p['think'])}</div>
   <div class="pcard"><h3>Your candidate moves</h3><p class="cap">Candidates = moves you drew an arrow for or said, before playing</p>{SPLIT_KEY}
     <h4>How many you considered</h4>{_rate_bars(p['cands'], {"none": "None", "one": "1 move", "two or more": "2 or more"})}

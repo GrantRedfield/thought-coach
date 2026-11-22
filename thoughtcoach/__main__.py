@@ -217,6 +217,10 @@ def write_story(report: dict, analysis: dict, thinking: dict | None, game, out_d
     try:
         loaded = profile.load(out_dir, games)
         history = story.history_from_profile(profile.compute(loaded))
+        from . import masters  # how far from masters you are on each habit, across your games
+        history["yours"] = masters.your_rates(loaded)
+        history["vs_masters"] = masters.gaps(history["yours"])
+        history["search"] = masters.search([m for g in loaded for m in g["report"]["moves"]])
     except Exception:  # no other games yet, or an old saved review: this game alone
         loaded, history = [], None
     # Last game's focus, and how this game went on it (habits.py).
