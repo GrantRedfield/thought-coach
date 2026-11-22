@@ -384,6 +384,13 @@ svg.pline { width:100%; height:auto; } .pline .ax { fill:var(--muted); font-size
 .pline .zero { stroke:var(--muted); stroke-dasharray:3 3; } .pline .ln { fill:none; stroke:var(--s1); stroke-width:2; }
 .pline .dot { fill:var(--s1); stroke:var(--card); stroke-width:2; } .pline .dot.lost { fill:var(--s2); }
 @media (max-width: 700px) { .findings { grid-template-columns:1fr; } }
+details.fold > summary { cursor:pointer; list-style:none; font-size:12px; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--fg2); font-weight:600; display:flex; justify-content:space-between; align-items:center; }
+details.fold > summary::-webkit-details-marker { display:none; }
+details.fold > summary::after { content:"+"; font-size:16px; color:var(--muted); font-weight:400; }
+details.fold[open] > summary::after { content:"−"; }
+details.fold[open] > summary { margin-bottom:6px; }
+.pgrid.folds { margin-top:10px; align-items:start; }
 """ + questions.CSS + masters.CSS
 
 
@@ -518,15 +525,50 @@ def _clock_line(clock: list[tuple[int, float, int]]) -> str:
             f"{''.join(parts)}</svg>")
 
 
+def _fold(title: str, cap: str, body: str, open_: bool = False) -> str:
+    """A chart card that opens on a click: the title shows, the chart waits."""
+    return (f"<details class='pcard fold'{' open' if open_ else ''}><summary>{title}</summary>"
+            f"{f'<p class=cap>{cap}</p>' if cap else ''}{body}</details>")
+
+
+def _charts(p: dict, gaps: str, pieces: str) -> str:
+    """You and masters, and what went wrong by cause, open; the other charts folded, one click each."""
+    games = p["games"]
+    vm = masters.card(p["vs_masters"]["rates"], p["vs_masters"]["search"]) if p.get("vs_masters") else ""
+    folded = [
+        ("Costly moves by think time", "Time-trouble moves left out", SPLIT_KEY + _rate_bars(p["think"])),
+        ("Your candidate moves", "Candidates = moves you drew an arrow for or said, before playing",
+         f"{SPLIT_KEY}<h4>How many you considered</h4>"
+         f"{_rate_bars(p['cands'], {'none': 'None', 'one': '1 move', 'two or more': '2 or more'})}"
+         f"<h4>Was a good move among them?</h4>{_rate_bars(p['good'], {'yes': 'Yes', 'no': 'No'})}"),
+        ("Your accuracy, by phase", "Bar = win chance an average move gave away (shorter is better); number = accuracy, like lichess's",
+         _hbars([(n, r['loss'], f"{acc(r['acc'])} <small>of {r['n']}</small>", f"{n}: {r['n']} moves, {r['costly']} costly")
+                 for n, r in p['phase'] if r['n']])),
+        ("Your clock against theirs", "Seconds ahead (+) or behind (−), averaged by move number", _clock_line(p["clock"])),
+        ("Each game", "How much your average move cost, oldest to newest (lower is better); orange = a game you lost. Click a dot.",
+         _per_game_line(games)),
+        ("Who struck first", "The first tactic in each game once it's out of the opening book (a capture, check or threat "
+         "that changes the game; even trades don't count), and how those games ended", _strike_card(p["strikes"])),
+    ]
+    if p.get("ahead"):
+        folded.append(("When you're winning", "Your moves at 65%+ against your moves when it's level",
+                       f"<p class='tone-find'>{_e(ahead.sentence(p['ahead']))}</p>"))
+    folded.append(("Costly moves by piece", "Which piece you moved (5+ moves)", SPLIT_KEY + pieces))
+    return (f"<section class='profile'><h2>Your play in charts</h2><div class='pgrid'>{vm}"
+            + _fold("What went wrong, by cause", "Share of what your costly moves cost you, by cause", gaps, open_=True)
+            + "</div><div class='pgrid folds'>" + "".join(_fold(*f) for f in folded) + "</div></section>")
+
+
 def render(p: dict) -> str:
     """The 'Patterns across your games' section, all in one (your own PC's home page)."""
     parts = sections(p)
     return "".join(parts[k] for k in ("summary", "questions", "charts", "voice")) if parts else ""
 
 
-def sections(p: dict) -> dict[str, str]:
+def sections(p: dict, kpis_shown: bool = True) -> dict[str, str]:
     """The patterns in parts, so the home page can show them one tab at a time: summary (the
-    findings), questions (Aagaard), charts, voice. Empty under two games."""
+    findings), questions (Aagaard), charts, voice. Empty under two games. kpis_shown=False leaves out
+    the headline numbers (the home page has them already)."""
     if len(p["games"]) < 2:
         return {}
     strong, weak = findings(p)
@@ -563,24 +605,10 @@ def sections(p: dict) -> dict[str, str]:
 <h2>Patterns across your games</h2>
 <p class="sub">Things one game is too small to show. Each line says how many moves it rests on, and how sure we can be
 that it's a real pattern and not luck.</p>
-<div class="pkpis">{''.join(f"<div class='pkpi'><b>{v}</b><span>{_e(t)}</span></div>" for v, t in kpis)}</div>
+{f"<div class='pkpis'>{''.join(f'<div class=pkpi><b>{v}</b><span>{_e(t)}</span></div>' for v, t in kpis)}</div>" if kpis_shown else ""}
 <div class="findings">{col('good', '&#10003;', 'Strong points', strong)}{col('weak', '!', 'Weak points', weak)}</div>
 </section>""",
         "questions": f"<section class='profile'>{questions.render(p['aagaard'])}</section>",
-        "charts": f"""<section class="profile"><h2>Your play in charts</h2><div class="pgrid">
-  {masters.card(p["vs_masters"]["rates"], p["vs_masters"]["search"]) if p.get("vs_masters") else ""}
-  <div class="pcard"><h3>Costly moves by think time</h3><p class="cap">Time-trouble moves left out</p>{SPLIT_KEY}{_rate_bars(p['think'])}</div>
-  <div class="pcard"><h3>Your candidate moves</h3><p class="cap">Candidates = moves you drew an arrow for or said, before playing</p>{SPLIT_KEY}
-    <h4>How many you considered</h4>{_rate_bars(p['cands'], {"none": "None", "one": "1 move", "two or more": "2 or more"})}
-    <h4>Was a good move among them?</h4>{_rate_bars(p['good'], {"yes": "Yes", "no": "No"})}</div>
-  <div class="pcard"><h3>Your accuracy, by phase</h3><p class="cap">Bar = win chance an average move gave away (shorter is better); number = accuracy, like lichess's</p>{_hbars([(n, r['loss'], f"{acc(r['acc'])} <small>of {r['n']}</small>", f"{n}: {r['n']} moves, {r['costly']} costly") for n, r in p['phase'] if r['n']])}</div>
-  <div class="pcard"><h3>Your clock against theirs</h3><p class="cap">Seconds ahead (+) or behind (−), averaged by move number</p>{_clock_line(p['clock'])}</div>
-  <div class="pcard"><h3>Each game</h3><p class="cap">How much your average move cost, oldest to newest (lower is better); orange = a game you lost. Click a dot.</p>{_per_game_line(games)}</div>
-  <div class="pcard"><h3>What went wrong, by cause, all games</h3><p class="cap">Share of what your costly moves cost you, by cause</p>{gaps}</div>
-  <div class="pcard"><h3>Who struck first</h3><p class="cap">The first tactic in each game once it's out of the opening book (a capture,
-    check or threat that changes the game; even trades don't count), and how those games ended</p>{_strike_card(p['strikes'])}</div>
-  {f"<div class='pcard'><h3>When you're winning</h3><p class='cap'>Your moves at 65%+ against your moves when it's level</p><p class='tone-find'>{_e(ahead.sentence(p['ahead']))}</p></div>" if p.get('ahead') else ''}
-  <div class="pcard"><h3>Costly moves by piece</h3><p class="cap">Which piece you moved (5+ moves)</p>{SPLIT_KEY}{pieces}</div>
-</div></section>""",
+        "charts": _charts(p, gaps, pieces),
         "voice": f"<section class='profile'><div class='pgrid one'>{voice_card}</div></section>" if p["tone"]["games"] else "",
     }

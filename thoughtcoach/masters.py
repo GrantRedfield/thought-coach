@@ -100,19 +100,22 @@ def card(yours: dict[str, tuple[int, int]], your_search: dict) -> str:
         return ""
     top = max(max(a, b) for _, a, b, _, _ in rows) or 1
     body = "".join(
-        f"<div class='vm'><p>{label} <small>({n})</small></p>"
-        f"<div class='vmb you {'ok' if better else 'off'}'><i style='width:{mine / top * 100:.0f}%'></i><span>you {mine:.0%}</span></div>"
-        f"<div class='vmb ma'><i style='width:{m / top * 100:.0f}%'></i><span>masters {m:.0%}</span></div></div>"
+        f"<div class='vm' title='{label}: you {mine:.0%} ({n}), masters {m:.0%}'><span class='lab'>{label}</span>"
+        f"<span class='trk'><i class='{'ok' if better else 'off'}' style='width:{mine / top * 100:.0f}%'></i>"
+        f"<em style='left:{m / top * 100:.0f}%'></em></span><span class='val'><b>{mine:.0%}</b> <small>vs {m:.0%}</small></span></div>"
         for label, mine, m, better, n in rows)
-    return (f"<div class='pcard vmcard'><h3>You and masters</h3><p class='cap'>The same measures, from strong "
-            f"players' own streamed games run through this review (each player counted equally). "
-            f"Green = level with masters or better.</p>{body}</div>")
+    return (f"<div class='pcard vmcard'><h3>You and masters</h3><p class='cap'>Bar = you; line = masters (strong "
+            f"players' own streamed games through this same review, each player counted equally). Green = level or "
+            f"better.</p>{body}</div>")
 
 
 CSS = """
-.vm { margin:8px 0 10px; } .vm p { margin:0 0 3px; font-size:13px; } .vm small { color:#868e96; }
-.vmb { position:relative; height:16px; background:#f1f3f5; border-radius:4px; margin:2px 0; overflow:hidden; }
-.vmb i { position:absolute; inset:0 auto 0 0; border-radius:4px; }
-.vmb span { position:relative; font-size:11px; line-height:16px; padding-left:6px; color:#212529; }
-.vmb.you.ok i { background:#8ce99a; } .vmb.you.off i { background:#ffc078; } .vmb.ma i { background:#ced4da; }
+.vm { display:grid; grid-template-columns:minmax(0, 1.5fr) minmax(0, 1fr) 84px; gap:8px; align-items:center; font-size:12.5px; margin:6px 0; }
+.vm .lab { color:var(--fg2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.vm .trk { position:relative; height:10px; background:var(--s1-soft); border-radius:0 4px 4px 0; }
+.vm .trk i { position:absolute; inset:0 auto 0 0; border-radius:0 4px 4px 0; min-width:2px; }
+.vm .trk i.ok { background:var(--good); } .vm .trk i.off { background:var(--warn); }
+.vm .trk em { position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; background:var(--fg); border-radius:1px; }
+.vm .val { text-align:right; font-variant-numeric:tabular-nums; } .vm .val small { color:var(--muted); }
+@media (max-width:520px) { .vm { grid-template-columns:1fr 84px; row-gap:2px; } .vm .lab { grid-column:1 / -1; white-space:normal; } }
 """

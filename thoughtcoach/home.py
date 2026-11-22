@@ -205,10 +205,10 @@ def form(rows: list[dict], prof: dict) -> str:
     won = sum(r["outcome"] == "won" for r in rows)
     drawn = sum(r["outcome"] == "draw" for r in rows)
     recent, before = rows[-RECENT:], rows[:-RECENT]
-    tiles = []
+    tiles, more = [], []
 
-    def tile(value, label, trend="", delta="", tone="", hint=""):
-        tiles.append(f"<div class='tile {tone}'><span class='lab'>{label}</span><b>{value}</b>"
+    def tile(value, label, trend="", delta="", tone="", hint="", extra=False):
+        (more if extra else tiles).append(f"<div class='tile {tone}'><span class='lab'>{label}</span><b>{value}</b>"
                      f"{f'<span class=hint>{hint}</span>' if hint else ''}{trend}"
                      f"{f'<span class=delta>{delta}</span>' if delta else ''}</div>")
 
@@ -219,7 +219,7 @@ def form(rows: list[dict], prof: dict) -> str:
         tile(known[-1], "Rating (lichess)", _trend(elos),
              f"{'+' if change >= 0 else ''}{change} since your first review" if len(known) > 1 else "",
              "up" if change > 0 else "down" if change < 0 else "")
-    tile(n, "Games reviewed", "", f"{won} won · {drawn} drawn · {n - won - drawn} lost")
+    tile(n, "Games reviewed", "", f"{won} won · {drawn} drawn · {n - won - drawn} lost", extra=True)
     per = [r["per_move"] for r in rows]
     if before:
         d = statistics.mean(x["per_move"] for x in recent) - statistics.mean(x["per_move"] for x in before)
@@ -244,19 +244,23 @@ def form(rows: list[dict], prof: dict) -> str:
         tile(f"{crit:.0f}s<small> vs {other:.0f}s</small>", "Think time, one move holds vs rest",
              "", f"{cc} of {costly} costly moves · {rushed} fast · "
                  f"{bayes.verdict(worse).capitalize()}: costlier",
-             "down" if crit <= other else "up")
+             "down" if crit <= other else "up", extra=True)
     q = prof["questions"]
     if q["q3"][1]:
         tile(f"{q['q3'][0] / q['q3'][1] * 100:.0f}%", "Their threats you saw coming", bayes.range_svg(*q['q3'], 200),
-             f"{q['q3'][0]} of {q['q3'][1]} · probably {bayes.interval(*q['q3'])[0] * 100:.0f}–{bayes.interval(*q['q3'])[1] * 100:.0f}%")
+             f"{q['q3'][0]} of {q['q3'][1]} · probably {bayes.interval(*q['q3'])[0] * 100:.0f}–{bayes.interval(*q['q3'])[1] * 100:.0f}%",
+             extra=True)
     if q["q4"][1]:
         tile(f"{q['q4'][0] / q['q4'][1] * 100:.0f}%", "Best move among your candidates", bayes.range_svg(*q['q4'], 200),
              f"{q['q4'][0]} of {q['q4'][1]} · probably {bayes.interval(*q['q4'])[0] * 100:.0f}–{bayes.interval(*q['q4'])[1] * 100:.0f}%")
     st = prof["strikes"]
     if st["games"]:
         tile(f"{st['you']['n']}<small>/{st['games']}</small>", "Games where you struck first", "",
-             f"won {st['you']['won']} of those" if st["you"]["n"] else "")
-    return f"<section class='form'><h2>Your form</h2><div class='tiles'>{''.join(tiles)}</div></section>"
+             f"won {st['you']['won']} of those" if st["you"]["n"] else "", extra=True)
+    fold = (f"<details class='fold more'><summary>More numbers</summary><div class='tiles'>{''.join(more)}</div></details>"
+            if more else "")
+    return (f"<section class='form'><h2>Your form <small>{n} games · {won} won · {drawn} drawn · {n - won - drawn} lost</small></h2>"
+            f"<div class='tiles'>{''.join(tiles)}</div>{fold}</section>")
 
 
 # ---------------------------------------------------------------- every game
@@ -291,12 +295,11 @@ def focus_check(loaded: list[dict], stories: dict[str, dict]) -> str:
     items = habits.compute(loaded, stories)
     if not items:
         return ""
-    cards_ = []
-    for e in items[:4]:
-        cards_.append(_focus_card(e))
-    return (f"<section class='focuscheck'><h2>Is your focus working?</h2><p class='cap'>Each game's story gives you one "
-            f"thing to work on. Each card compares the games before you got it with the games since, and says in "
-            f"words how sure we can be that a change is real and not luck.</p><div class='fgrid'>{''.join(cards_)}</div></section>")
+    shown, rest = items[:2], items[2:4]
+    fold = (f"<details class='fold more'><summary>Earlier focuses</summary><div class='fgrid'>"
+            f"{''.join(_focus_card(e) for e in rest)}</div></details>" if rest else "")
+    return (f"<section class='focuscheck'><h2>Is your focus working?</h2><p class='cap'>Games before each focus "
+            f"against the games since.</p><div class='fgrid'>{''.join(_focus_card(e) for e in shown)}</div>{fold}</section>")
 
 
 def focus_state(e: dict) -> tuple[str, str, str]:
@@ -356,20 +359,20 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
 <a class="btn ghost" href="https://thoughtcoach.org/play">Tips for your first games</a></div></div></section>{f"<div class='grid'>{waiting}</div>" if waiting else ''}"""
     last = rows[-1]
     before = [r for r in rows[:-1] if r["moves"] and r.get("acc") is not None]
-    parts = profile.sections(prof) if len(rows) >= 2 else {}
+    parts = profile.sections(prof, kpis_shown=False) if len(rows) >= 2 else {}
     focus = focus_check(loaded, stories)
     res = {"won": "you won", "lost": "you lost", "draw": "a draw"}[last["outcome"]]
     tabs = [("story", f"&#9654; Your latest story<small>vs {_e(last['opp'])} · {res}</small>",
              hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before),
                                                   statistics.mean(r["acc"] for r in before)) if before else None)),
-            ("form", "Your form", f"""{form(rows, prof)}
-<section class="chart"><h2>Every game at a glance</h2><p class="cap">How much win chance an average move gave away, game by game (lower is better; hover a column for that game's accuracy)</p>
+            ("form", "Your progress", f"""{form(rows, prof)}{focus}
+<section class="chart"><h2>Every game at a glance</h2><p class="cap">Win chance an average move gave away, game by game (lower is better; hover a column for its accuracy)</p>
 {_games_chart(rows)}</section>"""),
-            ("focus", "Is your focus working?", focus),
-            ("games", f"Your games<small>{len(rows)}</small>", f"<section><h2>Your games</h2><div class='grid'>{cards(rows, statuses)}</div></section>"),
-            ("patterns", "Patterns", parts.get("summary", "") + parts.get("charts", "")),
-            ("questions", "Aagaard's questions", parts.get("questions", "")),
-            ("voice", "Your voice", parts.get("voice", ""))]
+            ("games", f"Your games<small>{len(rows)}</small>", f"<section><div class='grid'>{cards(rows, statuses)}</div></section>"),
+            ("patterns", "Patterns", parts.get("summary", "") + parts.get("charts", "")
+             + "".join(f"<section class='profile'><details class='fold big'><summary>{t}</summary>{parts[k]}</details></section>"
+                       for k, t in (("questions", "Aagaard's four questions"), ("voice", "Your voice and your play"))
+                       if parts.get(k)))]
     tabs = [t for t in tabs if t[2]]
     nav = "".join(f"<button type='button' role='tab' class='tab{' story' if k == 'story' else ''}' data-tab='{k}' "
                   f"aria-selected='{'true' if k == 'story' else 'false'}'>{label}</button>" for k, label, _ in tabs)
@@ -380,6 +383,21 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
 
 
 CSS = bayes.RANGE_CSS + """
+.form h2 small { font-weight:400; color:var(--muted); font-size:13px; margin-left:8px; }
+details.fold.more { margin-top:10px; }
+details.fold.more > summary, details.fold.big > summary { padding:8px 2px; }
+details.fold.big { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:6px 14px; margin-top:12px; }
+details.fold.big > summary { font-size:13px; }
+details.fold.big[open] { padding-bottom:12px; }
+details.fold.big .profile h2 { margin-top:8px; }
+.panel section + section { margin-top:22px; }
+.panel .grid { grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:8px; }
+.panel .gcard { padding:10px 12px; border-radius:12px; }
+.gcard .spark { height:36px; } .gcard .spark .area { fill:color-mix(in srgb, var(--glow) 8%, transparent); }
+.gcard .spark .ln { stroke-width:1.6; opacity:.85; }
+.gcard .gmeta { margin-top:4px; }
+@media (max-width:640px) { .panel .grid { grid-template-columns:1fr 1fr; gap:6px; } .panel .gcard { padding:8px 10px; }
+  .gcard .gtop { font-size:13px; gap:6px; } .gcard .gdate { display:none; } .gcard .gmeta { font-size:11px; } }
 .hometabs { display:flex; gap:8px; align-items:stretch; margin:4px 0 18px; overflow-x:auto; padding:2px 2px 6px;
   scrollbar-width:thin; }
 .hometabs .tab { flex:none; font:inherit; font-size:14px; font-weight:600; color:var(--fg2); background:var(--card);
@@ -487,7 +505,7 @@ svg.trend { width:100%; height:30px; margin-top:4px; } .trend polyline { fill:no
 
 /* every game */
 .chart { } .chartwrap { position:relative; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px 8px 2px; }
-svg.games { width:100%; height:clamp(140px, calc(100vh - 525px), 440px); display:block; }
+svg.games { width:100%; height:clamp(120px, 22vh, 200px); display:block; }
 svg.games line, svg.games polyline { vector-effect:non-scaling-stroke; } .games .ax { fill:var(--muted); font-size:11px; }
 .games .grid { stroke:var(--line); } .games .base { stroke:var(--muted); }
 .games .bar { fill:var(--s1); } .games .lost .bar { fill:var(--s2); } .games .draw .bar { fill:var(--bar-tt); }
