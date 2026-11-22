@@ -908,6 +908,7 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
             "moves_with_thoughts": report["summary"].get("moves_with_thoughts", 0), "beats": beats,
             "curve": curve, "focus": focus(c, history), "orientation": c.me, "decided_by": decided_by,
             "type": classify(analysis, g), "voice": voice_card(c), "plies": _plies(c), "last_focus": (history or {}).get("last_focus"),
+            "voice_off": report.get("voice") == "off",
             "truths": [{"head": f["head"], "body": f["body"], "sure": f["sure"], "n": f["n"], "good": f["good"]}
                        for f in (history or {}).get("truths", [])], "games": (history or {}).get("games")}
 
@@ -1055,6 +1056,11 @@ def _study(b: dict) -> str:
             f"{_e(st['chapter'])}</a> <span>in {_e(st['study'])}, a lichess study by {_e(st['by'])}</span></p>")
 
 
+VOICE_HINT = ("<p class='body' style='opacity:.75;font-size:.9em'>Voice was off this game, so this story comes from your "
+              "arrows. Switch it on from the Thought Coach icon and the next one can also tell you what you were "
+              "thinking.</p>")
+
+
 def render(story: dict) -> str:
     slides = []
     o = story["orientation"]
@@ -1105,7 +1111,7 @@ def render(story: dict) -> str:
             if lf and lf.get("line") else "")
     slides.append(("focus", f"""{last}<p class='eyebrow'>Your focus for the next game · {_e(f['tag'])}</p><h2>{_e(f['title'])}</h2>
 <p class='habit'>{_e(f['habit'])}</p><p class='body'>{_link_moves(_e(f['why']), story)}{(' ' + _e(f['across'])) if f.get('across') else ''}</p>
-<div class='end'>{f"<a href='{GUIDE}'>How to show your thinking</a>" if f['key'] == 'input' else ''}<a href='{_e(game_url(story['id']))}'>See the full review</a><a href='https://lichess.org/{_e(story['id'])}{"/black" if story.get("color") == "black" else ""}' target='_blank' rel='noopener'>Analyze on lichess</a><a href='{_e(home_url())}'>All your games</a>
+{VOICE_HINT if story.get('voice_off') else ''}<div class='end'>{f"<a href='{GUIDE}'>How to show your thinking</a>" if f['key'] == 'input' else ''}<a href='{_e(game_url(story['id']))}'>See the full review</a><a href='https://lichess.org/{_e(story['id'])}{"/black" if story.get("color") == "black" else ""}' target='_blank' rel='noopener'>Analyze on lichess</a><a href='{_e(home_url())}'>All your games</a>
 <button type='button' class='replay'>Watch again</button></div>"""))
     body = "".join(f"<section class='slide' data-kind='{k}' style='--accent:{ACCENT.get(k, '#495057')}'><div class='inner'>{h}</div></section>"
                    for k, h in slides)

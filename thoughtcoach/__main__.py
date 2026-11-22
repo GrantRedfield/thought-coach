@@ -313,6 +313,9 @@ def cmd_review(args: argparse.Namespace) -> int:
             report_progress("report")
             report = build(analysis, thinking, thresholds, engine_evaluator(engine, me, rules.wp_model))
             annotate_aagaard(report, analysis, engine, me)  # Q1 weaknesses, Q2 worst piece
+            # Voice switched off in the extension (extension 0.8.11 on says so): the review says the
+            # thinking came from arrows only, and that talking would give it more to work with.
+            report["voice"] = recording.get("voice") or ("on" if spoken is not None else None)
             transcript_path = out_dir / f"{gid}.transcript.json"
             transcript = json.loads(transcript_path.read_text(encoding="utf-8")) if spoken is not None and transcript_path.exists() else None
             # The local model reads the sentences the word lists flag (tone.py): mood and giving up.

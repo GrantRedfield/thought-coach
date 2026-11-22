@@ -122,3 +122,12 @@ def test_moves_in_a_card_become_buttons():
 def test_not_horrible_is_not_judging():
     from thoughtcoach.psych import judging
     assert judging("so stupid") and not judging("it's not horrible") and not judging("it doesn't look horrible")
+
+
+def test_voice_off_is_mentioned_gently():
+    moves = [move(3, "Bc4", 0.30, drawn_candidates=[{"move_san": "Bc4", "legal": True, "played": True}])]
+    r = report(moves, {"missed_candidate": {"wp_lost": 0.30}})
+    assert "Voice was off" not in story.render(story.build(r, {"moves": []}, None, None))
+    r["voice"] = "off"
+    page = story.render(story.build(r, {"moves": []}, None, None))
+    assert page.count("Voice was off") == 1 and "Switch it on" in page

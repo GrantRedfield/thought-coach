@@ -7,6 +7,16 @@
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="/site.css">
+<style>
+  .switch { display:inline-flex; align-items:center; gap:10px; cursor:pointer; font-weight:600; margin:4px 0 6px; }
+  .switch input { appearance:none; width:42px; height:24px; border-radius:12px; background:var(--line); position:relative;
+    cursor:pointer; transition:background .15s; flex:none; margin:0; }
+  .switch input::after { content:""; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%;
+    background:#fff; transition:left .15s; }
+  .switch input:checked { background:var(--good); }
+  .switch input:checked::after { left:21px; }
+  .switch input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+</style>
 </head>
 <body>
 <main class="narrow">
@@ -57,13 +67,26 @@
       <p id="conn-msg">Happens by itself once you're signed in and the extension is installed.</p>
     </li>
 
+    <li id="s-voice" class="later">
+      <h2>Your voice <span class="chip" id="voice-chip">Optional</span></h2>
+      <p>Thinking out loud is optional, but it's the richest thing you can give the review: the lines you calculate, what
+        you worry about, how you feel. The more you say, the more precisely it can find where your thinking goes wrong.
+        Arrows alone work too. The audio is deleted once it's turned into text.</p>
+      <label class="switch" id="voice-row" hidden><input type="checkbox" id="voice-on">
+        <span id="voice-label">Record my voice while I play</span></label>
+      <p class="muted" id="voice-old" hidden><small>Switch it on or off in the extension: click the Thought Coach icon in
+        Chrome's toolbar (under the puzzle piece) and tick or untick <i>Record my voice while I play</i>.</small></p>
+      <p class="muted" id="voice-wait"><small>You can switch it on or off here once the extension is installed, or any
+        time from the extension's icon.</small></p>
+    </li>
+
     <li id="s-play" class="later">
       <h2>Play a game</h2>
       <p>Play on lichess as you normally would. Nothing appears during the game. The more you draw and say, the more
         the review can tell you: <a href="/play">how to get the most out of your first games</a>.</p>
       <div class="tips">
         <div class="tip"><b>Ask the four questions</b>Their threat, the weaknesses, your two or three candidates, the piece doing least: the order strong players use. Answer them with arrows, circles or out loud. <a href="/questions">What to ask</a></div>
-        <div class="tip"><b>Think out loud</b>Say the lines you calculate, what you think of the position, how you feel. Chrome asks for the microphone at the first game: allow it.</div>
+        <div class="tip"><b>Think out loud (optional)</b>Say the lines you calculate, what you think of the position, how you feel. If voice is on, Chrome asks for the microphone at the first game: allow it.</div>
         <div class="tip"><b>Then wait a few minutes</b>Your review is ready about five minutes after the game ends. You'll get a notification.</div>
       </div>
       <div class="row"><a class="btn primary" href="https://lichess.org/" target="_blank" rel="noopener">Play on lichess</a>
@@ -118,6 +141,17 @@
     $('conn-msg').textContent = connected
       ? `The extension sends your games to ${me.name}'s account.`
       : signed && installed ? 'Connecting…' : 'Happens by itself once you\'re signed in and the extension is installed.';
+    // voice: optional, switched here (extension 0.8.11 on) or from the extension's popup
+    mark('s-voice', installed ? 'done' : 'later');
+    const canSwitch = installed && typeof ext.voice === 'boolean';
+    $('voice-row').hidden = !canSwitch;
+    $('voice-old').hidden = !installed || canSwitch;
+    $('voice-wait').hidden = installed;
+    if (canSwitch) {
+      $('voice-on').checked = ext.voice;
+      $('voice-chip').textContent = ext.voice ? 'On' : 'Off';
+      $('voice-chip').className = ext.voice ? 'chip ok' : 'chip';
+    }
     mark('s-play', connected ? 'now' : 'later');
 
     if (signed && installed && !connected && !connecting) {
@@ -130,9 +164,9 @@
   // The extension answers on this page (its content script runs on thoughtcoach.org only).
   window.addEventListener('message', (e) => {
     if (e.source !== window || e.origin !== location.origin || !e.data || e.data.tc !== 'ext') return;
-    if (e.data.type === 'hello' || e.data.type === 'connected') {
-      ext = { version: e.data.version, user: e.data.user || null };
-      connecting = false;
+    if (e.data.type === 'hello' || e.data.type === 'connected' || e.data.type === 'voice') {
+      ext = { version: e.data.version, user: e.data.user || null, voice: e.data.voice };
+      if (e.data.type !== 'voice') connecting = false;
       render();
     }
   });
@@ -146,6 +180,7 @@
     else alert('Could not delete: please sign in again and retry.');
   };
   $('recheck').onclick = (e) => { e.preventDefault(); location.reload(); };
+  $('voice-on').onchange = (e) => window.postMessage({ tc: 'site', type: 'voice', on: e.target.checked }, location.origin);
   $('copy-ext').onclick = async () => {
     try { await navigator.clipboard.writeText('chrome://extensions'); $('copy-ext').textContent = 'Copied ✓'; } catch (err) {}
     setTimeout(() => { $('copy-ext').textContent = 'chrome://extensions'; }, 1500);

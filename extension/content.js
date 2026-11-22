@@ -548,7 +548,9 @@
       audio = [];
       voice.error = `reading audio: ${err}`;
     }
-    return { ...data, audio };
+    // whether voice was switched on: "off" lets the review say the player chose arrows only (and that
+    // talking would give it more), rather than read silence as a game without thoughts
+    return { ...data, audio, voice: voiceEnabled() ? 'on' : 'off' };
   }
 
   async function exportGame(data) {

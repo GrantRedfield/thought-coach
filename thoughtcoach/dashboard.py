@@ -645,6 +645,13 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
     gtype = (f"<p class='gtype {t['kind']}'>{_e(t['label'])}<small>{_e(t['why'])}</small></p>" if t else "")
     verdict = verdict_html(report, plies)  # when there is a summary it replaces the takeaways strip
     take = "".join(f"<p>{t}</p>" for t in takeaways(report, dots)) or "<p>No costly moves this game.</p>"
+    voice_off = (
+        "<p class='voiceoff' style='margin:8px 0 0;padding:8px 12px;border:1px solid var(--line);border-radius:10px;"
+        "font-size:14px'><b>Voice was off this game.</b> Your thinking here comes from your arrows and circles only. "
+        "Thinking out loud is optional, but switch it on (the Thought Coach icon in Chrome, or "
+        "<a href='https://thoughtcoach.org/start'>the setup page</a>) and the review can also read the lines you "
+        "calculated and what you were worried about: that's where it pinpoints your weaknesses best.</p>"
+        if report.get("voice") == "off" else "")
 
     return f"""<!doctype html>
 <html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
@@ -653,7 +660,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
   <header>
     <div><h1>Thought Coach &middot; {_e(g['white'])} vs {_e(g['black'])} <a class="playstory" href="{_e(game_url(g['id'], story=True))}">&#9654; Watch your game story</a></h1>
     <div class="meta">{_e(g['result'])} &middot; {_e(g.get('time_control') or '?')} &middot; you played {_e(g['my_color'])}
-      &middot; {s['moves_reviewed']} moves reviewed, {s['moves_with_thoughts']} with thoughts</div>{gtype}</div>
+      &middot; {s['moves_reviewed']} moves reviewed, {s['moves_with_thoughts']} with thoughts</div>{gtype}{voice_off}</div>
     <div class="kpis">{kpi_html}</div>
   </header>
   {verdict if verdict else f'<section class="takeaways">{take}</section>'}
