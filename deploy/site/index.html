@@ -4,115 +4,100 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thought Coach</title>
-<meta name="description" content="Review how you think in your lichess games: the moves you considered, the threats you saw, what you said, checked against Stockfish after the game.">
+<meta name="description" content="Draw your ideas and say them out loud while you play on lichess. After the game, Stockfish checks your thinking and compares it with how masters think.">
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
-<link rel="icon" href="/favicon.png">
+<link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/site.css">
 <style>
-  main.wide { max-width:1480px; } main.wide nav.top { margin-bottom:20px; }
-  .eyebrow-s { font:700 12px ui-monospace, Consolas, monospace; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin:0 0 8px; }
-  section.block { margin:40px 0 0; } section.block > h2 { font-size:clamp(20px, 2.2vw, 26px); margin:0 0 4px; }
-  section.block > .sub { color:var(--fg2); margin:0 0 14px; max-width:70ch; font-size:14.5px; }
+  main.wide { max-width:1240px; } main.wide nav.top { margin-bottom:12px; }
 
-  /* hero */
-  .hero { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:40px; align-items:center; margin-top:0; }
-  .hero h1 { font-size:clamp(32px, 3.6vw, 48px); margin-top:0; }
-  .hero .lead { margin-bottom:18px; }
+  /* hero: one line, then the picture does the talking */
+  .hero { text-align:center; margin:28px auto 0; max-width:820px; }
+  .hero h1 { font-size:clamp(34px, 4.6vw, 58px); line-height:1.04; margin:0 0 14px; letter-spacing:-.02em; }
+  .hero h1 em { font-style:normal; background:linear-gradient(90deg, #3987e5, #2f9e44); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .hero .lead { font-size:clamp(16px, 1.6vw, 19px); color:var(--fg2); margin:0 auto 22px; max-width:46ch; }
+  .badges { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:0 0 18px; }
+  .badges span { font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:999px; color:var(--good);
+    border:1px solid color-mix(in srgb, var(--good) 55%, transparent); background:color-mix(in srgb, var(--good) 12%, transparent); }
+  .hero .row { justify-content:center; }
+
+  /* the equation: arrows + voice + Stockfish = your feedback */
+  .eq { display:grid; grid-template-columns:1fr auto 1fr auto 1fr auto 1.25fr; gap:14px; align-items:center; margin:48px 0 0; }
+  .op { font-size:42px; font-weight:300; color:var(--muted); text-align:center; line-height:1; }
+  .op.eqs { color:var(--fg); font-weight:700; }
+  .tile { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:14px; text-align:center;
+    display:flex; flex-direction:column; gap:10px; height:100%; box-sizing:border-box; }
+  .tile .pic { aspect-ratio:1; border-radius:14px; background:var(--soft); display:grid; place-items:center; overflow:hidden; position:relative; }
+  .tile .pic > img { width:100%; height:100%; display:block; }
+  .tile b { font-size:17px; } .tile small { display:block; color:var(--fg2); font-size:13px; margin-top:2px; }
+  .tile.out { background:linear-gradient(160deg, color-mix(in srgb, var(--good) 22%, var(--card)), var(--card)); border-color:color-mix(in srgb, var(--good) 45%, var(--line)); }
+
+  /* 2: your voice */
+  .voice { width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; gap:8px; padding:12px; box-sizing:border-box; }
+  .mic { width:46px; height:46px; margin:0 auto 2px; border-radius:50%; background:#ff922b; display:grid; place-items:center;
+    box-shadow:0 0 0 8px color-mix(in srgb, #ff922b 22%, transparent); animation:pulse 1.8s ease-in-out infinite; }
+  .mic svg { width:22px; height:22px; fill:#fff; }
+  @keyframes pulse { 50% { box-shadow:0 0 0 14px color-mix(in srgb, #ff922b 8%, transparent); } }
+  .bub { font-size:13px; text-align:left; padding:6px 10px; border-radius:12px 12px 12px 3px; background:var(--card);
+    border:1px solid var(--line); width:max-content; max-width:92%; }
+  .bub:nth-of-type(odd) { align-self:flex-start; } .bub.r { align-self:flex-end; border-radius:12px 12px 3px 12px; }
+  .wave { height:22px; width:100%; } .wave rect { fill:#ff922b; opacity:.8; }
+
+  /* 3: Stockfish checks */
+  .eng { position:absolute; inset:0; }
+  .eng img { width:100%; height:100%; display:block; }
+  .evalbar { position:absolute; left:8px; top:8px; bottom:8px; width:12px; border-radius:6px; background:#222; overflow:hidden; box-shadow:0 0 0 2px #0006; }
+  .evalbar i { position:absolute; left:0; right:0; bottom:0; height:34%; background:#f1f3f5; }
+  .verdict { position:absolute; right:8px; bottom:8px; font:700 12px ui-monospace, Consolas, monospace; color:#fff;
+    background:#c92a2acc; padding:4px 8px; border-radius:8px; }
+  .verdict.ok { right:auto; left:28px; top:8px; bottom:auto; background:#2f9e44cc; }
+
+  /* 4: your feedback, against masters */
+  .fb { width:100%; height:100%; padding:12px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; gap:9px; text-align:left; }
+  .fbcard { border-radius:12px; padding:10px 12px; color:#fff; background:radial-gradient(120% 90% at 50% 0%, #8a3a12 0%, #241411 70%); }
+  .fbcard p { margin:0; } .fbcard .e { font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:.75; }
+  .fbcard .t { font-weight:800; font-size:15px; margin:2px 0; } .fbcard .s { font-size:12px; opacity:.9; }
+  .vm { display:grid; grid-template-columns:auto 1fr; gap:4px 8px; align-items:center; font-size:12px; color:var(--fg2); }
+  .vm .trk { position:relative; height:9px; border-radius:5px; background:color-mix(in srgb, var(--fg) 10%, transparent); }
+  .vm .trk i { position:absolute; inset:0 auto 0 0; border-radius:5px; } .vm .trk em { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--fg); }
+  .vm .k { font-size:10.5px; color:var(--muted); grid-column:1 / -1; }
+
+  /* the example card */
+  .example { margin:56px auto 0; max-width:880px; }
+  .example h2, .fine h2 { text-align:center; font-size:clamp(20px, 2.2vw, 26px); margin:0 0 16px; }
   .storycard { border-radius:20px; padding:22px; color:#fff; box-shadow:0 24px 60px #0007;
     background:radial-gradient(120% 90% at 50% 0%, #8a3a12 0%, #241411 55%, #0b0b0c 100%); }
-  .storycard .row2 { display:grid; grid-template-columns:minmax(0, 250px) minmax(0, 1fr); gap:18px; align-items:center; }
+  .storycard .row2 { display:grid; grid-template-columns:minmax(0, 260px) minmax(0, 1fr); gap:20px; align-items:center; }
   .storycard img { width:100%; border-radius:8px; display:block; box-shadow:0 10px 30px #0008; }
   .sc-eye { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:#ffffffb3; margin:0 0 6px; }
-  .sc-title { font-size:24px; font-weight:800; line-height:1.1; margin:0 0 10px; }
-  .sc-body { font-size:14px; color:#ffffffe0; margin:0 0 10px; }
-  .sc-quote { font-style:italic; border-left:3px solid #ff922b; padding:6px 10px; background:#ffffff12; border-radius:0 8px 8px 0; font-size:14px; margin:0 0 10px; }
+  .sc-title { font-size:26px; font-weight:800; line-height:1.1; margin:0 0 10px; }
+  .sc-body { font-size:14.5px; color:#ffffffe0; margin:0 0 10px; }
+  .sc-quote { font-style:italic; border-left:3px solid #ff922b; padding:6px 10px; background:#ffffff12; border-radius:0 8px 8px 0; font-size:15px; margin:0 0 10px; }
   .sc-who { font-style:normal; opacity:.7; white-space:nowrap; }
   .sc-stat { display:inline-block; font-weight:800; font-size:20px; color:#ffa8a8; }
-  .sc-bars { display:flex; gap:4px; margin-bottom:14px; } .sc-bars i { flex:1; height:3px; border-radius:2px; background:#ffffff40; }
-  .sc-bars i.on { background:#fff; }
-  .sc-cap { font-size:12px; color:var(--muted); text-align:center; margin:10px 0 0; }
+  .sc-bars { display:flex; gap:4px; margin-bottom:14px; } .sc-bars i { flex:1; height:3px; border-radius:2px; background:#ffffff40; } .sc-bars i.on { background:#fff; }
 
-  /* steps */
-  .badges { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 12px; }
-  .badges span { font-size:12.5px; font-weight:700; letter-spacing:.02em; padding:4px 11px; border-radius:999px;
-    color:var(--good); border:1px solid color-mix(in srgb, var(--good) 55%, transparent);
-    background:color-mix(in srgb, var(--good) 12%, transparent); }
-  .freeline { margin:12px 0 0; font-size:13.5px; color:var(--fg2); max-width:62ch; } .freeline b { color:var(--fg); }
-  .tips2 { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin-top:28px; }
-  .tip2 { display:flex; gap:12px; align-items:flex-start; background:var(--soft); border:1px solid var(--line);
-    border-radius:14px; padding:12px 14px; }
-  .tip2 .ti { font-size:22px; line-height:1; flex:none; margin-top:2px; }
-  .tip2 b { display:block; font-size:15px; margin-bottom:2px; } .tip2 p { margin:0; color:var(--fg2); font-size:13.5px; line-height:1.45; }
-  @media (max-width:1000px) { .tips2 { grid-template-columns:1fr; } }
-  .duo { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:28px; margin-top:40px; }
-  .duo section.block { margin:0; }
-  .steps4 { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
-  .step { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; display:grid;
-    grid-template-columns:128px minmax(0, 1fr); column-gap:12px; row-gap:2px; align-content:center; }
-  .step .pic, .cap .pic { grid-row:1 / span 3; }
-  .step .pic { height:112px; border-radius:10px; background:var(--soft); display:grid; place-items:center; overflow:hidden; position:relative; }
-  .step .pic img { width:104px; height:104px; }
-  .step h3 { margin:0; font-size:15px; } .step p { margin:0; color:var(--fg2); font-size:13px; line-height:1.45; }
-  .step .n { font:700 12px ui-monospace, Consolas, monospace; color:var(--accent); }
-  .log { width:100%; padding:4px 6px; font:9.5px/1.35 ui-monospace, Consolas, monospace; color:var(--fg2); align-self:stretch; }
-  .log b { color:var(--fg); font-weight:600; } .log .t { color:var(--muted); margin-right:6px; }
-  .log .v { color:#ff922b; } .log .a { color:var(--accent); }
-  .stack { position:relative; width:96px; height:92px; }
-  .stack div { position:absolute; inset:0; border-radius:12px; border:1px solid #ffffff22; }
-  .stack div:nth-child(1) { transform:translate(18px, -10px) rotate(6deg); background:#1c3f6b; }
-  .stack div:nth-child(2) { transform:translate(9px, -5px) rotate(3deg); background:#5c2a0e; }
-  .stack div:nth-child(3) { background:linear-gradient(160deg, #2b6b3f, #0f2417); padding:8px; color:#fff; font-size:9.5px; }
-  .stack b { display:block; font-size:11px; margin:3px 0 2px; } .stack small { color:#ffffffb3; }
+  /* three facts, one line each */
+  .fine { margin:56px 0 0; }
+  .facts { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+  .fact { display:flex; gap:12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .fact .ic { font-size:24px; flex:none; } .fact b { display:block; font-size:15px; } .fact span { color:var(--fg2); font-size:13px; }
+  .fact a { color:var(--accent); }
+  .cta2 { display:flex; justify-content:center; margin:36px 0 0; }
+  .small { text-align:center; color:var(--muted); font-size:12.5px; margin:14px auto 0; max-width:70ch; }
+  .small a { color:var(--fg2); }
 
-  /* captures */
-  .caps { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:12px; }
-  .cap { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; display:grid;
-    grid-template-columns:128px minmax(0, 1fr); column-gap:12px; row-gap:2px; align-content:center; }
-  .cap h3 { margin:0; font-size:15px; } .cap p { margin:0; color:var(--fg2); font-size:13px; line-height:1.45; }
-  .cap .pic { height:112px; padding:6px; border-radius:10px; background:var(--soft); display:grid; place-items:center; overflow:hidden; padding:10px; }
-  .cap .pic img { width:100px; height:100px; }
-  .said { width:100%; display:grid; gap:3px; font-size:9.5px; }
-  .said span { display:block; padding:2px 5px; border-radius:8px; background:var(--card); border:1px solid var(--line); }
-  .said .up { border-left:3px solid #2f9e44; } .said .wo { border-left:3px solid #ff922b; } .said .ca { border-left:3px solid var(--muted); }
-  .wave { width:100%; height:18px; } .wave rect { fill:var(--accent); opacity:.75; }
-  .pick { font-size:10px; color:var(--fg2); width:100%; display:grid; gap:3px; }
-  .pick .pc { display:flex; align-items:center; gap:10px; } .pick .glyph { font-size:17px; line-height:1; }
-  .pick em { font-style:normal; color:var(--fg); font-weight:600; }
-  .tbars { width:100%; height:100%; }
-
-  /* metrics */
-  .metrics { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; }
-  .metric { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
-  .metric h3 { margin:0 0 2px; font-size:15px; } .metric .cap2 { margin:0 0 12px; color:var(--muted); font-size:13px; }
-  .metric .big { font-size:28px; font-weight:800; line-height:1; } .metric .big small { font-size:16px; color:var(--fg2); font-weight:600; }
-  .metric p.t { margin:8px 0 0; color:var(--fg2); font-size:13px; }
-  .curve { width:100%; height:auto; display:block; }
-  .key { display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--muted); margin-top:8px; }
-  .key i { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:5px; vertical-align:-1px; }
-  .hb { display:grid; grid-template-columns:120px 1fr 44px; gap:10px; align-items:center; font-size:13px; color:var(--fg2); margin:8px 0; }
-  .hb .trk { height:10px; background:var(--soft); border-radius:5px; overflow:hidden; } .hb .trk span { display:block; height:100%; border-radius:5px; }
-  .hb b { color:var(--fg); text-align:right; }
-  .rng { width:100%; height:auto; display:block; margin:10px 0 2px; }
-  .focus { background:linear-gradient(160deg, #1d4d2b, #0f1f15); color:#fff; border:0; }
-  .focus .cap2 { color:#ffffffb3; } .focus p.t { color:#ffffffd9; }
-  .focus .habit { background:#ffffff14; border-radius:10px; padding:10px 12px; font-weight:600; margin:8px 0 0; }
-  .wide2 { grid-column:span 2; }
-  .small-note { border-left:3px solid var(--accent); } .small-note b { color:var(--fg); }
-  .notes { display:grid; grid-template-columns:1fr 1fr auto; gap:18px; margin-top:32px; align-items:center; }
-  .notes .note { margin:0; font-size:13.5px; } .notes .row { flex-wrap:nowrap; }
-
-  @media (max-width:1180px) { .duo { grid-template-columns:1fr; } .metrics { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
   @media (max-width:980px) {
-    .hero { grid-template-columns:1fr; gap:28px; }
-    .steps4, .caps { grid-template-columns:repeat(2, minmax(0, 1fr)); }
-    .metrics { grid-template-columns:1fr; } .wide2 { grid-column:auto; }
-    .notes { grid-template-columns:1fr; } .notes .row { flex-wrap:wrap; }
+    .eq { grid-template-columns:1fr auto 1fr; } .eq .op.mid { display:none; }
+    .eq .tile.out { grid-column:1 / -1; } .eq .op.eqs { grid-column:1 / -1; transform:rotate(90deg); }
+    .facts { grid-template-columns:1fr; }
   }
   @media (max-width:560px) {
-    .step, .cap { grid-template-columns:1fr; } .step .pic, .cap .pic { grid-row:auto; }
-    .steps4, .caps { grid-template-columns:1fr; }
+    .eq { grid-template-columns:1fr; gap:8px; } .op { font-size:30px; } .eq .op.mid { display:block; } .eq .op.eqs { transform:none; }
+    .tile { padding:10px; } .tile .pic { width:100%; max-width:260px; margin:0 auto; }
     .storycard .row2 { grid-template-columns:1fr; }
   }
+  @media (prefers-reduced-motion: reduce) { .mic { animation:none; } }
 </style>
 </head>
 <body>
@@ -125,178 +110,93 @@
     <a class="link" href="/start">Setup</a>
   </nav>
 
-  <!-- ============ hero ============ -->
-  <div class="hero">
-    <div>
-      <p class="badges"><span>100% free</span><span>Open source</span><span>No ads, no tracking</span></p>
-      <h1>Review how you think,<br>not just what you played.</h1>
-      <p class="lead">Draw arrows for the moves you consider and think out loud while you play on lichess.
-        After the game, Thought Coach checks your thinking against Stockfish: the threats you saw and missed,
-        the moves you never looked at, how you felt, and the moment the game turned.</p>
-      <div class="row" id="cta">
-        <a class="btn primary" href="/api/login">Sign in with lichess</a>
-        <a class="btn" href="/start">How to set it up</a>
-        <a class="btn" href="https://github.com/GrantRedfield/thought-coach" target="_blank" rel="noopener">See the code on GitHub</a>
-      </div>
-      <p class="freeline"><b>Free, with no paid tier, and open source</b> (AGPL-3.0): every line of the extension and
-        the review is public, so you can check exactly what it records. Chrome, Edge or Brave on a computer.</p>
+  <section class="hero">
+    <p class="badges"><span>Free</span><span>Open source</span><span>No ads</span></p>
+    <h1>Review how you <em>think</em>,<br>not just what you played.</h1>
+    <p class="lead">Play on lichess. Draw your ideas, say them out loud. After the game, see what your thinking got right and wrong.</p>
+    <div class="row" id="cta">
+      <a class="btn primary" href="/api/login">Sign in with lichess</a>
+      <a class="btn" href="/start">How to set it up</a>
     </div>
-    <figure style="margin:0">
-      <div class="storycard" role="img" aria-label="An example story card from a master's game">
-        <div class="sc-bars"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
-        <div class="row2">
-          <img src="/img/hero.svg" alt="The position: Black to move, with White's two pawn pushes and the rook move to d8 drawn">
-          <div>
-            <p class="sc-eye">A master's voice · move 15</p>
-            <p class="sc-title">Fast talk, slow think</p>
-            <p class="sc-quote">“I'm blitzing out every move” <span class="sc-who">— master</span></p>
-            <p class="sc-body">The clock says otherwise: 59 seconds here. In that time they named both of White's plans, f5 then f6 or e6, and played 15… Rd8, Stockfish's top move.</p>
-            <span class="sc-stat">59 seconds</span>
-          </div>
+  </section>
+
+  <!-- arrows + voice + Stockfish = your feedback -->
+  <div class="eq" role="img" aria-label="Your arrows plus your voice plus Stockfish equals feedback on your thinking, compared with masters">
+    <div class="tile">
+      <div class="pic"><img src="/img/arrows.svg" alt=""></div>
+      <div><b>Draw your ideas</b><small>Right-click arrows: your moves, their threats</small></div>
+    </div>
+    <div class="op">+</div>
+    <div class="tile">
+      <div class="pic"><div class="voice">
+        <div class="mic"><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg></div>
+        <span class="bub">“He wants knight to d4…”</span>
+        <span class="bub r">“so rook d8, then bishop d7”</span>
+        <svg class="wave" viewBox="0 0 120 22" preserveAspectRatio="none" aria-hidden="true">
+          <rect x="2" y="8" width="3" height="6"/><rect x="9" y="4" width="3" height="14"/><rect x="16" y="1" width="3" height="20"/><rect x="23" y="6" width="3" height="10"/>
+          <rect x="30" y="3" width="3" height="16"/><rect x="37" y="9" width="3" height="4"/><rect x="47" y="5" width="3" height="12"/><rect x="54" y="2" width="3" height="18"/>
+          <rect x="61" y="7" width="3" height="8"/><rect x="71" y="4" width="3" height="14"/><rect x="78" y="0" width="3" height="22"/><rect x="85" y="6" width="3" height="10"/>
+          <rect x="95" y="8" width="3" height="6"/><rect x="102" y="5" width="3" height="12"/><rect x="109" y="9" width="3" height="4"/></svg>
+      </div></div>
+      <div><b>Say what you see</b><small>Think out loud, the way you calculate</small></div>
+    </div>
+    <div class="op mid">+</div>
+    <div class="tile">
+      <div class="pic"><div class="eng">
+        <img src="/img/review.svg" alt="">
+        <div class="evalbar"><i></i></div>
+        <span class="verdict ok">only Nb6 held</span>
+        <span class="verdict">80% → 16%</span>
+      </div></div>
+      <div><b>Stockfish checks it</b><small>Every move you played, and every one you considered</small></div>
+    </div>
+    <div class="op eqs">=</div>
+    <div class="tile out">
+      <div class="pic"><div class="fb">
+        <div class="fbcard"><p class="e">The turning point · move 14</p><p class="t">You saw it coming</p>
+          <p class="s">You drew their Bd4, then played into it.</p></div>
+        <div class="vm">
+          <span>Threats seen early</span><span class="trk"><i style="width:50%;background:#3fa95c"></i><em style="left:50%"></em></span>
+          <span>Good moves kept</span><span class="trk"><i style="width:84%;background:#d98a1c"></i><em style="left:94%"></em></span>
+          <span class="k">bar = you · line = masters</span>
+        </div>
+      </div></div>
+      <div><b>Your thinking, coached</b><small>Built from your own games, measured against how masters think</small></div>
+    </div>
+  </div>
+
+  <!-- what a review looks like -->
+  <section class="example">
+    <h2>One card from a game's story</h2>
+    <div class="storycard" role="img" aria-label="An example story card from a master's game">
+      <div class="sc-bars"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+      <div class="row2">
+        <img src="/img/hero.svg" alt="The position: Black to move, with White's two pawn pushes and the rook move to d8 drawn">
+        <div>
+          <p class="sc-eye">A master's voice · move 15</p>
+          <p class="sc-title">Fast talk, slow think</p>
+          <p class="sc-quote">“I'm blitzing out every move” <span class="sc-who">— master</span></p>
+          <p class="sc-body">59 seconds later they'd named both of White's plans and played Stockfish's top move.</p>
+          <span class="sc-stat">59 seconds</span>
         </div>
       </div>
-      <figcaption class="sc-cap">A card from a master's game: what they said, set against the clock and the engine.</figcaption>
-    </figure>
-  </div>
-
-  <!-- ============ two things to know before you start ============ -->
-  <div class="tips2">
-    <div class="tip2"><span class="ti" aria-hidden="true">&#9822;</span><div><b>Made for intermediate and advanced players</b>
-      <p>It works best when you can say lines out loud in coordinates ("knight f3, then e5"): that is how the review
-        follows your calculation and ties each thought to the move you played. Not fluent yet?
-        <a href="https://lichess.org/training/coordinate" target="_blank" rel="noopener">Practise coordinates on lichess</a>.</p></div></div>
-    <div class="tip2"><span class="ti" aria-hidden="true">&#9201;</span><div><b>Longer games work best</b>
-      <p>Play 10+5 or 15+10 rapid: there's time to draw your ideas and say them. In bullet there's no room to think out
-        loud, and moves played with under 30 seconds left aren't judged on your thinking.</p></div></div>
-    <div class="tip2"><span class="ti" aria-hidden="true">&#127897;</span><div><b>Give it a few games</b>
-      <p>Drawing arrows and talking while you play feels strange at first, and you may be a little slower for a few
-        games. That passes quickly. Start by drawing their threats, then add your own moves, then talk.
-        <a href="/play">Your first games, step by step</a></p></div></div>
-  </div>
-
-  <div class="duo">
-  <!-- ============ how it works ============ -->
-  <section class="block">
-    <p class="eyebrow-s">How it works</p>
-    <h2>You play. It listens. Stockfish checks. You get the story.</h2>
-    <p class="sub">Nothing appears during the game. Everything happens after lichess says it's over.</p>
-    <div class="steps4">
-      <div class="step"><div class="pic"><img src="/img/arrows.svg" alt="A board with arrows for the moves being considered"></div>
-        <span class="n">01</span><h3>Play and think out loud</h3>
-        <p>Right-click to draw the moves you're considering and the threats you see. Say what you think.</p></div>
-      <div class="step"><div class="pic"><div class="log">
-          <div><span class="t">0:31</span><span class="v">said</span> “I have a good position now”</div>
-          <div><span class="t">1:21</span><span class="a">drew</span> <b>Nd4–b3</b></div>
-          <div><span class="t">1:21</span>they played <b>Nxc6</b></div>
-          <div><span class="t">1:24</span><span class="a">drew</span> <b>Nxc3+</b> (twice)</div>
-          <div><span class="t">1:32</span>you played <b>Nxc3+</b></div>
-          <div><span class="t">1:34</span><span class="v">said</span> “c3.”</div></div></div>
-        <span class="n">02</span><h3>The extension records</h3>
-        <p>Arrows, circles, the pieces you pick up, your clock and (if you like) your voice, with the time of each.</p></div>
-      <div class="step"><div class="pic"><img src="/img/review.svg" alt="The engine's verdict on the move that was played"></div>
-        <span class="n">03</span><h3>Stockfish checks your thinking</h3>
-        <p>Every move you made, and every move you considered, against the engine. Your voice is transcribed on our server.</p></div>
-      <div class="step"><div class="pic"><div class="stack"><div></div><div></div><div>
-          <small>YOUR FOCUS</small><b>Stay alert when you're winning</b><small>Ask: what are their checks, captures and threats?</small></div></div></div>
-        <span class="n">04</span><h3>Your game's story</h3>
-        <p>A few cards: the moments that mattered, what you said there, and one thing to work on next game.</p></div>
     </div>
   </section>
 
-  <!-- ============ what it captures ============ -->
-  <section class="block">
-    <p class="eyebrow-s">What it captures</p>
-    <h2>Your thinking, not just your moves</h2>
-    <p class="sub">An engine can tell you a move was bad. Only your thinking can tell you why.</p>
-    <div class="caps">
-      <div class="cap"><div class="pic"><img src="/img/arrows.svg" alt="Arrows for candidate moves and the opponent's threat"></div>
-        <h3>Arrows and circles</h3><p>Your candidate moves, the threats you saw (or didn't), the weak squares you marked.</p></div>
-      <div class="cap"><div class="pic"><div class="said">
-          <svg class="wave" viewBox="0 0 120 28" preserveAspectRatio="none" aria-hidden="true">
-            <rect x="2" y="10" width="3" height="8"/><rect x="8" y="6" width="3" height="16"/><rect x="14" y="2" width="3" height="24"/>
-            <rect x="20" y="8" width="3" height="12"/><rect x="26" y="4" width="3" height="20"/><rect x="32" y="11" width="3" height="6"/>
-            <rect x="44" y="7" width="3" height="14"/><rect x="50" y="3" width="3" height="22"/><rect x="56" y="9" width="3" height="10"/>
-            <rect x="68" y="5" width="3" height="18"/><rect x="74" y="1" width="3" height="26"/><rect x="80" y="8" width="3" height="12"/>
-            <rect x="92" y="10" width="3" height="8"/><rect x="98" y="6" width="3" height="16"/><rect x="104" y="12" width="3" height="4"/></svg>
-          <span class="up">“I have a good position now” · upbeat</span>
-          <span class="ca">“queen c4, queen c3” · calculating</span>
-          <span class="wo">“not what I expected” · worried</span></div></div>
-        <h3>Your voice</h3><p>What you calculated, what you feared, how you felt. Read with the move it was about.</p></div>
-      <div class="cap"><div class="pic"><div class="pick">
-          <div class="pc"><span class="glyph">♞</span><span>Picked up the <em>knight</em> on d4…</span></div>
-          <div class="pc"><span class="glyph">♜</span><span>…then played the <em>rook</em>.</span></div>
-          <div class="pc"><span class="glyph" style="color:#2f9e44">✓</span><span>The engine's move was the knight's.</span></div></div></div>
-        <h3>Pieces you pick up</h3><p>The right piece in your hand and a different move played: one of the clearest signs of a doubt.</p></div>
-      <div class="cap"><div class="pic">
-          <svg class="tbars" viewBox="0 0 200 110" preserveAspectRatio="none" role="img" aria-label="Think time per move, with the critical positions marked">
-            <g fill="var(--accent)" opacity=".35"><rect x="6" y="70" width="10" height="30"/><rect x="22" y="40" width="10" height="60"/>
-            <rect x="38" y="78" width="10" height="22"/><rect x="54" y="20" width="10" height="80"/><rect x="70" y="72" width="10" height="28"/>
-            <rect x="102" y="60" width="10" height="40"/><rect x="134" y="74" width="10" height="26"/><rect x="166" y="66" width="10" height="34"/></g>
-            <g fill="#ff922b"><rect x="86" y="88" width="10" height="12"/><rect x="118" y="84" width="10" height="16"/><rect x="150" y="90" width="10" height="10"/>
-            <rect x="182" y="86" width="10" height="14"/></g>
-            <line x1="0" x2="200" y1="100" y2="100" stroke="var(--line)" stroke-width="2"/></svg></div>
-        <h3>Think time and clock</h3><p>Where your time went, and whether it went to the positions where only one move held (orange).</p></div>
+  <!-- three facts -->
+  <section class="fine">
+    <div class="facts">
+      <div class="fact"><span class="ic" aria-hidden="true">&#9822;</span><div><b>For club and tournament players</b>
+        <span>Say moves in coordinates. <a href="https://lichess.org/training/coordinate" target="_blank" rel="noopener">Practise them</a></span></div></div>
+      <div class="fact"><span class="ic" aria-hidden="true">&#9201;</span><div><b>Best at 10+5 or 15+10</b>
+        <span>Time to think out loud. <a href="/play">Your first games</a></span></div></div>
+      <div class="fact"><span class="ic" aria-hidden="true">&#128274;</span><div><b>Fair play and private</b>
+        <span>Nothing shows during a game. <a href="/privacy">Privacy</a></span></div></div>
     </div>
+    <div class="cta2"><a class="btn primary" href="/api/login">Sign in with lichess</a></div>
+    <p class="small">Free and open source (<a href="https://github.com/GrantRedfield/thought-coach" target="_blank" rel="noopener">AGPL-3.0</a>):
+      every line of the extension and the review is public. Chrome, Edge or Brave on a computer.</p>
   </section>
-
-  </div>
-
-  <!-- ============ what you get ============ -->
-  <section class="block">
-    <p class="eyebrow-s">What you get</p>
-    <h2>Patterns no single game can show</h2>
-    <p class="sub">An example from one player's first 17 reviewed games. Each finding says how sure it is: one game can be luck.</p>
-    <div class="metrics">
-      <div class="metric wide2">
-        <h3>Your win chance, and how you sounded</h3>
-        <p class="cap2">One game, move by move: the dots are what you said before each move</p>
-        <svg class="curve" viewBox="0 0 600 130" role="img" aria-label="A win-chance curve that stays high, then collapses after an upbeat comment">
-          <line x1="10" x2="590" y1="75" y2="75" stroke="var(--line)" stroke-dasharray="4 4"/>
-          <polyline fill="none" stroke="var(--fg)" stroke-width="3" points="10,80 50,70 90,62 130,60 170,52 210,48 250,40 290,44 330,36 370,40 410,34 450,30 490,28 530,26 560,32 575,104 590,110"/>
-          <g stroke="var(--card)" stroke-width="2"><circle cx="90" cy="62" r="6" fill="#adb5bd"/><circle cx="170" cy="52" r="6" fill="#adb5bd"/>
-          <circle cx="250" cy="40" r="7" fill="#ff922b"/><circle cx="330" cy="36" r="6" fill="#adb5bd"/><circle cx="410" cy="34" r="7" fill="#51cf66"/>
-          <circle cx="490" cy="28" r="7" fill="#51cf66"/><circle cx="530" cy="26" r="7" fill="#51cf66"/></g>
-          <text x="532" y="16" fill="var(--fg2)" font-size="12" text-anchor="end">“I have a good position now”</text>
-          <text x="590" y="128" fill="#ffa8a8" font-size="13" font-weight="700" text-anchor="end">80% → 16%</text></svg>
-        <div class="key"><span><i style="background:#51cf66"></i>upbeat</span><span><i style="background:#ff922b"></i>worried</span><span><i style="background:#adb5bd"></i>calculating</span></div>
-      </div>
-      <div class="metric focus">
-        <h3>Your focus for the next game</h3><p class="cap2">When you're ahead</p>
-        <p class="habit">Stay alert when you're winning</p>
-        <p class="t">You think 4 s a move when you're ahead and 8 s when it's level. Probably real (about 9 in 10).</p>
-      </div>
-      <div class="metric">
-        <h3>Time where it mattered</h3><p class="cap2">Median think time</p>
-        <div class="hb"><span>Only one move held</span><span class="trk"><span style="width:55%;background:#ff922b"></span></span><b>7 s</b></div>
-        <div class="hb"><span>Everything else</span><span class="trk"><span style="width:62%;background:var(--accent)"></span></span><b>8 s</b></div>
-        <p class="t">17 of 28 costly moves came where only one move held. Almost certainly real.</p>
-      </div>
-      <div class="metric">
-        <h3>Their threats you saw coming</h3><p class="cap2">Drawn before they could happen</p>
-        <div class="big">16%<small> 22 of 135</small></div>
-        <svg class="rng" viewBox="0 0 240 32" role="img" aria-label="Your real rate is probably between 12% and 22%">
-          <line x1="8" x2="232" y1="11" y2="11" stroke="var(--line)" stroke-width="6" stroke-linecap="round"/>
-          <rect x="35" y="5" width="22" height="12" rx="6" fill="var(--accent)" opacity=".5"/><circle cx="44" cy="11" r="5.5" fill="var(--fg)" stroke="var(--card)" stroke-width="2"/>
-          <text x="8" y="29" fill="var(--muted)" font-size="9">0%</text><text x="120" y="29" fill="var(--muted)" font-size="9" text-anchor="middle">50%</text>
-          <text x="232" y="29" fill="var(--muted)" font-size="9" text-anchor="end">100%</text></svg>
-        <p class="t">Over many games, probably 12–22%. The band narrows as you play more.</p>
-      </div>
-      <div class="metric">
-        <h3>Your strongest pattern</h3><p class="cap2">Strong and weak points, only when they hold up</p>
-        <p class="t" style="margin-top:0"><b style="color:var(--fg)">Long thinks go wrong.</b> 27% of moves you thought 8 s+ about were costly, against 11% for quick ones.</p>
-        <p class="t">Almost certainly real · from 95 moves</p>
-      </div>
-      <div class="metric small-note"><p class="t" style="margin:0"><b>Fair play.</b> Nothing is shown during a game: the extension only records. A review starts
-      only once lichess says the game is over, and only for games you played.</p></div>
-      <div class="metric small-note"><p class="t" style="margin:0"><b>Privacy.</b> Signing in only asks lichess for your username: no password, no access to your
-      account. Voice recordings are deleted once they are transcribed. Your review pages aren't listed anywhere,
-      but anyone you give a link to can open them.</p></div>
-    </div>
-  </section>
-
-  <div class="row" style="margin-top:22px"><a class="btn primary" href="/api/login">Sign in with lichess</a>
-    <a class="btn" href="/play">Tips for your first games</a></div>
-  </div>
 
   <footer>Thought Coach · <a href="https://github.com/GrantRedfield/thought-coach">open source</a> · engine: Stockfish · <a href="/privacy">Privacy</a> · not affiliated with lichess.org</footer>
 </main>

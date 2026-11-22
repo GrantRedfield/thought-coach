@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- Thought Coach: a light bulb (an idea) whose base is a 2x2 chessboard -->
+  <g stroke="#ffd43b" stroke-width="5" stroke-linecap="round" opacity=".55">
+    <line x1="64" y1="3" x2="64" y2="11"/><line x1="17" y1="22" x2="23" y2="28"/><line x1="111" y1="22" x2="105" y2="28"/>
+    <line x1="6" y1="52" x2="14" y2="52"/><line x1="122" y1="52" x2="114" y2="52"/>
+  </g>
+  <path d="M41 77C27 66 24 45 34 30C46 13 82 13 94 30C104 45 101 66 87 77C83 81 81 86 81 91H47C47 86 45 81 41 77Z"
+        fill="#ffd43b" stroke="#e8590c" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M42 46C42 34 50 25 61 23" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".75"/>
+  <path d="M52 70Q58 58 64 68Q70 78 76 66" fill="none" stroke="#e8590c" stroke-width="5" stroke-linecap="round"/>
+  <g stroke="#6b4423" stroke-width="3">
+    <rect x="46" y="100" width="18" height="12" fill="#f0d9b5"/><rect x="64" y="100" width="18" height="12" fill="#b58863"/>
+    <rect x="46" y="112" width="18" height="12" fill="#b58863"/><rect x="64" y="112" width="18" height="12" fill="#f0d9b5"/>
+  </g>
+</svg>

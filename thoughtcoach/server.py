@@ -207,7 +207,7 @@ def list_page(reviews: Reviews, owner: str | None = None) -> str:
     return f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">{refresh}<title>Thought Coach</title>
 <link rel="icon" href="/favicon.png">{THEME_HEAD}<style>{LIST_CSS}{profile.CSS}{home.CSS}</style></head><body>{THEME_BUTTON}
-<main class="wrap"><nav class="topbar"><a class="brand" href="/">&#9822; Thought Coach</a><span class="sp"></span>{nav}</nav>
+<main class="wrap"><nav class="topbar"><a class="brand" href="/"><img src="/icon.svg" alt="" width="22" height="22" style="vertical-align:-5px;margin-right:6px">Thought Coach</a><span class="sp"></span>{nav}</nav>
 {f'<div id="live-banner" data-user="{html.escape(owner)}" hidden></div>' if owner else ''}{main}
 </main><script>{home.JS}</script></body></html>"""
 
