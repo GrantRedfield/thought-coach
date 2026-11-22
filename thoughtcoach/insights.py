@@ -459,7 +459,8 @@ def reactions(g: Game, recording: dict | None, transcript: dict | None, utteranc
                     else f"the engine had you at {pct(now)}")
         elif feeling == "confident":
             read = (f"the engine agreed: {pct(now)} win chance" if now >= 0.6
-                    else f"the engine was cooler: {pct(now)} win chance")
+                    else f"but the position was only level ({pct(now)} win chance)" if now >= 0.4
+                    else f"but the engine had you worse ({pct(now)} win chance)")
         elif feeling == "regret" and [p for p in g.mine if p <= position]:
             mine = g.mine[max(p for p in g.mine if p <= position)]
             read = (f"the engine agrees, {g.label(mine['ply'])} took you from {pct(mine['wp_before'])} to "
@@ -478,7 +479,7 @@ def reactions(g: Game, recording: dict | None, transcript: dict | None, utteranc
             elif feeling == "regret" and lost >= 0.10 and "fine with" in read:
                 follow += " Dwelling on a move that was fine cost more than the move did."
             elif feeling == "confident" and lost >= 0.10:
-                follow += " The good feeling didn't last on the board."
+                follow += " The moves that felt easy were where the game slipped."
         weight = 0.4 + abs(swing or 0) + lost
         notable = abs(swing or 0) >= 0.10 or lost >= 0.10 or (feeling == "confident" and now < 0.55)
         if not notable:
@@ -487,7 +488,7 @@ def reactions(g: Game, recording: dict | None, transcript: dict | None, utteranc
             "kind": "reaction", "ply": position, "weight": weight,
             "head": {"shock": "Your reaction", "confident": "Feeling good", "unsure": "Doubt",
                      "regret": "Second-guessing"}[feeling],
-            "body": f"'{said}' after {trigger}: {read}.{follow}",
+            "body": f"'{said}' after {trigger}{', ' if read.startswith('but') else ': '}{read}.{follow}",
         })
     out.sort(key=lambda i: -i["weight"])
     return out[:2]
