@@ -21,7 +21,7 @@ from .critical import _last_move, pick, player_html, reel, sharpness
 from .gaps import GAP_LABEL, GAPS
 from .gametype import classify
 from .strike import EXPLAIN as STRIKE_EXPLAIN
-from .fmt import avg_went, game_url, move_went, pct
+from .fmt import avg_went, game_url, home_url, move_went, pct
 from .fmt import THEME_BUTTON, THEME_HEAD
 from . import questions, timing
 
@@ -425,6 +425,7 @@ CSS = """
 html, body { height:100%; margin:0; }
 body { background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-x:hidden; overflow-y:auto; max-width:none; padding:0; }
 html { scroll-behavior:smooth; }
+.homelink { display:inline-block; font-size:13px; color:var(--fg2); text-decoration:none; margin:0 0 6px; } .homelink:hover { color:var(--fg); }
 .playstory { font-size:13px; font-weight:600; margin-left:10px; padding:4px 12px; border-radius:999px; background:var(--accent); color:#fff;
   text-decoration:none; vertical-align:middle; white-space:nowrap; } .playstory:hover { filter:brightness(1.1); } .below { padding:4px 16px 24px; } a.kpi.qs { color:inherit; text-decoration:none; cursor:pointer; } a.kpi.qs:hover { border-color:var(--fg2); }
 .dash { height:100vh; display:grid; grid-template-rows:auto auto 1fr; gap:10px; padding:12px 16px; }
@@ -658,7 +659,8 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
 <title>Thought Coach {_e(g['id'])}</title>{THEME_HEAD}<style>{REEL_CSS}{CSS}{questions.CSS}</style></head><body>{THEME_BUTTON}
 <div class="dash">
   <header>
-    <div><h1>Thought Coach &middot; {_e(g['white'])} vs {_e(g['black'])} <a class="playstory" href="{_e(game_url(g['id'], story=True))}">&#9654; Watch your game story</a></h1>
+    <div><a class="homelink" href="{_e(home_url())}">&larr; All your games</a>
+    <h1>Thought Coach &middot; {_e(g['white'])} vs {_e(g['black'])} <a class="playstory" href="{_e(game_url(g['id'], story=True))}">&#9654; Watch your game story</a></h1>
     <div class="meta">{_e(g['result'])} &middot; {_e(g.get('time_control') or '?')} &middot; you played {_e(g['my_color'])}
       &middot; {s['moves_reviewed']} moves reviewed, {s['moves_with_thoughts']} with thoughts</div>{gtype}{voice_off}</div>
     <div class="kpis">{kpi_html}</div>
