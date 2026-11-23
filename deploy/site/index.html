@@ -21,6 +21,17 @@
     border:1px solid color-mix(in srgb, var(--good) 55%, transparent); background:color-mix(in srgb, var(--good) 12%, transparent); }
   .hero .row { justify-content:center; }
 
+  /* headline and the example card side by side: the card is seen without scrolling */
+  .top2 { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.05fr); gap:40px; align-items:center; margin-top:24px; }
+  .top2 .hero { text-align:left; margin:0; max-width:none; }
+  .top2 .hero .badges, .top2 .hero .row { justify-content:flex-start; } .top2 .hero .lead { margin-left:0; }
+  .top2 .hero h1 { font-size:clamp(32px, 3.6vw, 52px); }
+  .top2 .example { margin:0; max-width:none; }
+  .exlabel { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; text-align:center; }
+  .top2.solo { grid-template-columns:1fr; } .top2.solo .hero { text-align:center; } .top2.solo .hero .badges, .top2.solo .hero .row { justify-content:center; }
+  @media (max-width:980px) { .top2 { grid-template-columns:1fr; gap:24px; } .top2 .hero { text-align:center; }
+    .top2 .hero .badges, .top2 .hero .row { justify-content:center; } .top2 .hero .lead { margin:0 auto 22px; } }
+
   /* the equation: arrows + voice + Stockfish = your feedback */
   .eq { display:grid; grid-template-columns:1fr auto 1fr auto 1fr auto 1.25fr; gap:14px; align-items:center; margin:48px 0 0; }
   .op { font-size:42px; font-weight:300; color:var(--muted); text-align:center; line-height:1; }
@@ -113,6 +124,7 @@
     <a class="link" href="/start">Setup</a>
   </nav>
 
+  <div class="top2">
   <section class="hero">
     <p class="badges"><span>Free</span><span>Open source</span><span>No ads</span></p>
     <h1>Review how you <em>think</em>,<br>not just what you played.</h1>
@@ -122,6 +134,20 @@
       <a class="btn" href="/start">How to set it up</a>
     </div>
   </section>
+
+  <!-- what a review looks like, right beside the headline -->
+  <section class="example">
+    <p class="exlabel">One card from a game's story</p>
+    <div id="example-card"></div>
+  </section>
+  </div>
+  <script>
+    // The example card is published with the site but kept outside the code repository (it quotes a
+    // player who gave permission): load it, and leave the section out if it isn't there.
+    fetch('/example/card.html').then((r) => r.ok ? r.text() : Promise.reject())
+      .then((h) => { document.getElementById('example-card').innerHTML = h; })
+      .catch(() => { document.querySelector('section.example').hidden = true; document.querySelector('.top2').classList.add('solo'); });
+  </script>
 
   <!-- arrows + voice + Stockfish = your feedback -->
   <div class="eq" role="img" aria-label="Your arrows plus your voice plus Stockfish equals feedback on your thinking, compared with masters">
@@ -167,19 +193,6 @@
       <div><b>Your thinking, coached</b><small>Built from your own games, measured against how masters think</small></div>
     </div>
   </div>
-
-  <!-- what a review looks like -->
-  <section class="example">
-    <h2>One card from a game's story</h2>
-    <div id="example-card"></div>
-  </section>
-  <script>
-    // The example card is published with the site but kept outside the code repository (it quotes a
-    // player who gave permission): load it, and leave the section out if it isn't there.
-    fetch('/example/card.html').then((r) => r.ok ? r.text() : Promise.reject())
-      .then((h) => { document.getElementById('example-card').innerHTML = h; })
-      .catch(() => { document.querySelector('section.example').hidden = true; });
-  </script>
 
   <!-- three facts -->
   <section class="fine">
