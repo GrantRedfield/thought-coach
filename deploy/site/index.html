@@ -55,6 +55,12 @@
   .cap p { margin:0 0 10px; color:var(--fg2); font-size:15px; }
   .cap .eg { margin:0; font-size:14px; color:var(--fg); border-left:3px solid var(--accent); padding:2px 0 2px 10px; font-style:italic; }
   .capnote { color:var(--muted); font-size:13.5px; margin:14px 0 0; max-width:80ch; }
+  .desk { display:flex; gap:9px; align-items:flex-start; margin:16px 0 0; padding:10px 12px; border-radius:12px; max-width:52ch;
+    font-size:14px; color:var(--fg2); background:color-mix(in srgb, var(--accent) 10%, transparent);
+    border:1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); }
+  .desk svg { flex:none; width:20px; height:20px; margin-top:1px; fill:none; stroke:var(--accent); stroke-width:2;
+    stroke-linecap:round; stroke-linejoin:round; }
+  .desk b { color:var(--fg); }
   .trustline { color:var(--muted); font-size:13.5px; margin:14px 0 0; }
   .trustline a { color:var(--fg2); }
   .exlabel { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; text-align:center; }
@@ -198,6 +204,8 @@
         <a class="btn primary" href="/sample/">Explore an example game review</a>
         <a class="btn" href="/start" data-ev="get_started">Get started</a>
       </div>
+      <p class="desk"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" /></svg>
+        <span><b>Best on a computer:</b> play on lichess in a desktop browser, where you can right-click arrows and use your microphone.</span></p>
       <p class="trustline"><b>Free and open source</b>: no ads, no subscription, and the code is <a href="https://github.com/GrantRedfield/thought-coach">public</a>. Post-game only: nothing is shown during your games. <a href="#trust">Fair play and privacy</a></p>
     </section>
     <section class="example">
@@ -250,8 +258,9 @@
         <p class="eg">One habit to work on next game, with the moment from this game that shows why.</p>
       </div>
     </div>
-    <p class="capnote">Voice is optional and easy to switch off; arrows alone still give a full review. The more you say,
-      the more precisely the coaching can pinpoint what to fix.</p>
+    <p class="capnote">Best on a desktop or laptop, where you can draw arrows and use your microphone while you play. Voice is
+      optional and easy to switch off; arrows alone still give a full review. The more you say, the more precisely the
+      coaching can pinpoint what to fix.</p>
   </section>
 
   <!-- 2. the sample review -->
