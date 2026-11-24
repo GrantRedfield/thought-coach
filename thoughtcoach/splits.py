@@ -6,9 +6,14 @@ Every move with time to think (not skipped, not in time trouble) is put in one b
   after_slip   the 3 moves after one of yours that cost 10%+, or otherwise
   phase        opening (to move 12), middlegame, endgame (little material left)
   their_move   their last move was a capture or check, or a quiet move
+  critical     only one move held (and it wasn't an obvious recapture), or several were fine
+  mood         what you said around the move: upbeat, worried, talking it through, or quiet (tone.py)
+  opponent     a stronger player (100+ points above you), similar, or weaker
+  session      the game after a loss, after a win, or a first game (no game in the 90 minutes before)
 
 and the per-move habits are counted in each bucket: threats left unstopped, the best move among your
-candidates (when you drew some), thinking shown, candidates per move, costly moves, and time against that game's average.
+candidates (when you drew some), thinking shown, candidates per move, costly moves, time against that game's
+average, and from your narration: how often you talked and how often you sounded worried.
 The interesting part is the change, not the level: masters' rates move between buckets too (they are
 losing less often, and endgames are slower everywhere), so a finding is your change set against theirs.
 
@@ -37,7 +42,19 @@ SPLITS = {  # key: (title, [(bucket, label)], needs exact moves)
                                                ("endgame", "In the endgame")], False),
     "their_move": ("After their capture or check", [("forcing", "After their capture or check"),
                                                     ("quiet", "After a quiet move")], False),
+    "critical": ("Critical positions", [("critical", "When only one move held"), ("open", "When several moves were fine")], True),
+    "mood": ("What you said", [("upbeat", "When you sounded upbeat"), ("worried", "When you sounded worried"),
+                               ("neutral", "When you talked it through"), ("quiet", "When you were quiet")], False),
+    "opponent": ("Stronger or weaker opponents", [("stronger", "Against stronger players"), ("similar", "Against similar ratings"),
+                                                  ("weaker", "Against weaker players")], False),
+    "session": ("After your last game", [("after_loss", "The game after a loss"), ("after_win", "The game after a win"),
+                                         ("fresh", "A first game, or after a break")], False),
 }
+# A split by mood says nothing about talking or mood, nor about thinking drawn: in masters' videos most
+# of what's drawn comes from what they say, so a quiet move is an undrawn one there almost by definition.
+SKIP = {"mood": {"talk", "worried", "shown"}}
+RATING_GAP = 100
+SESSION_GAP = 90 * 60  # seconds between game starts that still count as one sitting
 # key: (label, kind, True when more is better (None: neither), needs exact moves)
 #   kind "rate": (cases where it happened, cases);  "mean": (sum, cases)
 MEASURES = {
@@ -47,6 +64,8 @@ MEASURES = {
     "cands": ("Candidates drawn per move", "mean", None, False),
     "costly": ("Moves that cost 10%+", "rate", False, True),
     "think": ("Time spent, against your average", "mean", None, False),
+    "talk": ("Moves where you talked", "rate", None, False),
+    "worried": ("Sounding worried, when you talked", "rate", None, False),
 }
 SHIFT = {"rate": 0.08, "mean": 0.3}  # how much more your change must be than masters' to call it out
 VALUES = {"N": 3, "B": 3, "R": 5, "Q": 9}
@@ -55,6 +74,49 @@ VALUES = {"N": 3, "B": 3, "R": 5, "Q": 9}
 def _material(fen: str) -> int:
     board = fen.split()[0]
     return sum(VALUES.get(c.upper(), 0) for c in board if c.isalpha())
+
+
+def _outcome(report: dict) -> str | None:
+    g = report.get("game") or {}
+    res = g.get("result")
+    if res == "1/2-1/2":
+        return "draw"
+    if res not in ("1-0", "0-1"):
+        return None
+    return "win" if (res == "1-0") == (g.get("my_color") == "white") else "loss"
+
+
+def _when(played: str | None) -> float | None:
+    from datetime import datetime, timezone
+
+    try:
+        return datetime.strptime(played or "", "%Y.%m.%d %H:%M:%S").replace(tzinfo=timezone.utc).timestamp()
+    except ValueError:
+        return None
+
+
+def mark_sessions(games: list[dict]) -> None:
+    """Set g["session"] for one player's games: after_loss / after_win / after_draw when their previous
+    game started at most SESSION_GAP before, fresh when none did; left out when the start time isn't known."""
+    timed = sorted((t, i) for i, g in enumerate(games) if (t := _when(g.get("played"))) is not None)
+    prev = None
+    for t, i in timed:
+        g = games[i]
+        if prev is not None and t - prev[0] <= SESSION_GAP and prev[1]:
+            g["session"] = "after_" + prev[1]
+        else:
+            g["session"] = "fresh"
+        prev = (t, _outcome(g["report"]))
+
+
+def _opponent(report: dict) -> str | None:
+    g = report.get("game") or {}
+    me, them = (("white_elo", "black_elo") if g.get("my_color") == "white" else ("black_elo", "white_elo"))
+    try:
+        d = int(g[them]) - int(g[me])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return "stronger" if d >= RATING_GAP else "weaker" if d <= -RATING_GAP else "similar"
 
 
 def records(g: dict, exact: bool = True) -> list[dict]:
@@ -67,6 +129,13 @@ def records(g: dict, exact: bool = True) -> list[dict]:
     calm = [m for m in moves if m.get("clock_before") is None or m["clock_before"] >= tt]
     times = [t for t in ((by_ply.get(m.get("ply")) or {}).get("time_spent") for m in calm) if t is not None]
     usual = statistics.mean(times) if times else None  # this game's average move time
+    tone = {t["ply"]: t for t in (r.get("tone") or {}).get("moves", [])}
+    crit = {}
+    if exact:
+        from . import timing
+
+        crit = {p["ply"]: p for p in timing.positions(a, r)} if a.get("moves") else {}
+    opp, session = _opponent(r), g.get("session")
     out, slips = [], []
     for i, m in enumerate(moves):
         loss = m.get("wp_loss")
@@ -87,6 +156,16 @@ def records(g: dict, exact: bool = True) -> list[dict]:
         their = am.get("opponent_move_san")
         if their:
             b["their_move"] = "forcing" if ("x" in their or "+" in their or "#" in their) else "quiet"
+        cp = crit.get(m.get("ply"))
+        if cp and not cp["obvious"]:
+            b["critical"] = "critical" if cp["critical"] else "open"
+        said = tone.get(m.get("ply"))
+        if said:
+            b["mood"] = said["mood"]
+        if opp:
+            b["opponent"] = opp
+        if session in ("after_loss", "after_win", "fresh"):
+            b["session"] = session
         v = {}
         q3 = (m.get("q3") or {}).get("status")
         if q3 in ("spotted", "handled", "not_drawn"):
@@ -103,7 +182,11 @@ def records(g: dict, exact: bool = True) -> list[dict]:
         t = am.get("time_spent")
         if t is not None and usual:
             v["think"] = (min(float(t) / usual, 10.0), 1)
-        out.append({"b": b, "v": v})
+        if said:
+            v["talk"] = (int(said["mood"] != "quiet"), 1)
+            if said["mood"] != "quiet":
+                v["worried"] = (int(said["mood"] == "worried"), 1)
+        out.append({"ply": m.get("ply"), "loss": loss, "b": b, "v": v})
     return out
 
 
@@ -115,6 +198,8 @@ def tally(recs: list[dict]) -> dict:
             for name in (bucket, "all"):
                 cell = out.setdefault(split, {}).setdefault(name, {})
                 for key, (k, n) in rec["v"].items():
+                    if key in SKIP.get(split, ()):
+                        continue
                     c = cell.setdefault(key, [0, 0])
                     c[0] += k
                     c[1] += n
@@ -122,6 +207,8 @@ def tally(recs: list[dict]) -> dict:
 
 
 def of_games(games: list[dict]) -> dict:
+    """One player's games (their session order is worked out here)."""
+    mark_sessions(games)
     return tally([rec for g in games for rec in records(g, not g.get("board_read"))])
 
 
@@ -177,6 +264,8 @@ def findings(yours: dict, ms: dict | None = None, limit: int = 4) -> list[dict]:
     for split, (_, buckets, _) in SPLITS.items():
         for bucket, blabel in buckets:
             for key, (label, kind, up, _) in MEASURES.items():
+                if key in SKIP.get(split, ()):
+                    continue
                 mine, n = _rate(yours.get(split, {}).get(bucket), key)
                 base, nb = _rate(yours.get(split, {}).get("all"), key)
                 mb, mall = _m(ms, split, bucket, key), _m(ms, split, "all", key)
@@ -204,6 +293,34 @@ def findings(yours: dict, ms: dict | None = None, limit: int = 4) -> list[dict]:
     return best[:limit]
 
 
+def _fired(v: dict, f: dict) -> bool:
+    """Did this move show the finding's pattern? (the bad side of a rate; for a mean, the direction you moved)"""
+    k, n = v.get(f["key"], (None, 0))
+    if not n:
+        return False
+    kind, up = MEASURES[f["key"]][1], MEASURES[f["key"]][2]
+    if kind == "mean":
+        return k < f["base"] * 0.7 if f["mine"] < f["base"] else k > f["base"] * 1.3
+    bad = bool(k) if up is False else not k if up else bool(k) == (f["mine"] > f["base"])
+    return bad
+
+
+def moments(g: dict, found: list[dict]) -> list[dict]:
+    """This game's moves where a cross-game finding showed: [{"ply", "finding"}], one per finding, earliest first."""
+    out = []
+    recs = records(g, not g.get("board_read"))
+    for f in found:
+        if f["worse"] is False:
+            continue  # (good news is said on the home page; the story points at what to work on)
+        # A change that isn't good or bad in itself (talking, mood, time, candidates) is only pointed at
+        # where it cost something: that's when it tells you about this game.
+        hit = next((r for r in recs if r["b"].get(f["split"]) == f["bucket"] and _fired(r["v"], f)
+                    and (f["worse"] or (r["loss"] or 0) >= COSTLY / 2)), None)
+        if hit:
+            out.append({"ply": hit["ply"], "finding": f})
+    return sorted(out, key=lambda x: x["ply"])
+
+
 def section(games: list[dict], ms: dict | None = None) -> str:
     """The "How your thinking changes" section: the biggest differences from masters, then a table per split."""
     ms = _masters() if ms is None else ms
@@ -223,6 +340,8 @@ def section(games: list[dict], ms: dict | None = None) -> str:
         head = "".join(f"<th>{html.escape(lab)}</th>" for _, lab in buckets)
         body = []
         for key, (label, _, _, _) in MEASURES.items():
+            if key in SKIP.get(split, ()) or not _rate(yours[split].get("all"), key)[1]:
+                continue  # (doesn't apply here, or nothing of yours to count: no voice, say)
             cells = []
             for b, _ in buckets:
                 mine, n = _rate(yours[split].get(b), key)
@@ -233,7 +352,8 @@ def section(games: list[dict], ms: dict | None = None) -> str:
         tables.append(f"<details class='fold'><summary>{html.escape(title)}</summary><div class='stab'><table>"
                       f"<thead><tr><th></th>{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div></details>")
     return (f"<section class='splits'><h2>How your thinking changes</h2><p class='cap'>The same habits when you're "
-            f"winning or losing, after a costly move, by phase, and after their capture or check, next to masters'. "
+            f"winning or losing, after a costly move, by phase, after their capture or check, when only one move holds, "
+            f"by what you said, against stronger or weaker players, and after your last game, next to masters'. "
             f"What matters is the change: masters' numbers move too. Moves in time trouble aren't counted.</p>"
             f"{lead}{''.join(tables)}</section>")
 

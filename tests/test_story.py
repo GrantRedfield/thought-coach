@@ -131,3 +131,14 @@ def test_voice_off_is_mentioned_gently():
     r["voice"] = "off"
     page = story.render(story.build(r, {"moves": []}, None, None))
     assert page.count("Voice was off") == 1 and "Switch it on" in page
+
+
+def test_a_cross_game_pattern_points_at_its_move():
+    moves = [move(3, "Bc4", 0.30), move(4, "d3", 0.12)]
+    r = report(moves, {"missed_candidate": {"wp_lost": 0.42}})
+    f = {"split": "after_slip", "bucket": "after", "key": "costly", "mine": 0.21, "base": 0.11, "worse": True,
+         "text": "The 3 moves after a costly one: moves that cost 10%+ 11% → 21% (34 moves). Masters: 4% → 8%."}
+    s = story.build(r, {"moves": []}, None, None, history={"share": {}, "note": {}, "split_moments": [{"ply": 7, "finding": f}]})
+    card = next(b for b in s["beats"] if b["kind"] == "pattern")
+    assert card["ply"] == 7 and "4. d3 came right after a costly move" in card["body"]
+    assert "Masters: 4% → 8%" in card["body"] and "take a breath" in card["body"]

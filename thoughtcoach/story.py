@@ -49,7 +49,7 @@ ACCENT = {  # card background accents, by kind
     "weak_made": "#e67700", "weak_found": "#2b8a3e", "weak_missed": "#e67700", "worst": "#7048e8",
     "worst_named": "#2b8a3e", "insight": "#0c8599", "strike": "#f08c00", "decided": "#c92a2a", "clock": "#495057",
     "result": "#343a40", "focus": "#2f9e44", "tide": "#1098ad", "gave_up": "#862e9c", "instinct": "#1c7ed6",
-    "inner": "#5f3dc4", "voice": "#0b7285", "truths": "#5c7cfa", "caught": "#e8590c", "rosy": "#d9480f", "worry_held": "#e67700", "gloomy": "#1971c2",
+    "inner": "#5f3dc4", "voice": "#0b7285", "truths": "#5c7cfa", "caught": "#e8590c", "rosy": "#d9480f", "worry_held": "#e67700", "gloomy": "#1971c2", "pattern": "#9c36b5",
 }
 MOOD_COLOR = {"upbeat": "#51cf66", "worried": "#ff922b", "neutral": "#ffffffaa"}
 MOOD_WORD = {"upbeat": "upbeat", "worried": "worried", "neutral": "calculating", "quiet": "quiet"}
@@ -579,8 +579,65 @@ def masters_way(c: Ctx) -> list[dict]:
                   " ".join(parts), None, board, arrows, stat=went(m["wp_before"], m["wp_after"]))]
 
 
+TIPS = {  # (split, bucket): what to try, when a pattern shows there
+    ("after_slip", "after"): "After a costly move the position is new: take a breath and run your full check before the next one.",
+    ("situation", "behind"): "When you're losing, look for the move that makes it hardest for them, and keep checking their threats.",
+    ("situation", "ahead"): "When you're winning, ask what they want before every move: that's when attention drops.",
+    ("their_move", "forcing"): "After a capture or check, the natural reply is often right: check one alternative and their threat first.",
+    ("critical", "critical"): "When only one move holds, slow down: these are the moves that decide games.",
+    ("mood", "worried"): "When you hear yourself worried, name the threat out loud: a real one needs an answer, a vague one costs time.",
+    ("mood", "upbeat"): "When it feels good, check their best reply once more: that's when the tactic lands.",
+    ("mood", "quiet"): "When you go quiet, say your candidate moves out loud: it brings the search back.",
+    ("opponent", "stronger"): "Against stronger players, play your own process: the same checks as any game.",
+    ("opponent", "weaker"): "Against weaker players the same checks still apply: their tactics work too.",
+    ("session", "after_loss"): "After a loss, take a few minutes before the next game, or make it a slower one.",
+}
+
+
+def patterns(c: Ctx) -> list[dict]:
+    """A move in this game where one of your cross-game patterns (splits.py) showed: you against masters
+    in that kind of moment, and what to try. Only when the pattern is clear across your games."""
+    from . import splits
+
+    out = []
+    for hit in (c.history or {}).get("split_moments") or []:
+        f, m = hit["finding"], c.by_ply.get(hit["ply"])
+        if not m:
+            continue
+        label = _label(m["ply"], m["move_san"])
+        blabel = dict(splits.SPLITS[f["split"]][1])[f["bucket"]]
+        here = {"situation": f"Your win chance was {pct(m.get('wp_before') or 0)} before {label}.",
+                "after_slip": f"{label} came right after a costly move.",
+                "their_move": f"{label} answered their capture or check.",
+                "critical": f"Only one move held at {label}" + (f": {m['best_move_san']}." if m.get("best_move_san") else "."),
+                "opponent": f"{label}, against a {'stronger' if f['bucket'] == 'stronger' else 'weaker' if f['bucket'] == 'weaker' else 'similar'} player.",
+                "session": f"{label}, in the game after your last {'loss' if f['bucket'] == 'after_loss' else 'win'}.",
+                "phase": f"{label}, in the {dict(opening='opening', middle='middlegame', endgame='endgame').get(f['bucket'], 'game')}."}.get(f["split"], "")
+        t = c.tone.get(m["ply"])
+        if f["split"] == "mood":
+            here = f"Around {label} you said: “{t['quote']}”." if t and t.get("quote") else f"{blabel} at {label}."
+        what = {"q3": f"Their threat {((m.get('q3') or {}).get('threat_san') or '')} went unstopped.",
+                "best": f"None of the moves you drew was a good one; the engine's best was {m.get('best_move_san')}.",
+                "shown": "Nothing was drawn or said for this move.",
+                "costly": f"{m['move_san']} cost {pct(m.get('wp_loss') or 0)} of your win chance.",
+                "talk": "You went quiet for this move." if not t or t.get("mood") == "quiet" else "You talked it through here.",
+                "worried": f"You sounded worried: “{t['quote']}”." if t and t.get("mood") == "worried" and t.get("quote")
+                else ""}.get(f["key"], "")
+        if f["key"] not in ("q3", "costly") and (m.get("wp_loss") or 0) >= 0.05:
+            what += f" {m['move_san']} cost {pct(m['wp_loss'])} of your win chance."
+        body = " ".join(x for x in (here, what, f"Across your games, {f['text'][0].lower() + f['text'][1:]}", TIPS.get((f["split"], f["bucket"]), "")) if x)
+        board = c.board_before(m["ply"])
+        arrows = [_arrow(board, m["move_san"], DARK_BLUE), _arrow(board, m.get("best_move_san"), GREEN)
+                  if m.get("best_move_san") and m.get("best_move_san") != m["move_san"] else None] if board else []
+        out.append(_beat("pattern", m["ply"], (m.get("wp_loss") or 0) * 2.4 + 0.3,
+                         f"Your pattern · move {m['move_number']}", f"{blabel}: it showed here", body,
+                         t.get("quote") if t and f["split"] != "mood" else None, board, arrows,
+                         stat=went(m["wp_before"], m["wp_after"]) if m.get("wp_before") is not None and m.get("wp_after") is not None else None))
+    return out
+
+
 SOURCES = (turning_point, rushed, moods, comfortable, trust, threats, weaknesses, worst_piece, insights, strike, clock,
-           masters_way)
+           masters_way, patterns)
 
 
 def decisive(c: Ctx) -> bool:
@@ -886,6 +943,10 @@ def build(report: dict, analysis: dict, thinking: dict | None, game: chess.pgn.G
         best = max(voiced, key=lambda b: b["score"])
         if best["ply"] not in {b["ply"] for b in beats}:
             beats = sorted(beats + [best], key=lambda b: b["ply"])
+    # So does a pattern of yours across games (splits.py): the strongest moment where it showed here.
+    pats = [b for b in every if b["kind"] == "pattern" and b["ply"] not in {x["ply"] for x in beats}]
+    if pats and not any(b["kind"] == "pattern" for b in beats):
+        beats = sorted(beats + [max(pats, key=lambda b: b["score"])], key=lambda b: b["ply"])
     # A study chapter to go deeper, for cards whose position a lichess course teaches.
     studies.attach(beats, lambda b: chess.Board(b["fen"]) if b.get("fen")
                    else c.boards[b["ply"] - 1] if 0 < b["ply"] <= len(c.boards) else None)

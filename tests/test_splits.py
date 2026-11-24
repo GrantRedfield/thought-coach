@@ -55,3 +55,40 @@ def test_section_renders_without_masters():
     moves = [_move(40 + 2 * i, 0.5, 0.0) for i in range(30)]
     s = splits.section([_game(moves, [10] * 30)], ms={})
     assert "How your thinking changes" in s and "<table>" in s
+
+
+def test_mood_opponent_and_narration():
+    moves = [_move(40, 0.5, 0.0, q3="not_drawn"), _move(42, 0.5, 0.0, q3="handled"), _move(44, 0.5, 0.0)]
+    g = _game(moves, [10, 10, 10])
+    g["report"]["game"] = {"my_color": "white", "white_elo": "2000", "black_elo": "2150", "result": "0-1"}
+    g["report"]["tone"] = {"moves": [{"ply": 40, "mood": "worried"}, {"ply": 42, "mood": "quiet"}, {"ply": 44, "mood": "upbeat"}]}
+    t = splits.of_games([g])
+    assert t["mood"]["worried"]["q3"] == [1, 1] and "talk" not in t["mood"]["worried"]
+    assert t["opponent"]["stronger"]["talk"] == [2, 3]
+    assert t["opponent"]["stronger"]["worried"] == [1, 2]  # of the moves you talked on
+
+
+def test_sessions():
+    def g(when, result):
+        x = _game([_move(40, 0.5, 0.0)], [10])
+        x["report"]["game"] = {"my_color": "white", "result": result}
+        x["played"] = when
+        return x
+    a, b, c = g("2026.11.20 18:00:00", "0-1"), g("2026.11.20 18:20:00", "1-0"), g("2026.11.21 09:00:00", "1-0")
+    splits.mark_sessions([c, a, b])
+    assert (a["session"], b["session"], c["session"]) == ("fresh", "after_loss", "fresh")
+
+
+def test_moments_point_at_the_move():
+    moves = [_move(40, 0.5, 0.2), _move(42, 0.5, 0.0, found=False), _move(44, 0.5, 0.0)]
+    f = {"split": "after_slip", "bucket": "after", "key": "best", "mine": 0.7, "base": 0.9, "worse": True}
+    assert splits.moments(_game(moves, [10, 10, 10]), [f]) == [{"ply": 42, "finding": f}]
+    assert splits.moments(_game(moves, [10, 10, 10]), [dict(f, worse=False)]) == []
+
+
+def test_neutral_changes_only_point_at_costly_moves():
+    f = {"split": "phase", "bucket": "endgame", "key": "cands", "mine": 1.0, "base": 3.0, "worse": None}
+    cheap = [_move(40, 0.5, 0.0, cands=("Ra7",))]
+    assert splits.moments(_game(cheap, [10]), [f]) == []
+    costly = [_move(40, 0.5, 0.08, cands=("Ra7",))]
+    assert splits.moments(_game(costly, [10]), [f])[0]["ply"] == 40

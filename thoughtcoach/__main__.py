@@ -222,6 +222,10 @@ def write_story(report: dict, analysis: dict, thinking: dict | None, game, out_d
         history["yours"] = masters.your_rates(loaded)
         history["vs_masters"] = masters.gaps(history["yours"])
         history["search"] = masters.search([m for g in loaded for m in g["report"]["moves"]])
+        from . import splits  # how your thinking changes with the game, and where that showed in this one
+        history["splits"] = splits.findings(splits.of_games(loaded))
+        this = next((g for g in loaded if g["id"] == report["game"]["id"]), None)
+        history["split_moments"] = splits.moments(this, history["splits"]) if this else []
     except Exception:  # no other games yet, or an old saved review: this game alone
         loaded, history = [], None
     # Last game's focus, and how this game went on it (habits.py).
