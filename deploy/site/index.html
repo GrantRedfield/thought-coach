@@ -19,7 +19,7 @@
   /* big screens: use more of the width (paragraphs keep their own line-length caps); smaller screens unchanged */
   @media (min-width:1500px) {
     main.wide { max-width:1440px; }
-    .top2 { gap:56px; }
+    .top2 { gap:40px; }
     main.wide .top2 .storycard .row2 { grid-template-columns:minmax(0, 340px) minmax(0, 1fr); gap:26px; }
   }
   section.blk { margin:72px 0 0; }
@@ -28,7 +28,7 @@
   .eyebrow { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; font-weight:700; }
 
   /* 1. hero beside the example card */
-  .top2 { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.05fr); gap:40px; align-items:center; margin-top:24px; }
+  .top2 { display:grid; grid-template-columns:minmax(0, 0.75fr) minmax(0, 1.25fr); gap:32px; align-items:center; margin-top:24px; }
   .hero h1 { font-size:clamp(32px, 3.8vw, 54px); line-height:1.04; margin:0 0 14px; letter-spacing:-.02em; }
   .hero h1 em { font-style:normal; color:var(--accent); }
   .hero .sub2 { font-size:clamp(17px, 1.6vw, 20px); color:var(--fg); margin:0 0 12px; max-width:44ch; font-weight:500; }
@@ -218,7 +218,7 @@
         <span class="plus">=</span>
         <span class="pill out">Nuanced coaching</span>
       </p>
-      <p class="exlabel">A real moment, reviewed (no sound needed)</p>
+      <p class="exlabel">Two real moments, reviewed (no sound needed)</p>
       <div id="example-card"></div>
     </section>
   </div>
