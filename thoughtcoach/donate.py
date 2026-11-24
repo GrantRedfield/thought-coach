@@ -9,7 +9,7 @@ from __future__ import annotations
 import html
 
 URL = ""  # the Stripe Payment Link (https://buy.stripe.com/...); empty: no ask
-AFTER = 10  # reviewed games before asking
+AFTER = 5  # reviewed games before asking
 AMOUNTS = (5, 10)  # suggested, in dollars (prefilled on the payment page when Stripe allows it)
 
 
@@ -24,8 +24,9 @@ def card(reviewed: int, url: str | None = None) -> str:
     return f"""<aside class="donate" hidden>
 <div><p class="eyebrow">{reviewed} games reviewed</p>
 <h2>Help keep Thought Coach running</h2>
-<p>Every review runs Stockfish and transcribes your voice on a server, and that costs real money. If it has helped
-your chess, $5 or $10 goes a long way towards those costs. Any amount helps.</p></div>
+<p>Thought Coach is free and has no ads. Every review runs Stockfish and transcribes your voice on AWS servers,
+and donations cover those costs and pay for new features. If it has helped your chess, $5 or $10 goes a long way.
+Any amount helps.</p></div>
 <div class="dbtn">{btns}<a class="dgo alt" href="{u}" target="_blank" rel="noopener" data-donate>Other amount</a>
 <button type="button" class="dlater">Not now</button></div>
 </aside>"""
