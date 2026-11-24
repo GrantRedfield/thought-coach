@@ -1364,6 +1364,10 @@ blockquote { margin:0; padding:10px 14px; border-left:3px solid var(--accent); b
 @keyframes invite { 0%, 100% { box-shadow:0 6px 24px #0006, 0 0 0 0 #ffffff55; } 50% { box-shadow:0 6px 24px #0006, 0 0 0 10px #ffffff00; } }
 @media (prefers-reduced-motion: reduce) { .nav.next.invite { animation:none; } }
 .slide { padding-bottom:92px; }
+/* a card taller than the screen (a small phone, or the story shown in a frame) scrolls inside itself from its top,
+   instead of spilling under the progress bars and the arrows */
+.slide { overflow-y:auto; align-items:safe center; scrollbar-width:none; }
+.slide::-webkit-scrollbar { display:none; }
 .hint { position:absolute; bottom:8px; width:100%; text-align:center; font-size:11.5px; color:#ffffff73; margin:0; z-index:4;
   pointer-events:none; }
 @media (hover: none) { .hint .keys { display:none; } }
