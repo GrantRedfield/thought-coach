@@ -40,6 +40,34 @@
   .novideo b { color:var(--fg); }
   .novideo svg { flex:none; width:18px; height:18px; margin-top:1px; fill:none; stroke:var(--accent); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 
+  /* the tour: topics on the left, one panel at a time */
+  .tour { display:grid; grid-template-columns:220px minmax(0, 1fr); gap:0; margin:56px 0 0; border:1px solid var(--line);
+    border-radius:20px; background:var(--card); overflow:hidden; }
+  .tour-nav { display:flex; flex-direction:column; padding:14px 10px; border-right:1px solid var(--line); gap:2px;
+    background:color-mix(in srgb, var(--fg) 3%, transparent); }
+  .tour-nav button { all:unset; cursor:pointer; display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:10px;
+    font-size:14.5px; color:var(--fg2); }
+  .tour-nav button .i { font:700 11.5px ui-monospace, Consolas, monospace; color:var(--muted); width:16px; }
+  .tour-nav button:hover { background:color-mix(in srgb, var(--accent) 8%, transparent); color:var(--fg); }
+  .tour-nav button[aria-selected="true"] { background:color-mix(in srgb, var(--accent) 16%, transparent); color:var(--fg); font-weight:700; }
+  .tour-nav button[aria-selected="true"] .i { color:var(--accent); }
+  .tour-nav button:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+  .tour-body { padding:26px 28px 22px; min-height:460px; }
+  .tour section.blk { margin:0; } .tour section.blk[hidden] { display:none; }
+  .tour .tour-step { display:flex; justify-content:space-between; align-items:center; margin:22px 0 0; padding-top:14px;
+    border-top:1px solid var(--line); color:var(--muted); font-size:13px; }
+  .tour .tour-step button { all:unset; cursor:pointer; font-weight:700; color:var(--accent); font-size:14.5px; }
+  .tour .tour-step button:hover { text-decoration:underline; }
+  .tour .panel { background:color-mix(in srgb, var(--fg) 3%, transparent); }
+  @media (max-width:980px) {
+    .tour { grid-template-columns:1fr; }
+    .tour-nav { flex-direction:row; overflow-x:auto; border-right:0; border-bottom:1px solid var(--line); padding:10px; scrollbar-width:none; }
+    .tour-nav::-webkit-scrollbar { display:none; }
+    .tour-nav button { flex:none; padding:8px 12px; border:1px solid var(--line); border-radius:999px; font-size:13.5px; }
+    .tour-nav button .i { display:none; }
+    .tour-body { padding:20px 18px 16px; min-height:0; }
+  }
+
   /* 2. traditional review vs Thought Coach */
   .vs { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   .vs .col { border-radius:18px; padding:20px 22px; border:1px solid var(--line); }
@@ -187,8 +215,12 @@
     </section>
   </div>
 
+  <!-- 2–10. one guided tour instead of a long scroll: a topic list, one topic at a time -->
+  <div class="tour" id="tour">
+    <nav class="tour-nav" role="tablist" aria-label="About Thought Coach"></nav>
+    <div class="tour-body">
   <!-- 2. how it differs -->
-  <section class="blk" id="compare">
+  <section class="blk tp" id="compare" data-tab="Why it's different" role="tabpanel">
     <h2>Engines answer what. Thought Coach asks why.</h2>
     <div class="vs">
       <div class="col old"><h3>Traditional game review</h3>
@@ -201,14 +233,14 @@
   </section>
 
   <!-- 3. one real coaching insight -->
-  <section class="blk" id="insight">
+  <section class="blk tp" id="insight" data-tab="A real insight" role="tabpanel">
     <p class="eyebrow">One real coaching insight</p>
     <h2>What normal game review would never tell you</h2>
     <div class="panel" id="insight-card"><p class="cap">Loading the example…</p></div>
   </section>
 
   <!-- 4. the four questions -->
-  <section class="blk" id="questions">
+  <section class="blk tp" id="questions" data-tab="Four questions" role="tabpanel">
     <h2>Four questions, in the order strong players ask them</h2>
     <p class="sub">Each review checks which of these show up in your recorded thinking, and which don't.</p>
     <div class="q4">
@@ -221,7 +253,7 @@
   </section>
 
   <!-- 5. the Game Story -->
-  <section class="blk" id="story">
+  <section class="blk tp" id="story" data-tab="Game Story" role="tabpanel">
     <div class="story">
       <div>
         <p class="eyebrow">Game Story</p>
@@ -242,7 +274,7 @@
   </section>
 
   <!-- 6. the thinking profile -->
-  <section class="blk" id="profile">
+  <section class="blk tp" id="profile" data-tab="Your profile" role="tabpanel">
     <p class="eyebrow">Your thinking profile</p>
     <h2>Every game reveals something. Together, they reveal your habits.</h2>
     <p class="sub">Across your rapid and classical games, Thought Coach looks for the patterns no single review can show, sets
@@ -280,7 +312,7 @@
   </section>
 
   <!-- 7. selected master findings -->
-  <section class="blk" id="research">
+  <section class="blk tp" id="research" data-tab="Research" role="tabpanel">
     <p class="eyebrow">Research</p>
     <h2>How strong players think, in the same review</h2>
     <div class="rs" aria-label="The research data">
@@ -301,7 +333,7 @@
   </section>
 
   <!-- 8. the improvement cycle -->
-  <section class="blk" id="loop">
+  <section class="blk tp" id="loop" data-tab="The cycle" role="tabpanel">
     <h2>Built for long-term improvement</h2>
     <p class="sub">Each game adds to your profile, and your next focus comes from what keeps repeating.</p>
     <ol class="cycle">
@@ -314,7 +346,7 @@
   </section>
 
   <!-- 9. getting started -->
-  <section class="blk" id="how">
+  <section class="blk tp" id="how" data-tab="Get started" role="tabpanel">
     <h2>Three steps to your first review</h2>
     <ol class="three">
       <li><h3>Connect</h3><p>Sign in with lichess and install the free Chrome extension.</p></li>
@@ -330,7 +362,7 @@
   </section>
 
   <!-- 10. trust, then the last call -->
-  <section class="blk" id="trust">
+  <section class="blk tp" id="trust" data-tab="Trust &amp; privacy" role="tabpanel">
     <h2>Fair play, privacy, open source</h2>
     <ul class="trust">
       <li><b>Free and open source</b><a href="https://github.com/GrantRedfield/thought-coach">Code on GitHub</a> (AGPL-3.0)</li>
@@ -340,6 +372,9 @@
       <li><b>Open methodology</b>How every number is made. <a href="/research">Research</a></li>
     </ul>
   </section>
+
+    </div>
+  </div>
 
   <section class="final">
     <h2>What would it find in your games?</h2>
@@ -357,6 +392,37 @@
     fetch('/example/card.html').then((r) => r.ok ? r.text() : Promise.reject())
       .then((h) => { document.getElementById('example-card').innerHTML = h; })
       .catch(() => { document.querySelector('section.example').hidden = true; document.querySelector('.top2').classList.add('solo'); });
+    // The tour: build the topic list from the panels, show one at a time; a link to #trust, #profile... opens that topic.
+    (() => {
+      const nav = document.querySelector('.tour-nav'), panels = [...document.querySelectorAll('.tour .tp')];
+      const btns = panels.map((p, i) => {
+        const b = document.createElement('button');
+        b.type = 'button'; b.setAttribute('role', 'tab'); b.id = 'tab-' + p.id; b.setAttribute('aria-controls', p.id);
+        b.innerHTML = `<span class="i">${i + 1}</span>${p.dataset.tab}`; nav.appendChild(b);
+        p.setAttribute('aria-labelledby', b.id);
+        const next = panels[i + 1];
+        const step = document.createElement('div'); step.className = 'tour-step';
+        step.innerHTML = `<span>${i + 1} of ${panels.length}</span>` + (next ? `<button type="button">Next: ${next.dataset.tab} →</button>`
+          : `<button type="button">Back to the start ↺</button>`);
+        step.querySelector('button').onclick = () => { show(next ? i + 1 : 0, true); };
+        p.appendChild(step);
+        b.onclick = () => show(i, false);
+        return b;
+      });
+      function show(i, scroll) {
+        panels.forEach((p, k) => { p.hidden = k !== i; });
+        btns.forEach((b, k) => { b.setAttribute('aria-selected', String(k === i)); b.tabIndex = k === i ? 0 : -1; });
+        btns[i].scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        if (scroll) document.getElementById('tour').scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+      nav.addEventListener('keydown', (e) => {
+        const i = btns.findIndex(b => b.getAttribute('aria-selected') === 'true');
+        if (['ArrowDown', 'ArrowRight'].includes(e.key)) { e.preventDefault(); show(Math.min(i + 1, btns.length - 1)); btns[Math.min(i + 1, btns.length - 1)].focus(); }
+        if (['ArrowUp', 'ArrowLeft'].includes(e.key)) { e.preventDefault(); show(Math.max(i - 1, 0)); btns[Math.max(i - 1, 0)].focus(); }
+      });
+      const fromHash = () => { const k = panels.findIndex(p => '#' + p.id === location.hash); if (k >= 0) show(k, true); };
+      show(0, false); fromHash(); addEventListener('hashchange', fromHash);
+    })();
     fetch('/example/insight.html').then((r) => r.ok ? r.text() : Promise.reject())
       .then((h) => { document.getElementById('insight-card').innerHTML = h; })
       .catch(() => { document.getElementById('insight').hidden = true; });
