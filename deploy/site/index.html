@@ -54,6 +54,25 @@
     border-radius:999px; border:1px solid var(--line); color:var(--fg2); margin-bottom:10px; }
   .shot { border-radius:14px; overflow:hidden; border:1px solid var(--line); background:var(--bg); }
   .shot img { display:block; width:100%; }
+  .phone { justify-self:center; width:min(100%, 330px); }
+  .phone iframe { display:block; width:100%; aspect-ratio:9 / 17; border:0; border-radius:28px; background:#000;
+    box-shadow:0 0 0 8px #262624, 0 18px 50px #0008; }
+  .phcap { text-align:center; color:var(--muted); font-size:12.5px; margin:16px 0 0; }
+  .layers { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin:0 0 22px; }
+  .layer { border:1px solid var(--line); border-radius:16px; padding:16px 18px; position:relative; }
+  .layer.on { background:var(--card); border-color:color-mix(in srgb, var(--accent) 45%, var(--line)); }
+  .layer .ln { font:700 12px ui-monospace, Consolas, monospace; color:var(--muted); }
+  .layer.on .ln { color:var(--accent); }
+  .layer h3 { margin:4px 0 6px; font-size:17.5px; } .layer p { margin:0 0 10px; color:var(--fg2); font-size:14.5px; }
+  .layer .who { font-size:12.5px; color:var(--muted); }
+  .mind { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+  .mi { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+  .mi .sig { font-size:12px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--warn); }
+  .mi h3 { margin:4px 0 6px; font-size:16.5px; } .mi p { margin:0 0 8px; color:var(--fg2); font-size:14.5px; }
+  .mi .habit { border-top:1px solid var(--line); padding-top:8px; margin:0; font-size:13.5px; }
+  .mi .habit b { color:var(--good); }
+  .mindnote { color:var(--muted); font-size:13px; margin:12px 0 0; max-width:80ch; }
+  @media (max-width:980px) { .layers, .mind { grid-template-columns:1fr; } }
 
   /* 3. comparison */
   table.cmp { width:100%; border-collapse:collapse; font-size:15px; }
@@ -139,6 +158,7 @@
   <!-- 1. what it is, how it differs, how to try it -->
   <div class="top2">
     <section class="hero">
+      <p class="eyebrow">Your personal chess thinking coach</p>
       <h1>Review how you <em>think</em>,<br>not just what you played.</h1>
       <p class="sub2">Discover the threats you overlook, the moves you never consider, and the thinking habits holding back your chess.</p>
       <p class="why">Traditional game review tells you what you got wrong. Thought Coach helps you understand why you keep
@@ -182,15 +202,24 @@
           <a class="btn" href="/start" data-ev="get_started">Get started</a>
         </div>
       </div>
-      <div class="shot"><img src="/img/review.svg" alt="A Thought Coach review: the board with the player's arrows and the engine's verdict" loading="lazy"></div>
+      <div class="phone"><iframe src="/sample/games/LO7pFAat/story/" title="The sample game's story: tap or use the arrows to go through it" loading="lazy"></iframe>
+        <p class="phcap">Live: tap through the real story</p></div>
     </div>
   </section>
 
   <!-- 3. what's different -->
   <section class="blk" id="compare">
-    <h2>What game review shows, and what it can't</h2>
-    <p class="sub">Engine review is essential, and Thought Coach uses it too: Stockfish checks every move. What it adds is
-      the other half: what you were thinking when you chose it.</p>
+    <h2>Three questions after every game</h2>
+    <p class="sub">Game review on chess.com or lichess answers the first one well, and Thought Coach uses an engine for it
+      too. The other two need to know what you were thinking, and that's what Thought Coach records.</p>
+    <div class="layers">
+      <div class="layer"><span class="ln">1</span><h3>What did I play wrong?</h3><p>The best move, the blunders, the evaluation.</p>
+        <span class="who">Every engine review, Thought Coach included</span></div>
+      <div class="layer on"><span class="ln">2</span><h3>What went wrong in my thinking?</h3><p>Was the right move among your candidates?
+        Did you see their threat? Did you drop a good idea or never have it?</p><span class="who">Thought Coach: every game</span></div>
+      <div class="layer on"><span class="ln">3</span><h3>Why do I keep doing it?</h3><p>The habits that repeat across games: where your time goes,
+        how your mood moves with the position, and the one thing to change next.</p><span class="who">Thought Coach: across your games</span></div>
+    </div>
     <div class="scroll" style="overflow-x:auto">
     <table class="cmp">
       <thead><tr><th></th><th>Engine game review</th><th>Thought Coach</th></tr></thead>
@@ -238,6 +267,37 @@
           <p>When your first idea looks good, check it once more before switching to something new. The next games show whether it's working.</p></div>
       </div>
     </div>
+  </section>
+
+  <!-- 4b. the mental side -->
+  <section class="blk" id="mind">
+    <p class="eyebrow">The mental game</p>
+    <h2>The habits behind the mistakes</h2>
+    <p class="sub">Many losses aren't about chess knowledge at all. When you think out loud, the review can see the moments
+      your mood, confidence or clock took over, and it names a habit for each one.</p>
+    <div class="mind">
+      <div class="mi"><span class="sig">Sure, but wrong</span><h3>Confidence the position didn't back</h3>
+        <p>You sounded certain on the moves that went wrong, while the engine had it level or worse.</p>
+        <p class="habit"><b>Habit:</b> when a move feels obvious, check what it allows.</p></div>
+      <div class="mi"><span class="sig">Giving up early</span><h3>Calling it lost too soon</h3>
+        <p>You said it was over while the engine still gave you real chances, and the moves after that got looser.</p>
+        <p class="habit"><b>Habit:</b> find the most stubborn move and let the board decide.</p></div>
+      <div class="mi"><span class="sig">The inner critic</span><h3>Judging instead of playing</h3>
+        <p>After a mistake the talk turned on yourself, and the next few moves cost more than the mistake did.</p>
+        <p class="habit"><b>Habit:</b> say what happened in one plain sentence, then back to the board.</p></div>
+      <div class="mi"><span class="sig">One move too late</span><h3>Seeing it just after moving</h3>
+        <p>The right idea came out of your mouth seconds after you let go of the piece.</p>
+        <p class="habit"><b>Habit:</b> look once more before you release it.</p></div>
+      <div class="mi"><span class="sig">Time in the wrong place</span><h3>Fast where it mattered</h3>
+        <p>Long thinks on quiet moves, quick ones where only one move held. Every move's time is matched with how critical it was.</p>
+        <p class="habit"><b>Habit:</b> after a capture, check or surprise, slow down.</p></div>
+      <div class="mi"><span class="sig">Comfortable, then caught</span><h3>Relaxing when winning</h3>
+        <p>Upbeat talk, a winning position, then a fast move that gave much of it back.</p>
+        <p class="habit"><b>Habit:</b> when it's going well, keep asking about their checks and threats.</p></div>
+    </div>
+    <p class="mindnote">These are read from what you draw and say and how long you take, checked against the engine: never
+      guesses about your personality. Mood needs your voice; the clock and the arrows work without it. Each one shows up
+      only when your own games show it.</p>
   </section>
 
   <!-- 5. the framework -->
