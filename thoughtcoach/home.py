@@ -17,7 +17,7 @@ import chess.svg
 
 from . import profile
 from .gametype import classify
-from . import bayes, habits, practice, splits, timing
+from . import bayes, donate, habits, practice, splits, timing
 from .fmt import ACCURACY_EXPLAIN, acc, accuracy, game_url, went
 
 RECENT = 5  # "your form": the last few games against the ones before
@@ -376,7 +376,7 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
             if fast else "")
     res = {"won": "you won", "lost": "you lost", "draw": "a draw"}[last["outcome"]]
     tabs = [("story", f"&#9654; Your latest story<small>vs {_e(last['opp'])} · {res}</small>",
-             hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before),
+             donate.card(len(rows)) + hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before),
                                                   statistics.mean(r["acc"] for r in before)) if before else None)),
             ("form", "Your progress", f"""{note}{form(srows, sprof) if srows else ''}{focus}
 <section class="chart"><h2>Every game at a glance</h2><p class="cap">Win chance an average move gave away, game by game (lower is better; hover a column for its accuracy)</p>
@@ -398,7 +398,7 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
 {panels}"""
 
 
-CSS = bayes.RANGE_CSS + practice.CSS + splits.CSS + """
+CSS = bayes.RANGE_CSS + practice.CSS + splits.CSS + donate.CSS + """
 .slownote { margin:0 0 12px; }
 .form h2 small { font-weight:400; color:var(--muted); font-size:13px; margin-left:8px; }
 details.fold.more { margin-top:10px; }
@@ -619,3 +619,5 @@ JS = """
   }
 })();
 """
+
+JS += donate.JS
