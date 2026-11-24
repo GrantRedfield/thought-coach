@@ -22,6 +22,7 @@ from . import ahead, bayes, masters, questions, tone
 from .fmt import ACCURACY_EXPLAIN, acc, accuracy, game_url, went
 
 SOLID = 30  # moves a comparison needs before it is more than an early signal
+THREATS_THROUGH = masters.rate("q3") or 0.05  # share of real threats strong players leave unstopped
 PHASES = [("Opening (to move 15)", 0, 15), ("Middlegame (16-30)", 16, 30), ("Late game (31+)", 31, 999)]
 THINK = [("under 3s", 0, 3), ("3-8s", 3, 8), ("8-20s", 8, 20), ("20s+", 20, 1e9)]
 PIECES = {"N": "knight", "B": "bishop", "R": "rook", "Q": "queen", "K": "king", "": "pawn", "O": "castling"}
@@ -264,14 +265,16 @@ def findings(p: dict) -> tuple[list[dict], list[dict]]:
     # Aagaard's questions and candidates, across games.
     names = {"q1": "the weaknesses", "q2": "your worst pieces",
              "q4": "positions with the engine's best move among yours"}
+    # Threats: what counts is whether they were stopped (most are answered without a word), not
+    # whether you named them.
     found3, real3 = p["questions"]["q3"]
-    p3 = 1 - bayes.prob_above(found3, real3, 0.5) if real3 else 0
-    if real3 >= 5 and found3 / real3 < 0.5 and p3 >= bayes.LIKELY:
-        stopped = p.get("q3_handled", 0)
-        add(weak, (0.5 - found3 / real3) / 2, "Threats seen too late",
-            f"You spotted only {_pct(found3 / real3)} of the real threats against you before they could happen "
-            f"({found3} of {real3}, {bayes.span(found3, real3)})" + (f"; your move happened to stop another {stopped}"
-                                                                      if stopped else "") + ".", real3, p3)
+    through = real3 - found3 - p.get("q3_handled", 0)
+    p3 = bayes.prob_above(through, real3, THREATS_THROUGH) if real3 else 0
+    # (masters range from about 2% to 11%: only well past their average is worth a warning)
+    if real3 >= 10 and through / real3 > 2 * THREATS_THROUGH and p3 >= bayes.LIKELY:
+        add(weak, through / real3, "Threats let through",
+            f"{through} of the {real3} real threats against you went unstopped ({_pct(through / real3)}, "
+            f"{bayes.span(through, real3)}). Strong players let through about {_pct(THREATS_THROUGH)}.", real3, p3)
     rates = {k: (f / n, n) for k, (f, n) in p["questions"].items() if n >= 5 and k in names}
     if rates:
         hi = max(rates, key=lambda k: rates[k][0])

@@ -534,9 +534,13 @@ def verdict(report: dict, analysis: dict | None, insights: list[dict]) -> dict:
     # ---- went well: every candidate gets a score, the best one wins.
     good = []
     real, spotted = s["q3_real_threats"], s["q3_spotted"]
+    through = real - spotted - s.get("q3_handled", 0)
     if real >= 3 and spotted / real >= 0.5:  # drawn, not just "your move happened to deal with it"
         good.append((0.45 + 0.3 * spotted / real, f"You spotted {spotted} of the {real} real threats against you "
                                                    f"before they could happen."))
+    elif real >= 5 and not through:  # most threats are answered without a word: stopping them all counts
+        good.append((0.5, f"You stopped all {real} real threats against you"
+                          + (f", naming {spotted} of them before they could happen." if spotted else ".")))
     sharp = [m for m in moves if m["ply"] in records and _sharpness(records[m["ply"]]) >= 0.10
              and m["wp_loss"] < 0.02 and (m.get("clock_before") or tt + 1) >= tt]
     if sharp:

@@ -1,7 +1,7 @@
 """Is your focus working? Each game's story ends with a focus for the next game; this checks it.
 
 A game's focus is the one the game before it gave you. For each focus there is one rate it should
-move (threats spotted for "what does my opponent want?", good moves dropped for "trust your
+move (threats left unstopped for "what does my opponent want?", good moves dropped for "trust your
 candidates"...). The games since you first got that focus are compared with the games before it,
 as the chance you've really improved (bayes.py: Beta posteriors with a sceptical prior, so one good
 game doesn't count as a habit).
@@ -19,6 +19,28 @@ MIN_GAMES = 2  # games since the focus before saying it works (or doesn't): one 
 
 def _q(key_found: str, key_total: str):
     return lambda g: (g["report"]["summary"].get(key_found, 0), g["report"]["summary"].get(key_total, 0))
+
+
+def _calm_threats(g) -> list[dict]:
+    """Real threats against you with time to think (not in time trouble, not unstoppable)."""
+    tt = g["report"]["thresholds"].get("time_trouble", 30)
+    return [m for m in g["report"]["moves"] if not m.get("skipped")
+            and (m.get("q3") or {}).get("status") in ("spotted", "handled", "not_drawn")
+            and (m.get("clock_before") is None or m["clock_before"] >= tt)]
+
+
+def _unstopped(g):
+    """Real threats your move didn't stop, whether or not you'd named them. Most threats are answered
+    without a word (a piece is attacked, you move it), so this, not naming them, is what costs points."""
+    real = _calm_threats(g)
+    return sum(m["q3"]["status"] == "not_drawn" for m in real), len(real)
+
+
+def _quiet_named(g):
+    """Quiet threats (not a capture: a fork, a mating idea, a trap being set) you drew or said before
+    they could happen. Naming an attacked piece is routine; seeing a quiet one coming is foresight."""
+    quiet = [m for m in _calm_threats(g) if "x" not in (m["q3"].get("threat_san") or "x")]
+    return sum(m["q3"]["status"] == "spotted" for m in quiet), len(quiet)
 
 
 def _dropped(g):
@@ -52,7 +74,8 @@ def _shown(g):
 # focus key: (what is counted, how to count it in one game, True when more is better)
 MEASURE = {
     # the four questions in the order strong players work in, then the rest
-    "q3": ("threats spotted before they happened", _q("q3_spotted", "q3_real_threats"), True),
+    "q3": ("real threats left unstopped", _unstopped, False),
+    "q3_quiet": ("quiet threats named before they happened", _quiet_named, True),
     "q1": ("weaknesses you pointed at", _q("q1_found", "q1_weaknesses"), True),
     "candidates": ("positions with the best move among yours", _q("q4_best_considered", "q4_positions"), True),
     "q2": ("least active pieces you named or brought into play", _q("q2_found", "q2_positions"), True),
@@ -121,7 +144,7 @@ def _text(e: dict) -> str:
 
 
 def this_game(key: str | None, game: dict, earlier: list[dict]) -> str | None:
-    """'This game: 3 of 4 threats spotted before they happened; before: 17 of 125 (14%).' for the
+    """'This game: real threats left unstopped, 1 of 9; before: 8 of 125 (6%).' for the
     focus the previous game gave you."""
     if key not in MEASURE:
         return None

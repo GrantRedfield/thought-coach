@@ -784,8 +784,8 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
                       f"your win chance went {move_went(worst)}.")
             m3 = masters.rate("q3")
             if m3 is not None:
-                across = (f"Spotting threats early, you're level with masters (they catch about {m3:.0%} before they "
-                          f"happen, through this same review). Answering the one you've seen is where this game went.")
+                across = (f"Masters leave about {m3:.0%} of real threats unstopped, through this same review. You'd "
+                          f"seen this one: answering it is where this game went.")
     if key == "sharp" and c.timing["rushed"]:
         p = c.timing["rushed"][0]
         reason = (f"At {timing.label(p, c.white)} only {p['best']} held, and you took {p['time']:.0f} s. "
@@ -848,8 +848,10 @@ def history_from_profile(p: dict) -> dict:
     note = {k: f"Across your {n} games, {cause[k]} account for {pct(v)} of all the win chance you've lost."
             for k, v in share.items() if v}
     if q.get("q3", [0, 0])[1]:
-        note["q3"] = (f"Across your {n} games you spotted {q['q3'][0]} of {q['q3'][1]} real threats before they "
-                      f"happened: {bayes.span(*q['q3'])}.")
+        real = q["q3"][1]
+        stopped = q["q3"][0] + p.get("q3_handled", 0)  # named, or answered without a word
+        note["q3"] = (f"Across your {n} games you stopped {stopped} of {real} real threats against you: "
+                      f"{bayes.span(stopped, real)}.")
     if q.get("q1", [0, 0])[1]:
         note["q1"] = f"Across your {n} games you pointed at {q['q1'][0]} of {q['q1'][1]} weaknesses: {bayes.span(*q['q1'])}."
     if q.get("q2", [0, 0])[1]:

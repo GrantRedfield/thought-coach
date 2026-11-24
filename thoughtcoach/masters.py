@@ -15,7 +15,8 @@ from . import habits
 
 DATA = Path(__file__).with_name("master_baseline.json")
 LABEL = {  # (what is counted, said about you)
-    "q3": "Threats spotted before they happened",
+    "q3": "Real threats left unstopped",
+    "q3_quiet": "Quiet threats named early",
     "q1": "Weaknesses pointed at",
     "candidates": "Best move among your candidates",
     "q2": "Least active pieces brought into play",

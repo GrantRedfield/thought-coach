@@ -199,8 +199,9 @@ def threats(games: list[dict]) -> dict:
     seen.sort(key=lambda x: -x["size"])
     missed.sort(key=lambda x: -x["size"])
     total = sum(counts.values())
-    # The question is whether you saw it: threats your move happened to stop are shown, not counted.
-    return {"found": counts["spotted"], "total": total, "found_label": "spotted",
+    # What counts is whether it was stopped: most threats are answered without a word (a piece is
+    # attacked, you move it). The split still shows how many you named.
+    return {"found": counts["spotted"] + counts["handled"], "total": total, "found_label": "stopped",
             "meter": [(counts["spotted"], "var(--s1)"), (counts["handled"], "var(--s1-light)"), (counts["not_drawn"], "var(--s2)")],
             "split": [("Spotted", counts["spotted"], total), ("Stopped by your move", counts["handled"], total),
                       ("Missed", counts["not_drawn"], total)],

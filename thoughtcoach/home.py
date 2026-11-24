@@ -247,8 +247,11 @@ def form(rows: list[dict], prof: dict) -> str:
              "down" if crit <= other else "up", extra=True)
     q = prof["questions"]
     if q["q3"][1]:
-        tile(f"{q['q3'][0] / q['q3'][1] * 100:.0f}%", "Their threats you saw coming", bayes.range_svg(*q['q3'], 200),
-             f"{q['q3'][0]} of {q['q3'][1]} · probably {bayes.interval(*q['q3'])[0] * 100:.0f}–{bayes.interval(*q['q3'])[1] * 100:.0f}%",
+        # stopped = named before it could happen, or answered by your move without a word
+        s3 = (q["q3"][0] + prof.get("q3_handled", 0), q["q3"][1])
+        lo3, hi3 = bayes.interval(*s3)
+        tile(f"{s3[0] / s3[1] * 100:.0f}%", "Their threats you stopped", bayes.range_svg(*s3, 200),
+             f"{s3[0]} of {s3[1]} · named {q['q3'][0]} · probably {lo3 * 100:.0f}–{hi3 * 100:.0f}%",
              extra=True)
     if q["q4"][1]:
         tile(f"{q['q4'][0] / q['q4'][1] * 100:.0f}%", "Best move among your candidates", bayes.range_svg(*q['q4'], 200),
