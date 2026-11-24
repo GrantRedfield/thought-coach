@@ -10,6 +10,10 @@ Every move with time to think (not skipped, not in time trouble) is put in one b
   mood         what you said around the move: upbeat, worried, talking it through, or quiet (tone.py)
   opponent     a stronger player (100+ points above you), similar, or weaker
   session      the game after a loss, after a win, or a first game (no game in the 90 minutes before)
+  clock        your clock against theirs: 30%+ more time, about even, or 30%+ less
+  colour       playing white or black
+  think_len    a quick move (under half that game's average time), a normal one, or a long think (2x+)
+  threat       they had a real threat (one that costs 10%+ if ignored), or none
 
 and the per-move habits are counted in each bucket: threats left unstopped, the best move among your
 candidates (when you drew some), thinking shown, candidates per move, costly moves, time against that game's
@@ -49,10 +53,20 @@ SPLITS = {  # key: (title, [(bucket, label)], needs exact moves)
                                                   ("weaker", "Against weaker players")], False),
     "session": ("After your last game", [("after_loss", "The game after a loss"), ("after_win", "The game after a win"),
                                          ("fresh", "A first game, or after a break")], False),
+    "clock": ("Your clock against theirs", [("more", "With 30%+ more time than them"), ("even", "With about the same time"),
+                                            ("less", "With 30%+ less time than them")], False),
+    "colour": ("White or black", [("white", "Playing white"), ("black", "Playing black")], False),
+    "think_len": ("Quick moves and long thinks", [("quick", "On quick moves"), ("normal", "On moves at your usual pace"),
+                                                  ("long", "On long thinks (2x your average)")], False),
+    "threat": ("When they had a threat", [("threat", "When they had a real threat"), ("none", "When they had none")], False),
 }
 # A split by mood says nothing about talking or mood, nor about thinking drawn: in masters' videos most
 # of what's drawn comes from what they say, so a quiet move is an undrawn one there almost by definition.
-SKIP = {"mood": {"talk", "worried", "shown"}}
+SKIP = {"mood": {"talk", "worried", "shown"},
+        "think_len": {"think"},  # (the split is the time itself)
+        "threat": {"q3"}}  # (only counted when there's a threat)
+CLOCK_EDGE = 1.3  # your time over theirs (or theirs over yours) that counts as more
+QUICK, LONG = 0.5, 2.0  # of that game's average move time
 RATING_GAP = 100
 SESSION_GAP = 90 * 60  # seconds between game starts that still count as one sitting
 # key: (label, kind, True when more is better (None: neither), needs exact moves)
@@ -136,6 +150,7 @@ def records(g: dict, exact: bool = True) -> list[dict]:
 
         crit = {p["ply"]: p for p in timing.positions(a, r)} if a.get("moves") else {}
     opp, session = _opponent(r), g.get("session")
+    colour = (r.get("game") or {}).get("my_color")
     out, slips = [], []
     for i, m in enumerate(moves):
         loss = m.get("wp_loss")
@@ -166,8 +181,22 @@ def records(g: dict, exact: bool = True) -> list[dict]:
             b["opponent"] = opp
         if session in ("after_loss", "after_win", "fresh"):
             b["session"] = session
-        v = {}
+        mine_c, theirs_c = m.get("clock_before"), am.get("opp_clock")
+        if mine_c and theirs_c and mine_c > 0 and theirs_c > 0:
+            ratio = float(mine_c) / float(theirs_c)
+            b["clock"] = "more" if ratio >= CLOCK_EDGE else "less" if ratio <= 1 / CLOCK_EDGE else "even"
+        if colour in ("white", "black"):
+            b["colour"] = colour
+        t = am.get("time_spent")
+        if t is not None and usual:
+            rel = float(t) / usual
+            b["think_len"] = "quick" if rel < QUICK else "long" if rel >= LONG else "normal"
         q3 = (m.get("q3") or {}).get("status")
+        if q3 in ("spotted", "handled", "not_drawn"):
+            b["threat"] = "threat"
+        elif q3 in ("minor", "spotted_minor"):  # (their best idea was worth under the threat swing)
+            b["threat"] = "none"
+        v = {}
         if q3 in ("spotted", "handled", "not_drawn"):
             v["q3"] = (int(q3 == "not_drawn"), 1)
         cands = {c.get("move_san") for c in m.get("drawn_candidates") or []} - {None}
@@ -179,7 +208,6 @@ def records(g: dict, exact: bool = True) -> list[dict]:
             v["cands"] = (len(cands), 1)
         if exact and loss is not None:
             v["costly"] = (int(loss >= COSTLY), 1)
-        t = am.get("time_spent")
         if t is not None and usual:
             v["think"] = (min(float(t) / usual, 10.0), 1)
         if said:
@@ -353,7 +381,8 @@ def section(games: list[dict], ms: dict | None = None) -> str:
                       f"<thead><tr><th></th>{head}</tr></thead><tbody>{''.join(body)}</tbody></table></div></details>")
     return (f"<section class='splits'><h2>How your thinking changes</h2><p class='cap'>The same habits when you're "
             f"winning or losing, after a costly move, by phase, after their capture or check, when only one move holds, "
-            f"by what you said, against stronger or weaker players, and after your last game, next to masters'. "
+            f"by what you said, against stronger or weaker players, after your last game, by your clock against theirs, as white or "
+            f"black, on quick moves and long thinks, and when they had a threat, next to masters'. "
             f"What matters is the change: masters' numbers move too. Moves in time trouble aren't counted.</p>"
             f"{lead}{''.join(tables)}</section>")
 

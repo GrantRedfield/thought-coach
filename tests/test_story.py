@@ -142,3 +142,10 @@ def test_a_cross_game_pattern_points_at_its_move():
     card = next(b for b in s["beats"] if b["kind"] == "pattern")
     assert card["ply"] == 7 and "4. d3 came right after a costly move" in card["body"]
     assert "Masters: 4% → 8%" in card["body"] and "take a breath" in card["body"]
+
+
+def test_new_split_patterns_have_a_context_sentence():
+    from thoughtcoach import story, splits
+    for split, (_, buckets, _) in splits.SPLITS.items():
+        assert split in ("mood", "situation", "after_slip", "their_move", "critical", "opponent", "session", "phase",
+                         "clock", "colour", "think_len", "threat"), split  # a new split needs a sentence in story.patterns

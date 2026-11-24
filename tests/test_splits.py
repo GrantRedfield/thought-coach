@@ -92,3 +92,20 @@ def test_neutral_changes_only_point_at_costly_moves():
     assert splits.moments(_game(cheap, [10]), [f]) == []
     costly = [_move(40, 0.5, 0.08, cands=("Ra7",))]
     assert splits.moments(_game(costly, [10]), [f])[0]["ply"] == 40
+
+
+def test_clock_colour_think_and_threat_splits():
+    moves = [_move(40, 0.5, 0.0, clock=300, q3="handled"), _move(42, 0.5, 0.0, clock=100, q3="not_drawn"),
+             _move(44, 0.5, 0.0, clock=200)]
+    moves[2]["q3"] = {"status": "minor"}
+    g = _game(moves, [5, 10, 45])
+    for am, opp in zip(g["analysis"]["moves"], (150, 200, 200)):
+        am["opp_clock"] = opp
+    g["report"]["game"] = {"my_color": "black"}
+    recs = splits.records(g)
+    assert [r["b"]["clock"] for r in recs] == ["more", "less", "even"]
+    assert [r["b"]["think_len"] for r in recs] == ["quick", "normal", "long"]  # against the 20 s average
+    assert [r["b"]["threat"] for r in recs] == ["threat", "threat", "none"]
+    assert all(r["b"]["colour"] == "black" for r in recs)
+    t = splits.tally(recs)
+    assert "think" not in t["think_len"]["long"] and "q3" not in t["threat"]["threat"]

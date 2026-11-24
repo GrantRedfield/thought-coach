@@ -591,6 +591,12 @@ TIPS = {  # (split, bucket): what to try, when a pattern shows there
     ("opponent", "stronger"): "Against stronger players, play your own process: the same checks as any game.",
     ("opponent", "weaker"): "Against weaker players the same checks still apply: their tactics work too.",
     ("session", "after_loss"): "After a loss, take a few minutes before the next game, or make it a slower one.",
+    ("clock", "less"): "Behind on the clock, keep the same checks but shorter: a quick blunder-check beats a long think you can't afford.",
+    ("clock", "more"): "With time in hand, spend it where it counts: on the moves where only one move holds.",
+    ("think_len", "quick"): "Before a quick move, one question: what does their last move want?",
+    ("think_len", "long"): "On a long think, decide what you're looking for first, and stop when you've found it.",
+    ("threat", "threat"): "When they have a threat, answer it before your own plan, or check your plan still works after it.",
+    ("threat", "none"): "With no threat to answer, it's your move to improve: find your least active piece.",
 }
 
 
@@ -600,6 +606,12 @@ def patterns(c: Ctx) -> list[dict]:
     from . import splits
 
     out = []
+    am = {r.get("ply"): r for r in c.analysis.get("moves", [])}
+
+    def _clock(sec) -> str:
+        sec = int(sec or 0)
+        return f"{sec // 60}:{sec % 60:02d}"
+
     for hit in (c.history or {}).get("split_moments") or []:
         f, m = hit["finding"], c.by_ply.get(hit["ply"])
         if not m:
@@ -611,7 +623,14 @@ def patterns(c: Ctx) -> list[dict]:
                 "their_move": f"{label} answered their capture or check.",
                 "critical": f"Only one move held at {label}" + (f": {m['best_move_san']}." if m.get("best_move_san") else "."),
                 "opponent": f"{label}, against a {'stronger' if f['bucket'] == 'stronger' else 'weaker' if f['bucket'] == 'weaker' else 'similar'} player.",
-                "session": f"{label}, in the game after your last {'loss' if f['bucket'] == 'after_loss' else 'win'}.",
+                "session": (f"{label}, in the game after your last {'loss' if f['bucket'] == 'after_loss' else 'win'}."
+                            if f["bucket"] in ("after_loss", "after_win") else f"{label}, in your first game of the sitting."),
+                "clock": f"{label}, with {_clock(m.get('clock_before'))} on your clock" + (
+                    f" against their {_clock(am.get(m['ply'], {}).get('opp_clock'))}." if am.get(m["ply"], {}).get("opp_clock") else "."),
+                "colour": f"{label}, playing {f['bucket']}.",
+                "think_len": f"{label} took {am.get(m['ply'], {}).get('time_spent', 0):.0f} seconds.",
+                "threat": (f"At {label} they had a real threat" + (f": {m['q3']['threat_san']}." if (m.get('q3') or {}).get('threat_san') else ".")
+                           if f["bucket"] == "threat" else f"At {label} they had no real threat."),
                 "phase": f"{label}, in the {dict(opening='opening', middle='middlegame', endgame='endgame').get(f['bucket'], 'game')}."}.get(f["split"], "")
         t = c.tone.get(m["ply"])
         if f["split"] == "mood":
