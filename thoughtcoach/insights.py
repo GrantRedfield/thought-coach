@@ -175,13 +175,13 @@ def one_track(g: Game, mistake: float) -> list[dict]:
         out.append({
             "kind": "one_track", "ply": m["ply"], "weight": 0.6 + m["wp_loss"],
             "head": "One idea at the key moment",
-            "body": f"At {g.label(m['ply'])} ({move_went(m)}) the only move you considered was the one you "
+            "body": f"At {g.label(m['ply'])} ({move_went(m)}) the only move you drew or said was the one you "
                     + (f"played, picked while they were thinking and played "
                        f"{'instantly' if took < 1 else str(round(took)) + 's later'}. "
                        if (drawn[0].get("first_drawn_s") or 0) < 0 or took < 1 else
                        f"played, {drawn[0].get('first_drawn_s', 0):.0f}s into a {took:.0f}s think. ")
                     +
-                    f"{m['best_move_san']} (best) never came up. A second candidate is the cheapest check there is.",
+                    f"{m['best_move_san']} (best) isn't in your recorded thinking. A second candidate is the cheapest check there is.",
         })
     return out
 
@@ -611,8 +611,8 @@ def verdict(report: dict, analysis: dict | None, insights: list[dict]) -> dict:
         else:
             if had:  # you looked at other moves, just not the right one
                 more = f" (+{len(had) - 3} more)" if len(had) > 3 else ""
-                text = (f"Widen the search. At {label(worst)} ({move_went(worst)}) you looked at "
-                        f"{', '.join(had[:3])}{more}, but {worst['best_move_san']} never came up.{many}")
+                text = (f"Widen the search. At {label(worst)} ({move_went(worst)}) you drew or said "
+                        f"{', '.join(had[:3])}{more}, but {worst['best_move_san']} isn't in your recorded thinking.{many}")
             else:
                 one = any(d.get("played") for d in worst.get("drawn_candidates", []))
                 what = "you considered only the move you played" if one else "you showed no candidates"

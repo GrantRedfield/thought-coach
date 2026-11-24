@@ -226,18 +226,18 @@ def reel(move: dict, record: dict, window: dict | None, me: chess.Color, lastmov
                      f"{html.escape(move['move_san'])}<br><b>win chance {pct(best['wp'])} vs {pct(record['wp_after'])}</b>",
               GREEN, [chess.svg.Arrow(m.from_square, m.to_square, color=GREEN)], lastmove=lastmove, ms=3500)
     elif best and best["move_uci"] != record["move_uci"]:
-        had = "not considered"
+        had = "not in your arrows or words"
         r.idea(board, chess.Move.from_uci(best["move_uci"]), GREEN, f"best {best['move_san']}",
                f"Engine's best: <b>{html.escape(best['move_san'])}</b> &mdash; {had}",
                f"win chance {pct(best['wp'])}", best.get("line_san"), lastmove)
     missed = [c for c in record["candidates"] if c["move_san"] in move["q4"]["missed"] and c is not best][:2]
     for c in missed:
         r.idea(board, chess.Move.from_uci(c["move_uci"]), ORANGE, f"missed {c['move_san']}",
-               f"Also good, not considered: <b>{html.escape(c['move_san'])}</b>",
+               f"Also good, not in your arrows or words: <b>{html.escape(c['move_san'])}</b>",
                f"win chance {pct(c['wp'])}", c.get("line_san"), lastmove)
     q3, threat = move["q3"], record.get("threat")
     if threat and q3["status"] in ("spotted", "handled", "not_drawn"):
-        state = {"spotted": "you saw it", "handled": "your move dealt with it", "not_drawn": "not spotted, and your move didn't stop it"}
+        state = {"spotted": "you saw it", "handled": "your move dealt with it", "not_drawn": "not drawn or said, and your move didn't stop it"}
         passed = board.copy()
         passed.push(chess.Move.null())  # their threat: what they would play if it were their move
         r.idea(passed, chess.Move.from_uci(threat["move_uci"]), RED, f"threat {threat['move_san']}",
@@ -287,7 +287,7 @@ def _table(move: dict, record: dict) -> str:
         line = record.get("played_line_san", "") if d["played"] else ""
         rows.append((san, d["wp"], ", ".join(tags), line, "good" if d.get("extra_good") else "bad"))
     if move["move_san"] not in move["q4"]["engine"] and move["move_san"] not in drawn:
-        rows.append((move["move_san"], record["wp_after"], "played (not considered)", record.get("played_line_san", ""), "bad"))
+        rows.append((move["move_san"], record["wp_after"], "played (not drawn or said first)", record.get("played_line_san", ""), "bad"))
     body = "".join(
         f"<tr class='{cls}'><td class='san'>{html.escape(san)}</td>"
         f"<td>{'' if wp is None else pct(wp)}</td><td>{html.escape(tags)}</td>"

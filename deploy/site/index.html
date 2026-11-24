@@ -3,79 +3,35 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Thought Coach</title>
-<meta name="description" content="Draw your ideas and say them out loud while you play on lichess. After the game, Stockfish checks your thinking and compares it with how masters think.">
+<title>Thought Coach — Chess Thinking Analysis</title>
+<meta name="description" content="Thought Coach reviews how you think during your chess games, not just the moves you played: the threats you overlook, the candidate moves you never weigh, and the habits behind your mistakes. Free and open source, for lichess rapid and classical players.">
+<link rel="canonical" href="https://thoughtcoach.org/">
+<meta property="og:type" content="website"><meta property="og:site_name" content="Thought Coach">
+<meta property="og:title" content="Thought Coach — Chess Thinking Analysis">
+<meta property="og:description" content="Review how you think, not just what you played. See a real sample review, then try it free on your own lichess games.">
+<meta property="og:url" content="https://thoughtcoach.org/"><meta property="og:image" content="https://thoughtcoach.org/apple-touch-icon.png">
+<meta name="twitter:card" content="summary">
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/site.css">
 <style>
-  main.wide { max-width:1240px; } main.wide nav.top { margin-bottom:12px; }
+  main.wide { max-width:1180px; } main.wide nav.top { margin-bottom:12px; flex-wrap:wrap; row-gap:6px; }
+  section.blk { margin:72px 0 0; }
+  section.blk > h2 { font-size:clamp(22px, 2.6vw, 30px); margin:0 0 8px; letter-spacing:-.01em; text-wrap:balance; }
+  section.blk > .sub { color:var(--fg2); margin:0 0 22px; max-width:70ch; }
+  .eyebrow { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 6px; font-weight:700; }
 
-  /* hero: one line, then the picture does the talking */
-  .hero { text-align:center; margin:28px auto 0; max-width:820px; }
-  .hero h1 { font-size:clamp(34px, 4.6vw, 58px); line-height:1.04; margin:0 0 14px; letter-spacing:-.02em; }
-  .hero h1 em { font-style:normal; background:linear-gradient(90deg, #3987e5, #2f9e44); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .hero .lead { font-size:clamp(16px, 1.6vw, 19px); color:var(--fg2); margin:0 auto 22px; max-width:46ch; }
-  .badges { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin:0 0 18px; }
-  .badges span { font-size:12.5px; font-weight:700; padding:4px 11px; border-radius:999px; color:var(--good);
-    border:1px solid color-mix(in srgb, var(--good) 55%, transparent); background:color-mix(in srgb, var(--good) 12%, transparent); }
-  .hero .row { justify-content:center; }
-
-  /* headline and the example card side by side: the card is seen without scrolling */
+  /* 1. hero beside the example card */
   .top2 { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.05fr); gap:40px; align-items:center; margin-top:24px; }
-  .top2 .hero { text-align:left; margin:0; max-width:none; }
-  .top2 .hero .badges, .top2 .hero .row { justify-content:flex-start; } .top2 .hero .lead { margin-left:0; }
-  .top2 .hero h1 { font-size:clamp(32px, 3.6vw, 52px); }
-  .top2 .example { margin:0; max-width:none; }
+  .hero h1 { font-size:clamp(32px, 3.8vw, 54px); line-height:1.04; margin:0 0 14px; letter-spacing:-.02em; }
+  .hero h1 em { font-style:normal; color:var(--accent); }
+  .hero .sub2 { font-size:clamp(17px, 1.6vw, 20px); color:var(--fg); margin:0 0 12px; max-width:44ch; font-weight:500; }
+  .hero .why { color:var(--fg2); margin:0 0 22px; max-width:48ch; }
+  .hero .row .btn { padding:12px 20px; }
+  .trustline { color:var(--muted); font-size:13.5px; margin:14px 0 0; }
+  .trustline a { color:var(--fg2); }
   .exlabel { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; text-align:center; }
-  .top2.solo { grid-template-columns:1fr; } .top2.solo .hero { text-align:center; } .top2.solo .hero .badges, .top2.solo .hero .row { justify-content:center; }
-  @media (max-width:980px) { .top2 { grid-template-columns:1fr; gap:24px; } .top2 .hero { text-align:center; }
-    .top2 .hero .badges, .top2 .hero .row { justify-content:center; } .top2 .hero .lead { margin:0 auto 22px; } }
-
-  /* the equation: arrows + voice + Stockfish = your feedback */
-  .eq { display:grid; grid-template-columns:1fr auto 1fr auto 1fr auto 1.25fr; gap:14px; align-items:center; margin:48px 0 0; }
-  .op { font-size:42px; font-weight:300; color:var(--muted); text-align:center; line-height:1; }
-  .op.eqs { color:var(--fg); font-weight:700; }
-  .tile { background:var(--card); border:1px solid var(--line); border-radius:20px; padding:14px; text-align:center;
-    display:flex; flex-direction:column; gap:10px; height:100%; box-sizing:border-box; }
-  .tile .pic { aspect-ratio:1; border-radius:14px; background:var(--soft); display:grid; place-items:center; overflow:hidden; position:relative; }
-  .tile .pic > img { width:100%; height:100%; display:block; }
-  .tile b { font-size:17px; } .tile small { display:block; color:var(--fg2); font-size:13px; margin-top:2px; }
-  .tile.out { background:linear-gradient(160deg, color-mix(in srgb, var(--good) 22%, var(--card)), var(--card)); border-color:color-mix(in srgb, var(--good) 45%, var(--line)); }
-
-  /* 2: your voice */
-  .voice { width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; gap:8px; padding:12px; box-sizing:border-box; }
-  .mic { width:46px; height:46px; margin:0 auto 2px; border-radius:50%; background:#ff922b; display:grid; place-items:center;
-    box-shadow:0 0 0 8px color-mix(in srgb, #ff922b 22%, transparent); animation:pulse 1.8s ease-in-out infinite; }
-  .mic svg { width:22px; height:22px; fill:#fff; }
-  @keyframes pulse { 50% { box-shadow:0 0 0 14px color-mix(in srgb, #ff922b 8%, transparent); } }
-  .bub { font-size:13px; text-align:left; padding:6px 10px; border-radius:12px 12px 12px 3px; background:var(--card);
-    border:1px solid var(--line); width:max-content; max-width:92%; }
-  .bub:nth-of-type(odd) { align-self:flex-start; } .bub.r { align-self:flex-end; border-radius:12px 12px 3px 12px; }
-  .wave { height:22px; width:100%; } .wave rect { fill:#ff922b; opacity:.8; }
-
-  /* 3: Stockfish checks */
-  .eng { position:absolute; inset:0; }
-  .eng img { width:100%; height:100%; display:block; }
-  .evalbar { position:absolute; left:8px; top:8px; bottom:8px; width:12px; border-radius:6px; background:#222; overflow:hidden; box-shadow:0 0 0 2px #0006; }
-  .evalbar i { position:absolute; left:0; right:0; bottom:0; height:34%; background:#f1f3f5; }
-  .verdict { position:absolute; right:8px; bottom:8px; font:700 12px ui-monospace, Consolas, monospace; color:#fff;
-    background:#c92a2acc; padding:4px 8px; border-radius:8px; }
-  .verdict.ok { right:auto; left:28px; top:8px; bottom:auto; background:#2f9e44cc; }
-
-  /* 4: your feedback, against masters */
-  .fb { width:100%; height:100%; padding:12px; box-sizing:border-box; display:flex; flex-direction:column; justify-content:center; gap:9px; text-align:left; }
-  .fbcard { border-radius:12px; padding:10px 12px; color:#fff; background:radial-gradient(120% 90% at 50% 0%, #8a3a12 0%, #241411 70%); }
-  .fbcard p { margin:0; } .fbcard .e { font-size:10px; letter-spacing:.08em; text-transform:uppercase; opacity:.75; }
-  .fbcard .t { font-weight:800; font-size:15px; margin:2px 0; } .fbcard .s { font-size:12px; opacity:.9; }
-  .vm { display:grid; grid-template-columns:auto 1fr; gap:4px 8px; align-items:center; font-size:12px; color:var(--fg2); }
-  .vm .trk { position:relative; height:9px; border-radius:5px; background:color-mix(in srgb, var(--fg) 10%, transparent); }
-  .vm .trk i { position:absolute; inset:0 auto 0 0; border-radius:5px; } .vm .trk em { position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--fg); }
-  .vm .k { font-size:10.5px; color:var(--muted); grid-column:1 / -1; }
-
-  /* the example card */
-  .example { margin:56px auto 0; max-width:880px; }
-  .example h2, .fine h2 { text-align:center; font-size:clamp(20px, 2.2vw, 26px); margin:0 0 16px; }
+  .top2.solo { grid-template-columns:1fr; }
   .storycard { border-radius:20px; padding:22px; color:#fff; box-shadow:0 24px 60px #0007;
     background:radial-gradient(120% 90% at 50% 0%, #8a3a12 0%, #241411 55%, #0b0b0c 100%); }
   .storycard .row2 { display:grid; grid-template-columns:minmax(0, 260px) minmax(0, 1fr); gap:20px; align-items:center; }
@@ -85,33 +41,88 @@
   .sc-body { font-size:14.5px; color:#ffffffe0; margin:0 0 10px; }
   .sc-quote { font-style:italic; border-left:3px solid #ff922b; padding:6px 10px; background:#ffffff12; border-radius:0 8px 8px 0; font-size:15px; margin:0 0 10px; }
   .sc-who { font-style:normal; opacity:.7; white-space:nowrap; }
-  .sc-stat { display:inline-block; font-weight:800; font-size:20px; color:#ffa8a8; }
-  .sc-time { font-size:13px; color:#ffffffb3; }
-  .sc-credit { font-size:12.5px; color:#ffffffb3; margin:12px 0 0; }
-  .sc-credit a { color:#fff; }
+  .sc-stat { display:inline-block; font-weight:800; font-size:20px; color:#ffa8a8; } .sc-time { font-size:13px; color:#ffffffb3; }
+  .sc-credit { font-size:12.5px; color:#ffffffb3; margin:12px 0 0; } .sc-credit a { color:#fff; }
   .sc-bars { display:flex; gap:4px; margin-bottom:14px; } .sc-bars i { flex:1; height:3px; border-radius:2px; background:#ffffff40; } .sc-bars i.on { background:#fff; }
 
-  /* three facts, one line each */
-  .fine { margin:56px 0 0; }
+  /* 2. the sample review */
+  .sample { display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(0, 1fr); gap:28px; align-items:center;
+    background:var(--card); border:1px solid var(--line); border-radius:20px; padding:26px; }
+  .sample ul { margin:0 0 18px; padding-left:20px; color:var(--fg2); } .sample li { margin:6px 0; }
+  .sample li b { color:var(--fg); }
+  .tag { display:inline-block; font-size:11.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:3px 9px;
+    border-radius:999px; border:1px solid var(--line); color:var(--fg2); margin-bottom:10px; }
+  .shot { border-radius:14px; overflow:hidden; border:1px solid var(--line); background:var(--bg); }
+  .shot img { display:block; width:100%; }
+
+  /* 3. comparison */
+  table.cmp { width:100%; border-collapse:collapse; font-size:15px; }
+  table.cmp th, table.cmp td { padding:10px 12px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  table.cmp thead th { font-size:13px; color:var(--muted); font-weight:700; }
+  table.cmp td.c { text-align:center; width:150px; font-weight:700; }
+  .yes { color:var(--good); } .no { color:var(--muted); font-weight:400 !important; }
+  .cmpnote { color:var(--fg2); font-size:14px; margin:12px 0 0; }
+
+  /* 4. profile showcase */
+  .prof { display:grid; grid-template-columns:minmax(0, 1.2fr) minmax(0, 1fr); gap:24px; align-items:start; }
+  .pcard { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:20px 22px; }
+  .pcard h3 { margin:0 0 4px; font-size:17px; } .pcard .cap { color:var(--muted); font-size:13px; margin:0 0 12px; }
+  .vm { display:grid; grid-template-columns:minmax(0, 1.5fr) minmax(0, 1fr) 92px; gap:8px; align-items:center; font-size:13.5px; margin:9px 0; }
+  .vm .lab { color:var(--fg2); } .vm .trk { position:relative; height:10px; background:color-mix(in srgb, var(--fg) 9%, transparent); border-radius:0 5px 5px 0; }
+  .vm .trk i { position:absolute; inset:0 auto 0 0; border-radius:0 5px 5px 0; min-width:2px; }
+  .vm .trk i.ok { background:var(--good); } .vm .trk i.off { background:var(--warn); }
+  .vm .trk em { position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; background:var(--fg); border-radius:1px; }
+  .vm .val { text-align:right; font-variant-numeric:tabular-nums; } .vm .val small { color:var(--muted); }
+  .insight { border-left:3px solid var(--warn); padding:4px 0 4px 14px; margin:0 0 14px; }
+  .insight p { margin:0 0 6px; } .insight .t { font-weight:700; font-size:16px; }
+  .insight.fix { border-color:var(--good); }
+  .lbl { font-size:12px; color:var(--muted); margin:14px 0 0; }
+  @media (max-width:520px) { .vm { grid-template-columns:1fr 92px; row-gap:2px; } .vm .lab { grid-column:1 / -1; } }
+
+  /* 5. questions */
+  .q4 { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; }
+  .qc { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+  .qc .n { font:700 13px ui-monospace, Consolas, monospace; color:var(--accent); }
+  .qc h3 { margin:4px 0 6px; font-size:17px; } .qc p { margin:0 0 8px; color:var(--fg2); font-size:14px; }
+  .qc p.ex { font-size:13.5px; border-top:1px solid var(--line); padding-top:8px; margin:0; }
+
+  /* 6. research */
+  .stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:12px; margin:0 0 16px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+  .stat b { display:block; font-size:28px; letter-spacing:-.01em; } .stat span { color:var(--fg2); font-size:13.5px; }
+  .finds { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+  .find { border:1px solid var(--line); border-radius:14px; padding:14px 16px; color:var(--fg2); font-size:14.5px; }
+  .find b { color:var(--fg); display:block; margin-bottom:4px; font-size:15.5px; }
+
+  /* 7. steps */
+  ol.three { list-style:none; padding:0; margin:0; display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; counter-reset:s; }
+  ol.three li { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 18px 18px 62px; position:relative; counter-increment:s; }
+  ol.three li::before { content:counter(s); position:absolute; left:18px; top:17px; width:30px; height:30px; border-radius:50%;
+    border:2px solid var(--accent); color:var(--accent); display:grid; place-items:center; font-weight:700; font-size:14px; }
+  ol.three h3 { margin:0 0 6px; font-size:16.5px; } ol.three p { margin:0; color:var(--fg2); font-size:14.5px; }
+  .modes { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0 0; }
+  .mode { border:1px solid var(--line); border-radius:14px; padding:14px 16px; font-size:14.5px; color:var(--fg2); }
+  .mode b { color:var(--fg); display:block; margin-bottom:4px; }
+
+  /* 8. trust */
   .facts { display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
-  .fact { display:flex; gap:12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
-  .fact .ic { font-size:24px; flex:none; } .fact b { display:block; font-size:15px; } .fact span { color:var(--fg2); font-size:13px; }
-  .fact a { color:var(--accent); }
-  .cta2 { display:flex; justify-content:center; margin:36px 0 0; }
-  .small { text-align:center; color:var(--muted); font-size:12.5px; margin:14px auto 0; max-width:70ch; }
-  .small a { color:var(--fg2); }
+  .fact { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
+  .fact b { display:block; font-size:16px; margin-bottom:6px; } .fact p { margin:0 0 6px; color:var(--fg2); font-size:14.5px; }
+  .fact ul { margin:0 0 8px; padding-left:18px; color:var(--fg2); font-size:14.5px; } .fact li { margin:3px 0; }
+
+  .final { text-align:center; margin:80px auto 0; max-width:640px; }
+  .final h2 { font-size:clamp(22px, 2.6vw, 30px); margin:0 0 10px; } .final p { color:var(--fg2); margin:0 0 20px; }
+  .final .row { justify-content:center; }
 
   @media (max-width:980px) {
-    .eq { grid-template-columns:1fr auto 1fr; } .eq .op.mid { display:none; }
-    .eq .tile.out { grid-column:1 / -1; } .eq .op.eqs { grid-column:1 / -1; transform:rotate(90deg); }
-    .facts { grid-template-columns:1fr; }
+    .top2, .sample, .prof { grid-template-columns:1fr; }
+    .q4, .stats { grid-template-columns:1fr 1fr; } .finds, ol.three, .facts { grid-template-columns:1fr; }
   }
   @media (max-width:560px) {
-    .eq { grid-template-columns:1fr; gap:8px; } .op { font-size:30px; } .eq .op.mid { display:block; } .eq .op.eqs { transform:none; }
-    .tile { padding:10px; } .tile .pic { width:100%; max-width:260px; margin:0 auto; }
-    .storycard .row2 { grid-template-columns:1fr; }
+    section.blk { margin-top:52px; } .q4, .stats, .modes { grid-template-columns:1fr; }
+    .storycard .row2 { grid-template-columns:1fr; } .sample { padding:18px; }
+    table.cmp { font-size:14px; } table.cmp td.c { width:auto; } table.cmp th, table.cmp td { padding:8px 6px; }
   }
-  @media (prefers-reduced-motion: reduce) { .mic { animation:none; } }
 </style>
 </head>
 <body>
@@ -119,101 +130,207 @@
   <nav class="top">
     <p class="brand"><a href="/"><span class="mark"></span>Thought Coach</a></p><span class="sp"></span>
     <a class="link" id="nav-games" href="/start" hidden>Your games</a>
-    <a class="link" href="/play">First games</a>
+    <a class="link" href="/sample/">Sample review</a>
     <a class="link" href="/questions">The four questions</a>
-    <a class="link" href="/start">Setup</a>
+    <a class="link" href="/research">Research</a>
+    <a class="link" href="/start">Get started</a>
   </nav>
 
+  <!-- 1. what it is, how it differs, how to try it -->
   <div class="top2">
-  <section class="hero">
-    <p class="badges"><span>Free</span><span>Open source</span><span>No ads</span></p>
-    <h1>Review how you <em>think</em>,<br>not just what you played.</h1>
-    <p class="lead">Play on lichess. Draw your ideas, say them out loud. After the game, see what your thinking got right and wrong.</p>
-    <div class="row" id="cta">
-      <a class="btn primary" href="/api/login">Sign in with lichess</a>
-      <a class="btn" href="/start">How to set it up</a>
-    </div>
-  </section>
-
-  <!-- what a review looks like, right beside the headline -->
-  <section class="example">
-    <p class="exlabel">One card from a game's story</p>
-    <div id="example-card"></div>
-  </section>
+    <section class="hero">
+      <h1>Review how you <em>think</em>,<br>not just what you played.</h1>
+      <p class="sub2">Discover the threats you overlook, the moves you never consider, and the thinking habits holding back your chess.</p>
+      <p class="why">Traditional game review tells you what you got wrong. Thought Coach helps you understand why you keep
+        getting it wrong: you draw arrows and think out loud while you play on lichess, and after the game it checks your
+        thinking, not just your moves.</p>
+      <div class="row" id="cta">
+        <a class="btn primary" href="/sample/">Explore a sample game review</a>
+        <a class="btn" href="/start" data-ev="get_started">Get started for free</a>
+      </div>
+      <p class="trustline">Post-game only: nothing is shown during your games. Free, <a href="https://github.com/GrantRedfield/thought-coach">open source</a>, no ads. <a href="#trust">Fair play and privacy</a></p>
+    </section>
+    <section class="example">
+      <p class="exlabel">One card from a real game's story</p>
+      <div id="example-card"></div>
+    </section>
   </div>
   <script>
-    // The example card is published with the site but kept outside the code repository (it quotes a
-    // player who gave permission): load it, and leave the section out if it isn't there.
+    // Published with the site but kept outside the code repository (it quotes a player who gave permission).
     fetch('/example/card.html').then((r) => r.ok ? r.text() : Promise.reject())
       .then((h) => { document.getElementById('example-card').innerHTML = h; })
       .catch(() => { document.querySelector('section.example').hidden = true; document.querySelector('.top2').classList.add('solo'); });
   </script>
 
-  <!-- arrows + voice + Stockfish = your feedback -->
-  <div class="eq" role="img" aria-label="Your arrows plus your voice plus Stockfish equals feedback on your thinking, compared with masters">
-    <div class="tile">
-      <div class="pic"><img src="/img/arrows.svg" alt=""></div>
-      <div><b>Draw your ideas</b><small>Right-click arrows: your moves, their threats</small></div>
-    </div>
-    <div class="op">+</div>
-    <div class="tile">
-      <div class="pic"><div class="voice">
-        <div class="mic"><svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg></div>
-        <span class="bub">“He wants knight to d4…”</span>
-        <span class="bub r">“so rook d8, then bishop d7”</span>
-        <svg class="wave" viewBox="0 0 120 22" preserveAspectRatio="none" aria-hidden="true">
-          <rect x="2" y="8" width="3" height="6"/><rect x="9" y="4" width="3" height="14"/><rect x="16" y="1" width="3" height="20"/><rect x="23" y="6" width="3" height="10"/>
-          <rect x="30" y="3" width="3" height="16"/><rect x="37" y="9" width="3" height="4"/><rect x="47" y="5" width="3" height="12"/><rect x="54" y="2" width="3" height="18"/>
-          <rect x="61" y="7" width="3" height="8"/><rect x="71" y="4" width="3" height="14"/><rect x="78" y="0" width="3" height="22"/><rect x="85" y="6" width="3" height="10"/>
-          <rect x="95" y="8" width="3" height="6"/><rect x="102" y="5" width="3" height="12"/><rect x="109" y="9" width="3" height="4"/></svg>
-      </div></div>
-      <div><b>Say what you see</b><small>Think out loud, the way you calculate</small></div>
-    </div>
-    <div class="op mid">+</div>
-    <div class="tile">
-      <div class="pic"><div class="eng">
-        <img src="/img/review.svg" alt="">
-        <div class="evalbar"><i></i></div>
-        <span class="verdict ok">only Nb6 held</span>
-        <span class="verdict">80% → 16%</span>
-      </div></div>
-      <div><b>Stockfish checks it</b><small>Every move you played, and every one you considered</small></div>
-    </div>
-    <div class="op eqs">=</div>
-    <div class="tile out">
-      <div class="pic"><div class="fb">
-        <div class="fbcard"><p class="e">The turning point · move 14</p><p class="t">You saw it coming</p>
-          <p class="s">You drew their Bd4, then played into it.</p></div>
-        <div class="vm">
-          <span>Threats seen early</span><span class="trk"><i style="width:50%;background:#3fa95c"></i><em style="left:50%"></em></span>
-          <span>Good moves kept</span><span class="trk"><i style="width:84%;background:#d98a1c"></i><em style="left:94%"></em></span>
-          <span class="k">bar = you · line = masters</span>
+  <!-- 2. the sample review -->
+  <section class="blk" id="sample">
+    <p class="eyebrow">Try it without signing up</p>
+    <h2>Explore a complete review of a real game</h2>
+    <p class="sub">A 10-minute game by an international master against a strong national master, recorded with Thought Coach
+      and shared with the player's permission. Every arrow he drew and every word he said is in it, checked by Stockfish.</p>
+    <div class="sample">
+      <div>
+        <span class="tag">Sample · real game, real recording</span>
+        <ul>
+          <li><b>The story:</b> the game's turning points as tap-through cards, each with what he drew and said at that moment.</li>
+          <li><b>The full review:</b> a board you can step through, his candidate moves and threats as arrows, the engine's verdict on each, and what he said.</li>
+          <li><b>The four questions:</b> which threats, weaknesses, candidates and passive pieces show up in his recorded thinking, and which don't.</li>
+          <li><b>The coaching:</b> one habit to work on next game, with the reason from this game.</li>
+        </ul>
+        <div class="row">
+          <a class="btn primary" href="/sample/">Open the sample review</a>
+          <a class="btn" href="/start" data-ev="get_started">Get started for free</a>
         </div>
-      </div></div>
-      <div><b>Your thinking, coached</b><small>Built from your own games, measured against how masters think</small></div>
+      </div>
+      <div class="shot"><img src="/img/review.svg" alt="A Thought Coach review: the board with the player's arrows and the engine's verdict" loading="lazy"></div>
     </div>
-  </div>
-
-  <!-- three facts -->
-  <section class="fine">
-    <div class="facts">
-      <div class="fact"><span class="ic" aria-hidden="true">&#9822;</span><div><b>For club and tournament players</b>
-        <span>Say moves in coordinates. <a href="https://lichess.org/training/coordinate" target="_blank" rel="noopener">Practice them</a></span></div></div>
-      <div class="fact"><span class="ic" aria-hidden="true">&#9201;</span><div><b>Best at 10+5 or 15+10</b>
-        <span>Time to think out loud. <a href="/play">Your first games</a></span></div></div>
-      <div class="fact"><span class="ic" aria-hidden="true">&#128274;</span><div><b>Fair play and private</b>
-        <span>Nothing shows during a game. <a href="/privacy">Privacy</a></span></div></div>
-    </div>
-    <div class="cta2"><a class="btn primary" href="/api/login">Sign in with lichess</a></div>
-    <p class="small">Free and open source (<a href="https://github.com/GrantRedfield/thought-coach" target="_blank" rel="noopener">AGPL-3.0</a>):
-      every line of the extension and the review is public. Chrome, Edge or Brave on a computer.</p>
   </section>
 
-  <footer>Thought Coach · <a href="https://github.com/GrantRedfield/thought-coach">open source</a> · engine: Stockfish · <a href="/privacy">Privacy</a> · not affiliated with lichess.org</footer>
+  <!-- 3. what's different -->
+  <section class="blk" id="compare">
+    <h2>What game review shows, and what it can't</h2>
+    <p class="sub">Engine review is essential, and Thought Coach uses it too: Stockfish checks every move. What it adds is
+      the other half: what you were thinking when you chose it.</p>
+    <div class="scroll" style="overflow-x:auto">
+    <table class="cmp">
+      <thead><tr><th></th><th>Engine game review</th><th>Thought Coach</th></tr></thead>
+      <tbody>
+        <tr><td>Best move, blunders, evaluation</td><td class="c yes">Yes</td><td class="c yes">Yes (Stockfish)</td></tr>
+        <tr><td>Which moves you weighed before playing</td><td class="c no">No</td><td class="c yes">Yes, from your arrows</td></tr>
+        <tr><td>Your reasoning, in your words</td><td class="c no">No</td><td class="c yes">Yes, if you talk</td></tr>
+        <tr><td>Whether the good move was in your thinking and dropped, or never there</td><td class="c no">No</td><td class="c yes">Yes</td></tr>
+        <tr><td>Their threats: seen, answered, or let through</td><td class="c no">Only the result</td><td class="c yes">Yes</td></tr>
+        <tr><td>The same thinking mistake, across your games</td><td class="c no">No</td><td class="c yes">Yes</td></tr>
+        <tr><td>A habit to work on, and whether it's working</td><td class="c no">No</td><td class="c yes">Yes</td></tr>
+      </tbody>
+    </table></div>
+    <p class="cmpnote">Thought Coach can only judge what you record: a move you thought of but didn't draw or say isn't in the review, and the review says so.</p>
+  </section>
+
+  <!-- 4. long-term profile -->
+  <section class="blk" id="profile">
+    <p class="eyebrow">Every game adds to the picture</p>
+    <h2>A thinking profile that builds game by game</h2>
+    <p class="sub">One review shows a moment. Ten show a pattern. Your home page tracks the same habits across your rapid and
+      classical games, next to how strong players do on the same measures, and checks whether the habit you're working on is
+      actually changing.</p>
+    <div class="prof">
+      <div class="pcard">
+        <h3>You and masters</h3>
+        <p class="cap">A real profile: the developer's last 10 rapid games (2400 on lichess), shared as an example. Bar = this player; line = strong players' average.</p>
+        <div class="vm"><span class="lab">Real threats left unstopped</span><span class="trk"><i class="off" style="width:80%"></i><em style="left:44%"></em></span><span class="val"><b>9%</b> <small>vs 5%</small></span></div>
+        <div class="vm"><span class="lab">Weaknesses pointed at</span><span class="trk"><i class="off" style="width:75%"></i><em style="left:80%"></em></span><span class="val"><b>60%</b> <small>vs 64%</small></span></div>
+        <div class="vm"><span class="lab">Best move among your candidates</span><span class="trk"><i class="off" style="width:72%"></i><em style="left:80%"></em></span><span class="val"><b>53%</b> <small>vs 59%</small></span></div>
+        <div class="vm"><span class="lab">Least active piece brought into play</span><span class="trk"><i class="ok" style="width:80%"></i><em style="left:37%"></em></span><span class="val"><b>67%</b> <small>vs 31%</small></span></div>
+        <div class="vm"><span class="lab">Good moves drawn, then dropped</span><span class="trk"><i class="off" style="width:80%"></i><em style="left:24%"></em></span><span class="val"><b>20%</b> <small>vs 6%</small></span></div>
+        <div class="vm"><span class="lab">Critical positions that went wrong</span><span class="trk"><i class="off" style="width:80%"></i><em style="left:25%"></em></span><span class="val"><b>39%</b> <small>vs 12%</small></span></div>
+        <div class="vm"><span class="lab">Moves in time trouble</span><span class="trk"><i class="ok" style="width:0%"></i><em style="left:80%"></em></span><span class="val"><b>0%</b> <small>vs 8%</small></span></div>
+        <p class="lbl">Each row has its own scale, so small rates stay readable. Based on 10 games: the review shows each rate's likely range and says when a sample is too small to trust.</p>
+      </div>
+      <div class="pcard">
+        <h3>What it concluded</h3>
+        <p class="cap">The same player, from those games</p>
+        <div class="insight"><p class="t">Finds the move, then lets it go</p>
+          <p>In 1 of 5 positions where the best move was among the moves he drew, he played something else that cost 5% or more. Strong players do that about 1 time in 16.</p></div>
+        <div class="insight"><p class="t">Critical moments go wrong more than they should</p>
+          <p>In critical positions, where only one or two moves hold, 39% of his moves were costly: about three times the masters' rate.</p></div>
+        <div class="insight fix"><p class="t">The habit to try next game: trust your candidates</p>
+          <p>When your first idea looks good, check it once more before switching to something new. The next games show whether it's working.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. the framework -->
+  <section class="blk" id="questions">
+    <h2>Four questions strong players ask</h2>
+    <p class="sub">The first three are Grandmaster Jacob Aagaard's; the fourth is about your candidate moves. They're not
+      homework: each one catches a different kind of mistake, and the review shows which ones your recorded thinking skips.</p>
+    <div class="q4">
+      <div class="qc"><span class="n">1</span><h3>What does my opponent want?</h3><p>Most collapses start with an idea of theirs that was never answered.</p>
+        <p class="ex">Draw their best move as an arrow before you choose yours.</p></div>
+      <div class="qc"><span class="n">2</span><h3>Where are the weaknesses?</h3><p>Plans come from targets: a loose pawn, a hole, an exposed king, on both sides.</p>
+        <p class="ex">Before a pawn move, circle the squares it stops guarding.</p></div>
+      <div class="qc"><span class="n">3</span><h3>Which piece is doing least?</h3><p>Improving your worst piece is often the best quiet move on the board.</p>
+        <p class="ex">Make one of your candidates a move for that piece.</p></div>
+      <div class="qc"><span class="n">4</span><h3>What are my candidates?</h3><p>The best move can't be chosen if it's never on the list, or is dropped too soon.</p>
+        <p class="ex">Draw two different moves before you play one.</p></div>
+    </div>
+    <div class="row" style="margin-top:16px"><a class="btn" href="/questions">How to use them in a game</a></div>
+  </section>
+
+  <!-- 6. research -->
+  <section class="blk" id="research">
+    <p class="eyebrow">Research</p>
+    <h2>Measured against how strong players actually think</h2>
+    <p class="sub">The master benchmarks come from strong players' own games, recorded while they drew and talked, and put
+      through exactly the same review as yours. Only pooled rates are used: no single player stands for "masters".</p>
+    <div class="stats">
+      <div class="stat"><b>350</b><span>rapid and classical games</span></div>
+      <div class="stat"><b>6</b><span>strong players, mostly GMs and IMs</span></div>
+      <div class="stat"><b>8,465</b><span>moves reviewed, 73% with recorded thinking</span></div>
+      <div class="stat"><b>23,716</b><span>arrows drawn and checked</span></div>
+    </div>
+    <div class="finds">
+      <div class="find"><b>Masters weigh few moves, well.</b>A typical move has 2 or 3 candidates drawn; 8 or more on only about 1 move in 20.</div>
+      <div class="find"><b>They rarely drop a good move.</b>When the best move is among the ones they drew, they play something costly instead only about 6% of the time.</div>
+      <div class="find"><b>Most threats are answered silently.</b>Strong players name only a few threats aloud but leave just 5% of real threats unstopped.</div>
+    </div>
+    <div class="row" style="margin-top:16px"><a class="btn" href="/research">Methods, data and limits</a></div>
+  </section>
+
+  <!-- 7. getting started -->
+  <section class="blk" id="how">
+    <h2>Three steps to your first review</h2>
+    <p class="sub">About two minutes to set up, then play the way you normally do.</p>
+    <ol class="three">
+      <li><h3>Connect lichess and add the extension</h3><p>Sign in with lichess (we never see your password) and add the free Chrome extension.</p></li>
+      <li><h3>Play, and capture your thinking</h3><p>Play a rapid or classical game. Right-click arrows for the moves you consider and their threats; think out loud if you like.</p></li>
+      <li><h3>Review your decisions</h3><p>A few minutes after the game, your story and full review are ready: what your thinking got right, and the one habit to work on.</p></li>
+    </ol>
+    <div class="modes">
+      <div class="mode"><b>Arrows only</b>Enough for a full review: the candidates you weighed, the threats you drew, the good moves that weren't on your list.</div>
+      <div class="mode"><b>Arrows and voice (on by default, easy to switch off)</b>Adds your lines, evaluations and doubts, so the review can show the exact moment your thinking turned. Talking feels odd for a game or two, then natural.</div>
+    </div>
+    <div class="row" style="margin-top:16px"><a class="btn primary" href="/start" data-ev="get_started">Get started for free</a><a class="btn" href="/play">Tips for your first games</a></div>
+  </section>
+
+  <!-- 8. trust -->
+  <section class="blk" id="trust">
+    <h2>Fair play, privacy, open source</h2>
+    <div class="facts">
+      <div class="fact"><b>Built for after the game</b>
+        <ul><li>No move suggestions, evaluations or hints during a game.</li><li>Nothing is shown while you play.</li>
+          <li>Analysis starts only after lichess says the game is over.</li></ul>
+        <p>Not affiliated with or endorsed by lichess.</p></div>
+      <div class="fact"><b>Your data stays yours</b>
+        <ul><li>Voice is optional, and the audio is deleted once it's turned into text.</li><li>Not sold, not used for ads or to train AI models.</li>
+          <li>Delete everything from the setup page, instantly.</li></ul>
+        <p><a href="/privacy">What's collected and where</a></p></div>
+      <div class="fact"><b>Free and open source</b>
+        <p>No ads, no subscription. Every line of the extension and the review is public (AGPL-3.0), so you can check exactly what it does.</p>
+        <p><a href="https://github.com/GrantRedfield/thought-coach">Source code on GitHub</a></p></div>
+    </div>
+  </section>
+
+  <section class="final">
+    <h2>Find out why you keep losing the same way</h2>
+    <p>Look through a real review first, or set it up and play your next rapid game with it.</p>
+    <div class="row">
+      <a class="btn primary" href="/sample/">Explore a sample game review</a>
+      <a class="btn" href="/start" data-ev="get_started">Get started for free</a>
+    </div>
+  </section>
+
+  <footer>Thought Coach — Chess Thinking Analysis · <a href="https://github.com/GrantRedfield/thought-coach">open source</a> · engine: Stockfish ·
+    <a href="/research">Research</a> · <a href="/privacy">Privacy and fair play</a> · not affiliated with lichess.org</footer>
 </main>
 <button class="theme-toggle" type="button" aria-label="Switch light or dark" title="Light / dark"
   onclick="var r=document.documentElement, t=r.dataset.theme==='light'?'dark':'light'; r.dataset.theme=t; try{localStorage.setItem('tc-theme',t)}catch(e){}">&#9680;</button>
 <script>
+// Anonymous step counts (no cookie, no id): how many people reach each step.
+const ev = (n) => { try { navigator.sendBeacon('/api/event', n); } catch (e) {} };
+ev('home');
+document.addEventListener('click', (e) => { const a = e.target.closest('[data-ev]'); if (a) ev(a.dataset.ev); });
 fetch('/api/me').then((r) => r.json()).then((me) => {
   if (!me.signed_in) return;
   // Coming back to thoughtcoach.org signed in: straight to your games (but not when you clicked "home" on the site).
@@ -221,7 +338,7 @@ fetch('/api/me').then((r) => r.json()).then((me) => {
   try { fromSite = new URL(document.referrer).origin === location.origin; } catch (e) {}
   if (!fromSite) { location.replace(me.home); return; }
   document.getElementById('cta').innerHTML =
-    `<a class="btn primary" href="${me.home}">Your games</a><a class="btn" href="/start">Setup</a>`;
+    `<a class="btn primary" href="${me.home}">Your games</a><a class="btn" href="/sample/">Sample review</a>`;
   const g = document.getElementById('nav-games'); g.href = me.home; g.hidden = false;
 }).catch(() => {});
 </script>

@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Research and methods · Thought Coach — Chess Thinking Analysis</title>
+<meta name="description" content="How Thought Coach measures chess thinking: the master benchmark dataset (350 rapid and classical games by strong players), how arrows and speech are matched to Stockfish, what the findings are, and their limits.">
+<link rel="canonical" href="https://thoughtcoach.org/research">
+<meta property="og:title" content="How strong players think: Thought Coach research and methods">
+<meta property="og:description" content="350 rapid and classical games by strong players, recorded while they drew arrows and talked, put through the same review as yours.">
+<meta property="og:image" content="https://thoughtcoach.org/apple-touch-icon.png">
+<script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/site.css">
+<style>
+  .doc h2 { margin:40px 0 10px; font-size:23px; } .doc h3 { margin:22px 0 6px; font-size:17px; }
+  .doc p, .doc li { color:var(--fg2); } .doc li { margin:5px 0; } .doc b { color:var(--fg); }
+  .stats { display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; margin:22px 0; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .stat b { display:block; font-size:26px; } .stat span { color:var(--fg2); font-size:13px; }
+  table { width:100%; border-collapse:collapse; font-size:14.5px; margin:10px 0; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--muted); font-size:13px; } td.n { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 18px; }
+  .toc a { color:var(--fg2); } .toc ol { margin:6px 0; padding-left:20px; }
+  .lim { border-left:3px solid var(--warn); padding:2px 0 2px 14px; }
+  @media (max-width:640px) { .stats { grid-template-columns:1fr 1fr; } th, td { padding:7px 5px; } }
+</style>
+</head>
+<body>
+<main class="narrow doc">
+  <nav class="top"><p class="brand"><a href="/"><span class="mark"></span>Thought Coach</a></p><span class="sp"></span>
+    <a class="link" href="/sample/">Sample review</a><a class="link" href="/start">Get started</a></nav>
+  <h1>How strong players think: data and methods</h1>
+  <p class="lead">Thought Coach compares your thinking habits with strong players' on the same measures. This page says
+    where those benchmarks come from, how they are measured, what they show, and where they fall short. Last updated
+    23 November 2026.</p>
+
+  <div class="stats">
+    <div class="stat"><b>350</b><span>rapid and classical games</span></div>
+    <div class="stat"><b>6</b><span>players, 5 of them GMs or IMs</span></div>
+    <div class="stat"><b>8,465</b><span>moves reviewed</span></div>
+    <div class="stat"><b>23,716</b><span>arrows checked by Stockfish</span></div>
+  </div>
+
+  <nav class="toc" aria-label="On this page"><ol>
+    <li><a href="#data">The dataset</a></li><li><a href="#method">How thinking is measured</a></li>
+    <li><a href="#bench">The benchmarks</a></li><li><a href="#find">Findings</a></li><li><a href="#limits">Limits</a></li></ol></nav>
+
+  <h2 id="data">1. The dataset</h2>
+  <p>Some strong players stream or record their games while drawing arrows on the board and talking through their
+    thinking. Those recordings are the closest thing available to a strong player's thought process during real play.
+    Thought Coach read the board, the arrows and the speech from them and put each game through the same review your
+    games get.</p>
+  <ul>
+    <li><b>Players:</b> six strong players, five of them grandmasters or international masters. Each player needs at least 3 reviewed games, and counts equally however many games they have
+      (28 to 92 each), so no one prolific player stands for "masters". Benchmarks are only ever shown pooled: no names,
+      games or quotes.</li>
+    <li><b>Games:</b> 350 rapid and classical games (lichess's rapid line and slower). 192 blitz and bullet games were
+      processed but are left out: at that speed players draw and say much less (for one player, arrows fell from 2.3 per
+      move in rapid to 0.5 in 3-minute games and 0.1 in bullet), so the measures would mostly measure silence.</li>
+    <li><b>Moves:</b> 8,465 of the players' own moves were reviewed; 6,205 of them (73%) had recorded thinking behind them
+      (an arrow, a circle or a spoken move).</li>
+    <li><b>Sources:</b> publicly posted videos. The videos, transcripts and quotes are not published here. The exceptions, the
+      <a href="/sample/">sample review</a> and the example card on the home page, are shared with that player's permission.</li>
+  </ul>
+
+  <h2 id="method">2. How thinking is measured</h2>
+  <h3>What counts as "in your thinking"</h3>
+  <p>A move is <b>in your recorded thinking</b> if you drew an arrow for it or said it out loud before playing your move.
+    Arrows for your own moves are candidates; arrows for the opponent's moves are their ideas. Speech is turned into
+    text and chess moves are picked out of it. Anything you thought but didn't draw or say isn't in the record, and the
+    review never claims you "didn't think of" something: only that it isn't in what was recorded.</p>
+  <h3>The engine</h3>
+  <p>Every position is analysed with Stockfish. A move's cost is the win chance it gives up (lichess's win-chance curve).
+    A move that costs 5% or more is <b>costly</b>. The opponent's threat is what they would play if it were their move
+    again; it is <b>real</b> if allowing it costs 10% or more.</p>
+  <h3>The measures</h3>
+  <table>
+    <tr><th>Measure</th><th>What is counted</th></tr>
+    <tr><td>Real threats left unstopped</td><td>Real threats your move did not stop, whether or not you drew them (lower is better)</td></tr>
+    <tr><td>Quiet threats named early</td><td>Threats that aren't captures (a fork being set up, a mating idea) that you drew or said before they could happen</td></tr>
+    <tr><td>Weaknesses pointed at</td><td>Weak pawns, holes and loose pieces the engine's best line used, that you marked or targeted</td></tr>
+    <tr><td>Best move among your candidates</td><td>Positions where you drew something, and the engine's best move was among it</td></tr>
+    <tr><td>Least active piece brought into play</td><td>Clearly passive pieces you named, or improved with a candidate</td></tr>
+    <tr><td>Good moves drawn, then dropped</td><td>Positions where you drew the best move but played a costly one instead (lower is better)</td></tr>
+    <tr><td>Critical positions that went wrong</td><td>Positions where only one or two moves hold, where your move was costly (lower is better)</td></tr>
+    <tr><td>Moves in time trouble</td><td>Moves played with under 30 seconds on the clock (lower is better)</td></tr>
+  </table>
+  <p>Moves made in time trouble aren't held against your thinking: there is no time to think out loud there.</p>
+
+  <h2 id="bench">3. The benchmarks</h2>
+  <p>Each rate is computed for each player across their games, then averaged across players. The range is the lowest
+    and highest player.</p>
+  <table>
+    <tr><th>Measure</th><th class="n">Masters</th><th class="n">Range</th></tr>
+    <tr><td>Real threats left unstopped</td><td class="n">5%</td><td class="n">2–11%</td></tr>
+    <tr><td>Quiet threats named early</td><td class="n">14%</td><td class="n">8–18%</td></tr>
+    <tr><td>Weaknesses pointed at</td><td class="n">64%</td><td class="n">53–82%</td></tr>
+    <tr><td>Best move among their candidates</td><td class="n">59%</td><td class="n">50–64%</td></tr>
+    <tr><td>Least active piece brought into play</td><td class="n">31%</td><td class="n">20–42%</td></tr>
+    <tr><td>Good moves drawn, then dropped</td><td class="n">6%</td><td class="n">5–9%</td></tr>
+    <tr><td>Critical positions that went wrong</td><td class="n">12%</td><td class="n">7–17%</td></tr>
+    <tr><td>Moves in time trouble</td><td class="n">8%</td><td class="n">0–13%</td></tr>
+    <tr><td>Moves with an arrow or words</td><td class="n">76%</td><td class="n">63–87%</td></tr>
+    <tr><td>Accuracy (lichess formula)</td><td class="n">92%</td><td class="n">90–93%</td></tr>
+  </table>
+
+  <h2 id="find">4. Findings</h2>
+  <p>Descriptive findings from this dataset. They describe these six players in these games; they are not established
+    laws of chess thinking.</p>
+  <h3>Few candidates, chosen well</h3>
+  <p>The typical move has 2 or 3 candidates drawn; 8 or more on only about 1 move in 20. When the best move is among
+    them, it is played most of the time: a drawn best move is dropped for a costly one only about 6% of the time.</p>
+  <h3>Threats are mostly answered, not announced</h3>
+  <p>Strong players name only a minority of threats aloud, even quiet ones (about 14%), yet leave only about 5% of real
+    threats unstopped. Most threats (an attacked piece, a hanging pawn) are handled without a word. That is why Thought
+    Coach measures threats left unstopped, not threats named.</p>
+  <h3>Wider searchers went wrong less in critical positions</h3>
+  <p>The players who drew about 3 candidates per move went wrong in critical positions about half as often (7–8%) as
+    those who usually drew 2 (13–18%). With six players this is a hint, not a result, and part of it is time control:
+    the narrower searchers played faster games more often.</p>
+  <h3>More than one strong way to think</h3>
+  <p>Some strong players spell out threats and weaknesses constantly; others talk mostly about plans and structure and
+    still play at the same accuracy. The benchmarks are an average of styles, so a gap on one measure is a question to
+    look at, not a verdict.</p>
+
+  <h2 id="limits">5. Limits</h2>
+  <div class="lim">
+  <ul>
+    <li><b>Six players.</b> Averages over a handful of people are uncertain: the clearest gaps (good moves dropped,
+      critical positions) are well beyond the players' range, but smaller differences can be noise. More players would
+      roughly halve the uncertainty by about 20.</li>
+    <li><b>Thinking on camera isn't silent thinking.</b> Players narrating for an audience may draw and say more, or
+      differently, than they would alone.</li>
+    <li><b>Only what's recorded.</b> A move thought of but not drawn or said is invisible, for masters and for you.</li>
+    <li><b>Reading video isn't perfect.</b> Moves, arrows and speech are read automatically; reviews are checked for
+      timing and legality, and games that don't pass are left out, but small errors remain.</li>
+    <li><b>Not validated against improvement.</b> The measures are associated with good play in these games; there is no
+      controlled study yet showing that changing them raises a rating.</li>
+    <li><b>Not a rating-group comparison.</b> There isn't yet enough data from club players to say how these habits
+      differ by rating. That will come from players who use Thought Coach, pooled and anonymous.</li>
+  </ul></div>
+
+  <p style="margin-top:30px">The first three of the four questions are Grandmaster Jacob Aagaard's (from his books on
+    thinking in chess); see <a href="/questions">the four questions</a>. Engine: <a href="https://stockfishchess.org/">Stockfish</a>.
+    All of Thought Coach's code is <a href="https://github.com/GrantRedfield/thought-coach">open source</a>.</p>
+  <div class="row" style="margin-top:22px"><a class="btn primary" href="/sample/">Explore a sample game review</a><a class="btn" href="/start">Get started for free</a></div>
+  <footer>Thought Coach — Chess Thinking Analysis · <a href="/privacy">Privacy and fair play</a> · not affiliated with lichess.org</footer>
+</main>
+<button class="theme-toggle" type="button" aria-label="Switch light or dark" title="Light / dark"
+  onclick="var r=document.documentElement, t=r.dataset.theme==='light'?'dark':'light'; r.dataset.theme=t; try{localStorage.setItem('tc-theme',t)}catch(e){}">&#9680;</button>
+</body>
+</html>

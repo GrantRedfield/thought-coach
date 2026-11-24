@@ -24,7 +24,7 @@ def test_story_keeps_the_standout_moments_and_picks_a_focus():
     s = story.build(r, {"moves": []}, None, None)
     kinds = [b["kind"] for b in s["beats"]]
     assert kinds == ["turning"]  # the tiny threat (2%) doesn't make the cut
-    assert "Bb5 never came up" in s["beats"][0]["body"]
+    assert "Bb5 isn't in your recorded thinking" in s["beats"][0]["body"]
     assert s["focus"]["key"] == "candidates" and s["focus"]["title"] == "Find a second candidate"
     page = story.render(s)
     assert page.count("class='slide'") == 3  # intro (with the result), the turning point, the focus

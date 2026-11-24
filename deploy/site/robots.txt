@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /u/
+Disallow: /api/
+Disallow: /live
+Sitemap: https://thoughtcoach.org/sitemap.xml

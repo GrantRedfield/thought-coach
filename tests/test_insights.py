@@ -41,7 +41,7 @@ def test_called_it_and_one_track():
     found = {i["kind"]: i for i in build(game, chess.WHITE, report, thinking)}
     assert "4. Nxe5 (55% → 25%) let 4... Qg5 land on exactly that square" in found["called_it"]["body"]
     assert "said 'weak g5'" in found["called_it"]["body"]
-    assert "Nxd4 (best) never came up" in found["one_track"]["body"]
+    assert "Nxd4 (best) isn't in your recorded thinking" in found["one_track"]["body"]
 
 
 def test_read_plan_and_planned(monkeypatch):

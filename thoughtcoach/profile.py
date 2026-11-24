@@ -296,7 +296,7 @@ def findings(p: dict) -> tuple[list[dict], list[dict]]:
                 f"You saw {_pct(rates[hi][0])} of {names[hi]} ({k_hi} of {rates[hi][1]}, "
                 f"{bayes.span(k_hi, rates[hi][1])}).", rates[hi][1], bayes.prob_above(k_hi, rates[hi][1], 0.5))
         if lo != hi and rates[lo][0] < 0.5:
-            add(weak, (0.5 - rates[lo][0]) / 2, f"Blind spot: {names[lo].replace('the ', '').replace('your ', '')}",
+            add(weak, (0.5 - rates[lo][0]) / 2, f"Least often in your thinking: {names[lo].replace('the ', '').replace('your ', '')}",
                 f"You pointed at only {_pct(rates[lo][0])} of {names[lo]} ({k_lo} of {rates[lo][1]}, "
                 f"{bayes.span(k_lo, rates[lo][1])}).", rates[lo][1], 1 - bayes.prob_above(k_lo, rates[lo][1], 0.5))
 

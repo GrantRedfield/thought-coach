@@ -42,7 +42,7 @@ GAP_LABEL = {
     "time_trouble": "time trouble",
     "opponent_idea": "opponent's idea not seen",
     "wrongly_rejected": "good move considered, then rejected",
-    "missed_candidate": "good moves not considered",
+    "missed_candidate": "good moves not drawn or said",
     "no_thoughts": "no candidates shown",
     "other": "other",
 }
@@ -415,7 +415,7 @@ def render(report: dict) -> str:
         out.append(f"      engine   : {engine}")
         q3 = m["q3"]
         if q3["threat_san"]:
-            state = {"spotted": "spotted", "handled": "not spotted, your move dealt with it", "not_drawn": "NOT spotted, and not stopped", "minor": "minor", "spotted_minor": "minor, spotted", "unstoppable": "can't be stopped: they take it in your best line too"}
+            state = {"spotted": "spotted", "handled": "not drawn or said, your move dealt with it", "not_drawn": "not drawn or said, and not stopped", "minor": "minor", "spotted_minor": "minor, spotted", "unstoppable": "can't be stopped: they take it in your best line too"}
             out.append(f"      threat   : {q3['threat_san']} (swing {spct(q3['swing'])}, {state[q3['status']]})")
     out.append("")
     out.append("* = played.  ok = an engine candidate you considered or played.  -x% = win chance that move gives up (percentage points).")

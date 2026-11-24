@@ -209,7 +209,7 @@ def list_page(reviews: Reviews, owner: str | None = None) -> str:
 <link rel="icon" href="/favicon.png">{THEME_HEAD}<style>{LIST_CSS}{profile.CSS}{home.CSS}</style></head><body>{THEME_BUTTON}
 <main class="wrap"><nav class="topbar"><a class="brand" href="/"><img src="/icon.svg" alt="" width="22" height="22" style="vertical-align:-5px;margin-right:6px">Thought Coach</a><span class="sp"></span>{nav}</nav>
 {f'<div id="live-banner" data-user="{html.escape(owner)}" hidden></div>' if owner else ''}{main}
-</main><script>{home.JS}</script></body></html>"""
+</main><script>{home.JS}</script>{"<script>try{navigator.sendBeacon('/api/event','profile_view')}catch(e){}</script>" if owner else ''}</body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):

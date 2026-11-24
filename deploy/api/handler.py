@@ -559,6 +559,34 @@ def _list(bucket: str, prefix: str, limit: int = 2000) -> list[dict]:
     return out
 
 
+EVENTS = {"home", "sample_open", "sample_story", "sample_review", "sample_end", "get_started", "start_page",
+          "store_click", "profile_view"}
+
+
+def count_event(event: dict) -> dict:
+    """An anonymous page event ('sample_open'): one daily counter per name, kept in the data bucket.
+    No cookie, no user id, no IP, no page content: just how many times each step happened that day,
+    to see where people stop between the home page and their first review."""
+    name = _body(event)[:40].strip()
+    if name not in EVENTS:
+        return reply(400, {"error": "unknown event"})
+    key = f"events/{time.strftime('%Y-%m-%d', time.gmtime())}.json"
+    counts = _get_json(DATA, key) or {}
+    counts[name] = counts.get(name, 0) + 1  # (a rare lost count under load is fine for this)
+    _put_json(DATA, key, counts)
+    return reply(204, {})
+
+
+def funnel(days: int = 14) -> list[tuple[str, dict]]:
+    """[(day, counts)] for the last `days` days, newest first: the page events plus, from what's
+    stored, sign-ups and finished reviews that day."""
+    out = []
+    for i in range(days):
+        day = time.strftime("%Y-%m-%d", time.gmtime(time.time() - 86400 * i))
+        out.append((day, _get_json(DATA, f"events/{day}.json") or {}))
+    return out
+
+
 def admin(event: dict) -> dict:
     """Everything at a glance, for the owner only (anyone else gets 'not found'): players, every
     game submitted and its review, the 'doesn't make sense' reports, and the queues and servers."""
@@ -633,6 +661,19 @@ def admin(event: dict) -> dict:
 
     done = sum(g.get("state") == "done" for g in games)
     failed = sum(g.get("state") == "error" for g in games)
+    # The way in, day by day: anonymous page events, then sign-ups and first finished reviews (the
+    # number that matters: a player who got their own review back).
+    first_done = {}
+    for g in games:
+        if g.get("state") == "done":
+            first_done[g["user"]] = min(first_done.get(g["user"], g["_t"]), g["_t"])
+    ymd = lambda t: time.strftime("%Y-%m-%d", time.gmtime(t))  # noqa: E731
+    cols = ["home", "sample_open", "sample_story", "sample_review", "sample_end", "get_started", "start_page", "store_click"]
+    rows_e = "".join(
+        f"<tr><td>{d}</td>" + "".join(f"<td>{c.get(k, '') or ''}</td>" for k in cols)
+        + f"<td>{sum(1 for u in users if u.get('created') and ymd(u['created']) == d) or ''}</td>"
+        + f"<td><b>{sum(1 for t in first_done.values() if ymd(t) == d) or ''}</b></td><td>{c.get('profile_view', '') or ''}</td></tr>"
+        for d, c in funnel())
     page = f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Admin · Thought Coach</title>
 <link rel="icon" href="/favicon.png"><link rel="stylesheet" href="/site.css"><style>
@@ -652,6 +693,11 @@ table {{ width:100%; border-collapse:collapse; font-size:13.5px; }} th, td {{ te
 <div><b>{len(reports)}</b><span>reports</span></div></div>
 <h2>Right now</h2><p>Fresh games: {depth(QUEUE)} · Backlog: {depth(BACKFILL)}<br>
 Warm server: {servers(GROUP)} · Spot servers: {servers(BURST)}</p>
+<h2>The way in, last 14 days</h2><p class="muted">Anonymous page counts (no cookies or ids), then sign-ups and
+first finished reviews from the stored accounts. A first finished review is the number that matters.</p>
+<div class="scroll"><table><tr><th>Day</th><th>Home</th><th>Sample opened</th><th>Sample story</th><th>Sample review</th>
+<th>Sample to the end</th><th>Get started</th><th>Setup page</th><th>Store click</th><th>Sign-ups</th><th>First review</th>
+<th>Own home page</th></tr>{rows_e}</table></div>
 <h2>Players</h2><div class="scroll"><table><tr><th>Player</th><th>Joined</th><th>Games</th><th>Reviewed</th><th>Failed</th>
 <th>Reviews today</th><th>Last activity</th></tr>{rows_u}</table></div>
 <h2>"Doesn't make sense?" reports</h2><div class="scroll"><table><tr><th>When</th><th>From</th><th>Game</th><th>Card</th>
@@ -720,6 +766,8 @@ def handler(event: dict, context) -> dict:
         return delete_account(event)
     if path == "/api/feedback":
         return feedback(event)
+    if path == "/api/event":
+        return count_event(event)
     user = uploader(event)
     if not user:
         return reply(401, {"error": "not connected: sign in at thoughtcoach.org/start to connect the extension"})

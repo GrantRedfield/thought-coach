@@ -190,7 +190,7 @@ def threats(games: list[dict]) -> dict:
         board = chess.Board(m["fen"])
         hit = q3["status"] == "spotted"
         note = ("You drew it before it could happen" if hit else
-                f"Not spotted, and {m['move_san']} didn't stop it ({move_went(m)})")
+                f"Not drawn or said, and {m['move_san']} didn't stop it ({move_went(m)})")
         ex = _example(g, m["move_number"], m["fen"], hit,
                       f"Threat {q3['threat_san']}: worth {pct(q3['swing'])} to them", note,
                       arrows=_arrow(board, q3["threat_san"], "#c0392b", theirs=True), ply=m.get("ply"))
@@ -240,7 +240,7 @@ def best_move(games: list[dict]) -> dict:
     missed.sort(key=lambda x: -x["size"])
     return {"found": found, "total": total, "found_label": "considered",
             "split": [("Costly: best considered, not played", rejected, rejected + never),
-                      ("Costly: best never considered", never, rejected + never)],
+                      ("Costly: best not drawn or said", never, rejected + never)],
             "seen_all": seen[::-1], "missed_all": missed}
 
 

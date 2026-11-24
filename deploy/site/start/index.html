@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Set up Thought Coach</title>
+<title>Get started · Thought Coach — Chess Thinking Analysis</title>
+<meta name="description" content="Set up Thought Coach in about two minutes: sign in with lichess, add the free extension, and play a rapid game. Arrows alone give a full review; voice is optional.">
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/site.css">
@@ -27,7 +28,8 @@
   </nav>
 
   <h1>Get set up</h1>
-  <p class="lead">Three quick steps (about two minutes), then play. This page ticks each one off as you go.</p>
+  <p class="lead">About two minutes, then play: connect lichess and add the extension, play a game while you capture your
+    thinking, and review your decisions. This page ticks each step off as you go. <a href="/sample/">See a sample review first</a>.</p>
   <div class="alert" id="signin-msg" hidden></div>
 
   <ol class="steps">
@@ -69,9 +71,11 @@
 
     <li id="s-voice" class="later">
       <h2>Your voice <span class="chip ok" id="voice-chip">On</span></h2>
-      <p>Voice is on by default: thinking out loud is the richest thing you can give the review (the lines you
-        calculate, what you worry about, how you feel). Chrome asks for your microphone the first time, and you can
-        switch it off here at any time; arrows alone work too. The audio is deleted once it's turned into text.</p>
+      <p><b>Arrows only</b> already give a full review: the candidates you weighed, the threats you drew, and the good moves
+        that weren't on your list. <b>Voice</b> adds the lines you calculate, your evaluations and how you feel, so the review
+        can show the exact moment your thinking turned. It's on by default and optional: Chrome asks for your microphone the
+        first time, you can switch it off here at any time, and the audio is deleted once it's turned into text. Talking
+        while you play feels odd for a game or two, then natural.</p>
       <label class="switch" id="voice-row" hidden><input type="checkbox" id="voice-on" checked>
         <span id="voice-label">Record my voice while I play</span></label>
       <p class="muted" id="voice-old" hidden><small>Switch it on or off in the extension: click the Thought Coach icon in
@@ -89,6 +93,8 @@
         <div class="tip"><b>Think out loud</b>Say the lines you calculate, what you think of the position, how you feel. If voice is on, Chrome asks for the microphone at the first game: allow it.</div>
         <div class="tip"><b>Then wait a few minutes</b>Your review is ready about five minutes after the game ends. You'll get a notification.</div>
       </div>
+      <p class="muted"><small>Fair play: nothing is shown during your game (no moves, evaluations or hints). The review starts only after
+        lichess says the game is over. <a href="/privacy#fair-play">More</a></small></p>
       <div class="row"><a class="btn primary" href="https://lichess.org/" target="_blank" rel="noopener">Play on lichess</a>
         <a class="btn" id="games-btn" href="#" hidden>Your games</a></div>
     </li>
@@ -195,7 +201,8 @@
   // After installing, people come back to this tab: ask again. Chrome doesn't add a newly installed
   // extension to tabs that are already open, so after a trip to the store the page reloads itself once.
   const flag = (k, v) => { try { if (v === undefined) return sessionStorage.getItem(k); sessionStorage.setItem(k, v); } catch (err) {} };
-  $('store-btn').addEventListener('click', () => flag('tc-store', '1'));
+  $('store-btn').addEventListener('click', () => { flag('tc-store', '1'); try { navigator.sendBeacon('/api/event', 'store_click'); } catch (err) {} });
+  try { navigator.sendBeacon('/api/event', 'start_page'); } catch (err) {}
   document.addEventListener('visibilitychange', () => {
     if (document.hidden || ext) return;
     hello();

@@ -182,8 +182,8 @@ def turning_point(c: Ctx) -> list[dict]:
         why = f"{best} was on your list. You played {m['move_san']} instead."
     elif cands:
         others = [x for x in cands if x != m["move_san"]]
-        why = (f"You looked at {', '.join(others[:3])}. " if others else "It was the only move you looked at. ") + \
-              (f"{best} never came up." if best else "")
+        why = (f"You drew or said {', '.join(others[:3])}. " if others else "It was the only move you drew or said. ") + \
+              (f"{best} isn't in your recorded thinking." if best else "")
     else:
         why = f"No candidates shown. {best} was the move." if best else "No candidates shown."
     seen = reply_seen(c, m)
@@ -379,7 +379,7 @@ def weaknesses(c: Ctx) -> list[dict]:
             why, frames = _weak_line(board, w, sq, ORANGE)
             out.append(_beat("weak_missed", m["ply"], 0.3, f"Question 2, weaknesses · move {m['move_number']}",
                              "Where are the weaknesses?", f"{whose.capitalize()} {kind} on {w['square']}: the engine's "
-                             f"line used it, and it never came up in your thinking.{why}", None, board,
+                             f"line used it, and it doesn't appear in your arrows or words.{why}", None, board,
                              fill={sq: ORANGE}, frames=frames))
     return out
 
@@ -735,14 +735,14 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
 
     made_moves = [m for m in c.moves if m["mistake"]
                   and any(w.get("created_by") for w in (m.get("q1") or {}).get("weaknesses", []))]
-    why = {"q3": f"Threats you didn't see: {_tally(costly('opponent_idea'))}.",
-           "candidates": f"Moves where the good move never came up: {_tally(costly('missed_candidate', 'no_thoughts'))}.",
+    why = {"q3": f"Threats left unstopped: {_tally(costly('opponent_idea'))}.",
+           "candidates": f"Moves where the good move wasn't in your recorded thinking: {_tally(costly('missed_candidate', 'no_thoughts'))}.",
            "trust": f"Good moves you drew and then dropped: {_tally(costly('wrongly_rejected'))}.",
            "time": f"Moves in time trouble: {_tally([m for m in c.moves if m['mistake'] and m.get('gap') == 'time_trouble'])}.",
            "sharp": "",
            "ahead": "",
            "q1": f"Weaknesses your own moves created: {_tally(made_moves)}.",
-           "q2": f"{worst_missed} passive piece{'s' * (worst_missed != 1)} never came up in your thinking.",
+           "q2": f"{worst_missed} passive piece{'s' * (worst_missed != 1)} didn't appear in your arrows or words.",
            "play_on": next((f"You called it lost while the engine still gave you {pct(i['wp'])}." for i in
                             c.report.get("insights") or [] if i["kind"] == "gave_up"), ""),
            "inner": "The judging voice cost you more than the position did.",
@@ -798,11 +798,11 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
         move, cost = _label(m["ply"], m["move_san"]), f"took your win chance from {pct(m['wp_before'])} to {pct(m['wp_after'])}"
         if key == "q2":
             reason = (f"At {move} the best move was {w['engine_move']}, bringing your {w['piece']} on {w['square']} "
-                      f"into the game. It never came up in your thinking, and {m['move_san']} {cost}.")
+                      f"into the game. It doesn't appear in your arrows or words, and {m['move_san']} {cost}.")
         else:
             whose = "their" if w["side"] == "theirs" else "your"
             reason = (f"At {move} the engine's best line went after {whose} {w['kind']} on {w['square']}, which you "
-                      f"never marked. {m['move_san']} {cost}.")
+                      f"none of your arrows or words pointed at. {m['move_san']} {cost}.")
             if w["side"] == "theirs":
                 habit = ("Every few moves, circle the weakest point in their camp (a hole, a loose piece, a pawn "
                          "no pawn can defend) and aim a candidate at it.")
@@ -818,7 +818,7 @@ def focus(c: Ctx, history: dict | None = None) -> dict:
             kind = "check" if "+" in best or "#" in best else "capture"
             title, tag = "Checks, captures and threats first", "Candidate moves"
             habit = "Before choosing, run through every check and capture, for both sides. It takes ten seconds."
-            reason = (f"At {_label(worst['ply'], worst['move_san'])} you looked at {len(drawn)} moves, but not "
+            reason = (f"At {_label(worst['ply'], worst['move_san'])} you drew or said {len(drawn)} moves, but not "
                       f"{best}, a {kind}. {worst['move_san']} took your win chance from {pct(worst['wp_before'])} to "
                       f"{pct(worst['wp_after'])}.")
     return {"key": key, "title": title, "tag": tag, "habit": habit, "why": reason, "across": across}
@@ -843,18 +843,18 @@ def history_from_profile(p: dict) -> dict:
              "trust": g.get("wrongly_rejected", 0) / total, "time": g.get("time_trouble", 0) / total}
     n = len(p.get("games", []))
     q = p.get("questions", {})
-    cause = {"q3": "threats you didn't see", "candidates": "moves where the good move never came up",
+    cause = {"q3": "threats left unstopped", "candidates": "moves where the good move wasn't in your recorded thinking",
              "trust": "good moves you drew and then dropped", "time": "moves in time trouble"}
     note = {k: f"Across your {n} games, {cause[k]} account for {pct(v)} of all the win chance you've lost."
-            for k, v in share.items() if v}
-    if q.get("q3", [0, 0])[1]:
+            for k, v in share.items() if v and n >= 2}  # one game isn't a pattern
+    if q.get("q3", [0, 0])[1] and n >= 2:
         real = q["q3"][1]
         stopped = q["q3"][0] + p.get("q3_handled", 0)  # named, or answered without a word
         note["q3"] = (f"Across your {n} games you stopped {stopped} of {real} real threats against you: "
                       f"{bayes.span(stopped, real)}.")
-    if q.get("q1", [0, 0])[1]:
+    if q.get("q1", [0, 0])[1] and n >= 2:
         note["q1"] = f"Across your {n} games you pointed at {q['q1'][0]} of {q['q1'][1]} weaknesses: {bayes.span(*q['q1'])}."
-    if q.get("q2", [0, 0])[1]:
+    if q.get("q2", [0, 0])[1] and n >= 2:
         note["q2"] = f"Across your {n} games you noticed {q['q2'][0]} of {q['q2'][1]} worst pieces: {bayes.span(*q['q2'])}."
     truths = []
     if n >= 3:

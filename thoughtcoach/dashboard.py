@@ -29,7 +29,7 @@ SHORT = {
     "time_trouble": "time trouble",
     "opponent_idea": "threat not stopped",
     "wrongly_rejected": "good move considered, then rejected",
-    "missed_candidate": "good moves not considered",
+    "missed_candidate": "good moves not drawn or said",
     "no_thoughts": "no candidates shown",
     "other": "other",
 }
@@ -51,7 +51,7 @@ def _example(m: dict, dots: str) -> str:
     if g == "opponent_idea":
         return f"{_label(m, dots)} allowed {q3['threat_san']}"
     if g == "missed_candidate":
-        return f"{_label(m, dots)} ({m['best_move_san']} not considered)"
+        return f"{_label(m, dots)} ({m['best_move_san']} not drawn or said)"
     return _label(m, dots)
 
 
