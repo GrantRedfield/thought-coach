@@ -655,7 +655,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
         if report.get("voice") == "off" else "")
 
     return f"""<!doctype html>
-<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thought Coach {_e(g['id'])}</title>{THEME_HEAD}<style>{REEL_CSS}{CSS}{questions.CSS}</style></head><body>{THEME_BUTTON}
 <div class="dash">
   <header>

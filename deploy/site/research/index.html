@@ -59,6 +59,12 @@
     <li><b>Games:</b> 350 rapid and classical games (lichess's rapid line and slower). 192 blitz and bullet games were
       processed but are left out: at that speed players draw and say much less (for one player, arrows fell from 2.3 per
       move in rapid to 0.5 in 3-minute games and 0.1 in bullet), so the measures would mostly measure silence.</li>
+    <li><b>Ratings:</b> in the 270 games with ratings in the game record, the players' online rating had a median of 2523
+      (10th to 90th percentile: 1948 to 2689; the low end is fresh accounts climbing from scratch) and their opponents' a
+      median of 1963 (1435 to 2315). Strong players often face much weaker opponents in these videos: see the limits.</li>
+    <li><b>Selection:</b> players who regularly draw arrows and think out loud in rapid or classical games, with videos
+      where the board, arrows and speech can be read reliably. Speed-chess series, gimmick games, odds games and
+      games that couldn't be matched to a game record are left out.</li>
     <li><b>Moves:</b> 8,465 of the players' own moves were reviewed; 6,205 of them (73%) had recorded thinking behind them
       (an arrow, a circle or a spoken move).</li>
     <li><b>Titled Thought Coach players:</b> players with a lichess title who use Thought Coach are added to the
@@ -91,6 +97,47 @@
     <tr><td>Moves in time trouble</td><td>Moves played with under 30 seconds on the clock (lower is better)</td></tr>
   </table>
   <p>Moves made in time trouble aren't held against your thinking: there is no time to think out loud there.</p>
+
+  <h3>What the review can and can't know about a move</h3>
+  <p>For each idea that mattered (the engine's best move, the opponent's threat, a weakness, a passive piece), the review
+    puts what it knows into one of five states, and its wording follows the state:</p>
+  <table>
+    <tr><th>State</th><th>When</th><th>How the review says it</th></tr>
+    <tr><td>Recorded</td><td>You drew it or said it before your move</td><td>"you drew Nf5", "you'd seen their Qh4"</td></tr>
+    <tr><td>Considered, then rejected</td><td>You drew it but played something else</td><td>"you drew it and then played…"</td></tr>
+    <tr><td>No recorded evidence</td><td>You drew or said other moves, but not this one</td><td>"not in your recorded thinking"</td></tr>
+    <tr><td>Likely oversight</td><td>No recorded evidence, and your move walked into it (their threat came next, or the move you played lost to it)</td><td>"your move didn't stop it"</td></tr>
+    <tr><td>Not enough to judge</td><td>Nothing was drawn or said on that move, or you were in time trouble</td><td>not judged as thinking at all</td></tr>
+  </table>
+  <p>Not drawing or saying an idea doesn't mean you didn't think of it. That is why every story card has a
+    <b>Feedback on this card</b> button with "I did consider this, I just didn't draw or say it": those answers are stored
+    as claims to check against the evidence, not as facts, and used to measure how often the review's reading is wrong.</p>
+  <h3>How it is built</h3>
+  <ul>
+    <li><b>Arrows and circles</b> are recorded by the browser extension with their timing, and matched to the move you were
+      thinking about. Arrows from your pieces are candidates; arrows from theirs are their ideas.</li>
+    <li><b>Speech</b> is transcribed by a speech-to-text model (Whisper, small English model) on our servers; chess moves and
+      squares are picked out of the text by rules, and mood words (worried, upbeat, giving up) by word lists, with a small
+      local language model reading the harder sentences where it is available.</li>
+    <li><b>The engine</b> is Stockfish, at 250,000 nodes per position, with the top five lines kept as the engine's candidates.
+      Win chances use lichess's published curve. The first opening moves played from the book aren't judged.</li>
+    <li><b>The coaching</b> picks one focus per game from what cost the most win chance, nudged toward what keeps coming back
+      across your games and toward where you're furthest from the benchmarks.</li>
+  </ul>
+  <h3>Validation so far</h3>
+  <p>What is checked: on the master games, that the moves read from video match the real game record, that the arrows
+    land on legal moves, and that move times line up with the game's clocks (games that fail are fixed or left out).
+    What is <b>not yet measured</b>: how accurate the speech tagging and the mood reading are against human labels, and
+    how often a player's "I considered it" corrects the review. Those numbers will be published once there is enough
+    labelled feedback.</p>
+  <h3>How much data a conclusion needs</h3>
+  <ul>
+    <li>A master needs 3 or more reviewed games to count, and a measure at least 5 cases per master.</li>
+    <li>You are compared with masters on a habit once you have 10 or more cases of it.</li>
+    <li>Whether your focus is working is judged only after 2 or more games, as a probability with a sceptical prior: one
+      good game isn't called a habit.</li>
+    <li>Every rate on your home page shows its likely range, so a small sample looks uncertain.</li>
+  </ul>
 
   <h2 id="bench">3. The benchmarks</h2>
   <p>Each rate is computed for each player across their games, then averaged across players. The range is the lowest
@@ -135,7 +182,12 @@
       critical positions) are well beyond the players' range, but smaller differences can be noise. More players would
       roughly halve the uncertainty by about 20.</li>
     <li><b>Thinking on camera isn't silent thinking.</b> Players narrating for an audience may draw and say more, or
-      differently, than they would alone.</li>
+      differently, than they would alone. The same is true for you: thinking out loud can itself change how you play,
+      usually by slowing you down.</li>
+    <li><b>Weaker opponents.</b> The masters' opponents had a median rating near 1960. Some rates (threats left unstopped,
+      critical positions) may look better than they would against equals.</li>
+    <li><b>Who streams.</b> Players who think out loud on video are not a random sample of strong players; their styles
+      may lean toward explaining, and toward openings and positions that make good content.</li>
     <li><b>Only what's recorded.</b> A move thought of but not drawn or said is invisible, for masters and for you.</li>
     <li><b>Reading video isn't perfect.</b> Moves, arrows and speech are read automatically; reviews are checked for
       timing and legality, and games that don't pass are left out, but small errors remain.</li>
@@ -148,7 +200,7 @@
   <p style="margin-top:30px">The first three of the four questions are Grandmaster Jacob Aagaard's (from his books on
     thinking in chess); see <a href="/questions">the four questions</a>. Engine: <a href="https://stockfishchess.org/">Stockfish</a>.
     All of Thought Coach's code is <a href="https://github.com/GrantRedfield/thought-coach">open source</a>.</p>
-  <div class="row" style="margin-top:22px"><a class="btn primary" href="/sample/">Explore a sample game review</a><a class="btn" href="/start">Get started</a></div>
+  <div class="row" style="margin-top:22px"><a class="btn primary" href="/sample/">Explore an example game review</a><a class="btn" href="/start">Get started</a></div>
   <footer>Thought Coach — Chess Thinking Analysis · <a href="/privacy">Privacy and fair play</a> · not affiliated with lichess.org</footer>
 </main>
 <button class="theme-toggle" type="button" aria-label="Switch light or dark" title="Light / dark"

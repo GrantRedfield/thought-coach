@@ -273,3 +273,13 @@ def test_page_events_are_counted_by_name_only(api):
     assert api.handler({**event("POST", "/api/event"), "body": "anything"}, None)["statusCode"] == 400
     [(_, key)] = [k for k in api.fake_s3.objects if k[1].startswith("events/")]
     assert json.loads(api.fake_s3.objects[("data", key)]) == {"sample_open": 1}
+
+
+def test_general_feedback_needs_a_reason_and_words(api):
+    ok = api.handler(event("POST", "/api/feedback", {"kind": "general", "reason": "bug", "comment": "The setup page froze"}), None)
+    assert ok["statusCode"] == 201
+    assert api.handler(event("POST", "/api/feedback", {"kind": "general", "reason": "spam", "comment": "hello"}), None)["statusCode"] == 400
+    assert api.handler(event("POST", "/api/feedback", {"kind": "general", "reason": "idea", "comment": ""}), None)["statusCode"] == 400
+    [(_, key)] = [k for k in api.fake_s3.objects if k[1].startswith("feedback/")]
+    rec = json.loads(api.fake_s3.objects[("data", key)])
+    assert rec["reason"] == "bug" and rec["by"] == "anonymous"

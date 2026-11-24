@@ -17,7 +17,7 @@ import chess.svg
 
 from . import profile
 from .gametype import classify
-from . import bayes, habits, timing
+from . import bayes, habits, practice, timing
 from .fmt import ACCURACY_EXPLAIN, acc, accuracy, game_url, went
 
 RECENT = 5  # "your form": the last few games against the ones before
@@ -381,6 +381,8 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
             ("form", "Your progress", f"""{note}{form(srows, sprof) if srows else ''}{focus}
 <section class="chart"><h2>Every game at a glance</h2><p class="cap">Win chance an average move gave away, game by game (lower is better; hover a column for its accuracy)</p>
 {_games_chart(rows)}</section>"""),
+            ("practice", "Practice", practice.section(slow, ((stories.get(last["id"]) or {}).get("focus") or {}).get("key"))
+             if slow else ""),
             ("games", f"Your games<small>{len(rows)}</small>", f"<section><div class='grid'>{cards(rows, statuses)}</div></section>"),
             ("patterns", "Patterns", (note if parts else "") + parts.get("summary", "") + parts.get("charts", "")
              + "".join(f"<section class='profile'><details class='fold big'><summary>{t}</summary>{parts[k]}</details></section>"
@@ -395,7 +397,7 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
 {panels}"""
 
 
-CSS = bayes.RANGE_CSS + """
+CSS = bayes.RANGE_CSS + practice.CSS + """
 .slownote { margin:0 0 12px; }
 .form h2 small { font-weight:400; color:var(--muted); font-size:13px; margin-left:8px; }
 details.fold.more { margin-top:10px; }

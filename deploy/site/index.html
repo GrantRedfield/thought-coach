@@ -119,6 +119,9 @@
   ol.three li::before { content:counter(s); position:absolute; left:18px; top:17px; width:30px; height:30px; border-radius:50%;
     border:2px solid var(--accent); color:var(--accent); display:grid; place-items:center; font-weight:700; font-size:14px; }
   ol.three h3 { margin:0 0 6px; font-size:16.5px; } ol.three p { margin:0; color:var(--fg2); font-size:14.5px; }
+  ol.three.loop4 { grid-template-columns:repeat(4, 1fr); }
+  @media (max-width:980px) { ol.three.loop4 { grid-template-columns:1fr 1fr; } }
+  @media (max-width:560px) { ol.three.loop4 { grid-template-columns:1fr; } }
   .modes { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0 0; }
   .mode { border:1px solid var(--line); border-radius:14px; padding:14px 16px; font-size:14.5px; color:var(--fg2); }
   .mode b { color:var(--fg); display:block; margin-bottom:4px; }
@@ -165,7 +168,7 @@
         getting it wrong: you draw arrows and think out loud while you play on lichess, and after the game it checks your
         thinking, not just your moves.</p>
       <div class="row" id="cta">
-        <a class="btn primary" href="/sample/">Explore a sample game review</a>
+        <a class="btn primary" href="/sample/">Explore an example game review</a>
         <a class="btn" href="/start" data-ev="get_started">Get started</a>
       </div>
       <p class="trustline"><b>Free and open source</b>: no ads, no subscription, and the code is <a href="https://github.com/GrantRedfield/thought-coach">public</a>. Post-game only: nothing is shown during your games. <a href="#trust">Fair play and privacy</a></p>
@@ -198,7 +201,7 @@
           <li><b>The coaching:</b> one habit to work on next game, with the reason from this game.</li>
         </ul>
         <div class="row">
-          <a class="btn primary" href="/sample/">Open the sample review</a>
+          <a class="btn primary" href="/sample/">Open the example review</a>
           <a class="btn" href="/start" data-ev="get_started">Get started</a>
         </div>
       </div>
@@ -236,6 +239,56 @@
     <p class="cmpnote">Thought Coach can only judge what you record: a move you thought of but didn't draw or say isn't in the review, and the review says so.</p>
   </section>
 
+  <!-- 5. the framework -->
+  <section class="blk" id="questions">
+    <h2>Four questions strong players ask</h2>
+    <p class="sub">The first three are Grandmaster Jacob Aagaard's; the fourth is about your candidate moves. They're not
+      homework: each one catches a different kind of mistake, and the review shows which ones your recorded thinking skips.</p>
+    <div class="q4">
+      <div class="qc"><span class="n">1</span><h3>What does my opponent want?</h3><p>Most collapses start with an idea of theirs that was never answered.</p>
+        <p class="ex">Draw their best move as an arrow before you choose yours.</p></div>
+      <div class="qc"><span class="n">2</span><h3>Where are the weaknesses?</h3><p>Plans come from targets: a loose pawn, a hole, an exposed king, on both sides.</p>
+        <p class="ex">Before a pawn move, circle the squares it stops guarding.</p></div>
+      <div class="qc"><span class="n">3</span><h3>Which piece is doing least?</h3><p>Improving your worst piece is often the best quiet move on the board.</p>
+        <p class="ex">Make one of your candidates a move for that piece.</p></div>
+      <div class="qc"><span class="n">4</span><h3>What are my candidates?</h3><p>The best move can't be chosen if it's never on the list, or is dropped too soon.</p>
+        <p class="ex">Draw two different moves before you play one.</p></div>
+    </div>
+    <div class="row" style="margin-top:16px"><a class="btn" href="/questions">How to use them in a game</a></div>
+  </section>
+
+  <!-- 4b. the mental side -->
+  <section class="blk" id="mind">
+    <p class="eyebrow">The mental game</p>
+    <h2>The habits behind the mistakes</h2>
+    <p class="sub">Many losses aren't about chess knowledge at all. When you think out loud, the review can see the moments
+      your mood, confidence or clock took over, and it names a habit for each one.</p>
+    <div class="mind">
+      <div class="mi"><span class="sig">Sure, but wrong</span><h3>Confidence the position didn't back</h3>
+        <p>You sounded certain on the moves that went wrong, while the engine had it level or worse.</p>
+        <p class="habit"><b>Habit:</b> when a move feels obvious, check what it allows.</p></div>
+      <div class="mi"><span class="sig">Giving up early</span><h3>Calling it lost too soon</h3>
+        <p>You said it was over while the engine still gave you real chances, and the moves after that got looser.</p>
+        <p class="habit"><b>Habit:</b> find the most stubborn move and let the board decide.</p></div>
+      <div class="mi"><span class="sig">The inner critic</span><h3>Judging instead of playing</h3>
+        <p>After a mistake the talk turned on yourself, and the next few moves cost more than the mistake did.</p>
+        <p class="habit"><b>Habit:</b> say what happened in one plain sentence, then back to the board.</p></div>
+      <div class="mi"><span class="sig">One move too late</span><h3>Seeing it just after moving</h3>
+        <p>The right idea came out of your mouth seconds after you let go of the piece.</p>
+        <p class="habit"><b>Habit:</b> look once more before you release it.</p></div>
+      <div class="mi"><span class="sig">Time in the wrong place</span><h3>Fast where it mattered</h3>
+        <p>Long thinks on quiet moves, quick ones where only one move held. Every move's time is matched with how critical it was.</p>
+        <p class="habit"><b>Habit:</b> after a capture, check or surprise, slow down.</p></div>
+      <div class="mi"><span class="sig">Comfortable, then caught</span><h3>Relaxing when winning</h3>
+        <p>Upbeat talk, a winning position, then a fast move that gave much of it back.</p>
+        <p class="habit"><b>Habit:</b> when it's going well, keep asking about their checks and threats.</p></div>
+    </div>
+    <p class="mindnote">These are read from what you draw and say and how long you take, checked against the engine: never
+      guesses about your personality. Mood needs your voice; the clock and the arrows work without it. Each one shows up
+      only when your own games show it. Good decisions get named too: the only move found under pressure, a threat called
+      before it came, a candidate list that held the best move.</p>
+  </section>
+
   <!-- 4. long-term profile -->
   <section class="blk" id="profile">
     <p class="eyebrow">Every game adds to the picture</p>
@@ -269,53 +322,36 @@
     </div>
   </section>
 
-  <!-- 4b. the mental side -->
-  <section class="blk" id="mind">
-    <p class="eyebrow">The mental game</p>
-    <h2>The habits behind the mistakes</h2>
-    <p class="sub">Many losses aren't about chess knowledge at all. When you think out loud, the review can see the moments
-      your mood, confidence or clock took over, and it names a habit for each one.</p>
-    <div class="mind">
-      <div class="mi"><span class="sig">Sure, but wrong</span><h3>Confidence the position didn't back</h3>
-        <p>You sounded certain on the moves that went wrong, while the engine had it level or worse.</p>
-        <p class="habit"><b>Habit:</b> when a move feels obvious, check what it allows.</p></div>
-      <div class="mi"><span class="sig">Giving up early</span><h3>Calling it lost too soon</h3>
-        <p>You said it was over while the engine still gave you real chances, and the moves after that got looser.</p>
-        <p class="habit"><b>Habit:</b> find the most stubborn move and let the board decide.</p></div>
-      <div class="mi"><span class="sig">The inner critic</span><h3>Judging instead of playing</h3>
-        <p>After a mistake the talk turned on yourself, and the next few moves cost more than the mistake did.</p>
-        <p class="habit"><b>Habit:</b> say what happened in one plain sentence, then back to the board.</p></div>
-      <div class="mi"><span class="sig">One move too late</span><h3>Seeing it just after moving</h3>
-        <p>The right idea came out of your mouth seconds after you let go of the piece.</p>
-        <p class="habit"><b>Habit:</b> look once more before you release it.</p></div>
-      <div class="mi"><span class="sig">Time in the wrong place</span><h3>Fast where it mattered</h3>
-        <p>Long thinks on quiet moves, quick ones where only one move held. Every move's time is matched with how critical it was.</p>
-        <p class="habit"><b>Habit:</b> after a capture, check or surprise, slow down.</p></div>
-      <div class="mi"><span class="sig">Comfortable, then caught</span><h3>Relaxing when winning</h3>
-        <p>Upbeat talk, a winning position, then a fast move that gave much of it back.</p>
-        <p class="habit"><b>Habit:</b> when it's going well, keep asking about their checks and threats.</p></div>
-    </div>
-    <p class="mindnote">These are read from what you draw and say and how long you take, checked against the engine: never
-      guesses about your personality. Mood needs your voice; the clock and the arrows work without it. Each one shows up
-      only when your own games show it.</p>
+  <!-- 6b. the training loop -->
+  <section class="blk" id="loop">
+    <p class="eyebrow">Improvement you can measure</p>
+    <h2>Play, review, practise, measure</h2>
+    <p class="sub">A coach doesn't hand you twenty notes after every game. Thought Coach gives you one focus, practice
+      positions from your own games, and then checks your next games to see whether the habit is actually changing.</p>
+    <ol class="three loop4">
+      <li><h3>Play</h3><p>A rapid or classical game on lichess, drawing your ideas and, if you like, thinking out loud.</p></li>
+      <li><h3>Review</h3><p>The story of the game and one focus for the next one, with the reason from this game.</p></li>
+      <li><h3>Practise</h3><p>Positions from your own games where your thinking slipped: find their threat, find three
+        candidates, trust the move you'd already found.</p></li>
+      <li><h3>Measure</h3><p>Your next games' rates for that habit, with how sure the change is, so one lucky game isn't
+        called progress.</p></li>
+    </ol>
   </section>
 
-  <!-- 5. the framework -->
-  <section class="blk" id="questions">
-    <h2>Four questions strong players ask</h2>
-    <p class="sub">The first three are Grandmaster Jacob Aagaard's; the fourth is about your candidate moves. They're not
-      homework: each one catches a different kind of mistake, and the review shows which ones your recorded thinking skips.</p>
-    <div class="q4">
-      <div class="qc"><span class="n">1</span><h3>What does my opponent want?</h3><p>Most collapses start with an idea of theirs that was never answered.</p>
-        <p class="ex">Draw their best move as an arrow before you choose yours.</p></div>
-      <div class="qc"><span class="n">2</span><h3>Where are the weaknesses?</h3><p>Plans come from targets: a loose pawn, a hole, an exposed king, on both sides.</p>
-        <p class="ex">Before a pawn move, circle the squares it stops guarding.</p></div>
-      <div class="qc"><span class="n">3</span><h3>Which piece is doing least?</h3><p>Improving your worst piece is often the best quiet move on the board.</p>
-        <p class="ex">Make one of your candidates a move for that piece.</p></div>
-      <div class="qc"><span class="n">4</span><h3>What are my candidates?</h3><p>The best move can't be chosen if it's never on the list, or is dropped too soon.</p>
-        <p class="ex">Draw two different moves before you play one.</p></div>
+  <!-- 7. getting started -->
+  <section class="blk" id="how">
+    <h2>Three steps to your first review</h2>
+    <p class="sub">About two minutes to set up, then play the way you normally do.</p>
+    <ol class="three">
+      <li><h3>Connect lichess and add the extension</h3><p>Sign in with lichess (we never see your password) and add the free Chrome extension.</p></li>
+      <li><h3>Play, and capture your thinking</h3><p>Play a rapid or classical game. Right-click arrows for the moves you consider and their threats; think out loud if you like.</p></li>
+      <li><h3>Review your decisions</h3><p>A few minutes after the game, your story and full review are ready: what your thinking got right, and the one habit to work on.</p></li>
+    </ol>
+    <div class="modes">
+      <div class="mode"><b>Arrows only</b>Enough for a full review: the candidates you weighed, the threats you drew, the good moves that weren't on your list.</div>
+      <div class="mode"><b>Arrows and voice (on by default, easy to switch off)</b>Adds your lines, evaluations and doubts, so the review can show the exact moment your thinking turned. Talking feels odd for a game or two, then natural.</div>
     </div>
-    <div class="row" style="margin-top:16px"><a class="btn" href="/questions">How to use them in a game</a></div>
+    <div class="row" style="margin-top:16px"><a class="btn primary" href="/start" data-ev="get_started">Get started</a><a class="btn" href="/play">Tips for your first games</a></div>
   </section>
 
   <!-- 6. research -->
@@ -336,22 +372,6 @@
       <div class="find"><b>Most threats are answered silently.</b>Strong players name only a few threats aloud but leave just 5% of real threats unstopped.</div>
     </div>
     <div class="row" style="margin-top:16px"><a class="btn" href="/research">Methods, data and limits</a></div>
-  </section>
-
-  <!-- 7. getting started -->
-  <section class="blk" id="how">
-    <h2>Three steps to your first review</h2>
-    <p class="sub">About two minutes to set up, then play the way you normally do.</p>
-    <ol class="three">
-      <li><h3>Connect lichess and add the extension</h3><p>Sign in with lichess (we never see your password) and add the free Chrome extension.</p></li>
-      <li><h3>Play, and capture your thinking</h3><p>Play a rapid or classical game. Right-click arrows for the moves you consider and their threats; think out loud if you like.</p></li>
-      <li><h3>Review your decisions</h3><p>A few minutes after the game, your story and full review are ready: what your thinking got right, and the one habit to work on.</p></li>
-    </ol>
-    <div class="modes">
-      <div class="mode"><b>Arrows only</b>Enough for a full review: the candidates you weighed, the threats you drew, the good moves that weren't on your list.</div>
-      <div class="mode"><b>Arrows and voice (on by default, easy to switch off)</b>Adds your lines, evaluations and doubts, so the review can show the exact moment your thinking turned. Talking feels odd for a game or two, then natural.</div>
-    </div>
-    <div class="row" style="margin-top:16px"><a class="btn primary" href="/start" data-ev="get_started">Get started</a><a class="btn" href="/play">Tips for your first games</a></div>
   </section>
 
   <!-- 8. trust -->
@@ -376,13 +396,13 @@
     <h2>Find out why you keep losing the same way</h2>
     <p>Look through a real review first, or set it up and play your next rapid game with it.</p>
     <div class="row">
-      <a class="btn primary" href="/sample/">Explore a sample game review</a>
+      <a class="btn primary" href="/sample/">Explore an example game review</a>
       <a class="btn" href="/start" data-ev="get_started">Get started</a>
     </div>
   </section>
 
   <footer>Thought Coach — Chess Thinking Analysis · <a href="https://github.com/GrantRedfield/thought-coach">open source</a> · engine: Stockfish ·
-    <a href="/research">Research</a> · <a href="/privacy">Privacy and fair play</a> · not affiliated with lichess.org</footer>
+    <a href="/research">Research</a> · <a href="/privacy">Privacy and fair play</a> · <a href="/feedback">Feedback and beta testing</a> · not affiliated with lichess.org</footer>
 </main>
 <button class="theme-toggle" type="button" aria-label="Switch light or dark" title="Light / dark"
   onclick="var r=document.documentElement, t=r.dataset.theme==='light'?'dark':'light'; r.dataset.theme=t; try{localStorage.setItem('tc-theme',t)}catch(e){}">&#9680;</button>

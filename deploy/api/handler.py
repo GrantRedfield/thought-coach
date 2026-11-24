@@ -188,7 +188,10 @@ def _cookie(name: str, value: str, path: str, max_age: int) -> str:
     return f"{name}={value}; Path={path}; Max-Age={max_age}; Secure; HttpOnly; SameSite=Lax"
 
 
-FEEDBACK_REASONS = {"wrong", "confusing", "other"}
+# On a story card: what the player says about it. Kept as a claim to check, never as ground truth:
+# "unrecorded" (they considered it but didn't draw or say it) and "misread" are the ones that test the coaching.
+FEEDBACK_REASONS = {"accurate", "helpful", "unrecorded", "misread", "wrong", "confusing", "other"}
+GENERAL_REASONS = {"bug", "idea", "beta", "other"}  # the site-wide feedback form
 PLAYER = re.compile(r"^[a-z0-9_-]{2,30}$")
 
 
@@ -201,6 +204,8 @@ def feedback(event: dict) -> dict:
         return reply(413, {"error": "too long"})
     try:
         f = json.loads(raw)
+        if isinstance(f, dict) and f.get("kind") == "general":
+            return general_feedback(event, f)
         owner, gid, reason = str(f.get("owner", "")).lower(), str(f.get("game_id", "")), f.get("reason")
         if not PLAYER.match(owner) or not GAME_ID.match(gid) or reason not in FEEDBACK_REASONS:
             raise ValueError
@@ -212,13 +217,25 @@ def feedback(event: dict) -> dict:
         return reply(404, {"error": "no such story"})
     card = f.get("card") if isinstance(f.get("card"), dict) else {}
     record = {
-        "at": time.time(), "owner": owner, "game_id": gid, "reason": reason,
+        "at": time.time(), "kind": "card", "verified": False, "owner": owner, "game_id": gid, "reason": reason,
         "comment": str(f.get("comment") or "")[:1000], "by": signed_in(event) or "anonymous",
         "card": {"index": card.get("index") if isinstance(card.get("index"), int) else None,
                  "kind": str(card.get("kind") or "")[:40], "ply": card.get("ply") if isinstance(card.get("ply"), int) else None,
                  "title": str(card.get("title") or "")[:200], "text": str(card.get("text") or "")[:1500]},
     }
     _put_json(DATA, f"feedback/{time.strftime('%Y-%m-%d', time.gmtime())}/{owner}-{gid}-{uuid.uuid4().hex[:8]}.json", record)
+    return reply(201, {"ok": True})
+
+
+def general_feedback(event: dict, f: dict) -> dict:
+    """A bug, an idea or a beta-tester sign-up from /feedback. Signed-in players are named; nothing else
+    about the sender is kept (no email, no IP)."""
+    reason, comment = f.get("reason"), str(f.get("comment") or "").strip()
+    if reason not in GENERAL_REASONS or not (3 <= len(comment) <= 2000):
+        return reply(400, {"error": "say what it's about, in a few words"})
+    record = {"at": time.time(), "kind": "general", "reason": reason, "comment": comment,
+              "page": str(f.get("page") or "")[:200], "by": signed_in(event) or "anonymous"}
+    _put_json(DATA, f"feedback/{time.strftime('%Y-%m-%d', time.gmtime())}/general-{uuid.uuid4().hex[:12]}.json", record)
     return reply(201, {"ok": True})
 
 
@@ -587,7 +604,7 @@ def _list(bucket: str, prefix: str, limit: int = 2000) -> list[dict]:
 
 
 EVENTS = {"home", "sample_open", "sample_story", "sample_review", "sample_end", "get_started", "start_page",
-          "store_click", "profile_view"}
+          "store_click", "profile_view", "practice_open", "practice_reveal"}
 
 
 def count_event(event: dict) -> dict:
@@ -669,8 +686,9 @@ def admin(event: dict) -> dict:
         for g in games[:500])
     rows_f = "".join(
         f"<tr><td>{when(r.get('at'))}</td><td>{esc(r.get('by'))}</td>"
-        f"<td><a href='/u/{esc(r.get('owner'))}/games/{esc(r.get('game_id'))}/story'>{esc(r.get('owner'))}/{esc(r.get('game_id'))}</a></td>"
-        f"<td>{esc((r.get('card') or {}).get('title'))}</td><td>{esc(r.get('reason'))}</td><td>{esc(r.get('comment'))}</td></tr>"
+        + (f"<td>{esc(r.get('page')) or 'site'}</td>" if r.get("kind") == "general" else
+           f"<td><a href='/u/{esc(r.get('owner'))}/games/{esc(r.get('game_id'))}/story'>{esc(r.get('owner'))}/{esc(r.get('game_id'))}</a></td>")
+        + f"<td>{esc((r.get('card') or {}).get('title'))}</td><td>{esc(r.get('reason'))}</td><td>{esc(r.get('comment'))}</td></tr>"
         for r in reports) or "<tr><td colspan='6'>No reports yet.</td></tr>"
 
     def depth(q: str) -> str:
@@ -695,6 +713,25 @@ def admin(event: dict) -> dict:
         if g.get("state") == "done":
             first_done[g["user"]] = min(first_done.get(g["user"], g["_t"]), g["_t"])
     ymd = lambda t: time.strftime("%Y-%m-%d", time.gmtime(t))  # noqa: E731
+    # Coming back: of the players whose first review is at least 7 (30) days old, how many had another
+    # review 7 (30) or more days later; and how many have more than one review at all.
+    done_t = {}
+    for g in games:
+        if g.get("state") == "done":
+            done_t.setdefault(g["user"], []).append(g["_t"])
+    now = time.time()
+
+    def back(days: int) -> str:
+        old = [ts for ts in done_t.values() if now - min(ts) >= days * 86400]
+        came = sum(1 for ts in old if max(ts) - min(ts) >= days * 86400)
+        return f"{came} of {len(old)}" if old else "-"
+
+    repeat = sum(1 for ts in done_t.values() if len(ts) > 1)
+    said = {}
+    for r in reports:
+        if r.get("kind") != "general":
+            said[r.get("reason")] = said.get(r.get("reason"), 0) + 1
+    said_txt = " · ".join(f"{k}: {v}" for k, v in sorted(said.items(), key=lambda x: -x[1])) or "none yet"
     cols = ["home", "sample_open", "sample_story", "sample_review", "sample_end", "get_started", "start_page", "store_click"]
     rows_e = "".join(
         f"<tr><td>{d}</td>" + "".join(f"<td>{c.get(k, '') or ''}</td>" for k in cols)
@@ -725,6 +762,9 @@ first finished reviews from the stored accounts. A first finished review is the 
 <div class="scroll"><table><tr><th>Day</th><th>Home</th><th>Sample opened</th><th>Sample story</th><th>Sample review</th>
 <th>Sample to the end</th><th>Get started</th><th>Setup page</th><th>Store click</th><th>Sign-ups</th><th>First review</th>
 <th>Own home page</th></tr>{rows_e}</table></div>
+<p>Players with a finished review: {len(done_t)} · more than one review: {repeat} · back after 7 days: {back(7)} ·
+back after 30 days: {back(30)}</p>
+<p>What players said about story cards (latest 40; claims to check, not ground truth): {esc(said_txt)}</p>
 <h2>Players</h2><div class="scroll"><table><tr><th>Player</th><th>Joined</th><th>Games</th><th>Reviewed</th><th>Failed</th>
 <th>Reviews today</th><th>Last activity</th></tr>{rows_u}</table></div>
 <h2>"Doesn't make sense?" reports</h2><div class="scroll"><table><tr><th>When</th><th>From</th><th>Game</th><th>Card</th>

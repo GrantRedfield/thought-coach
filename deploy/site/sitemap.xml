@@ -6,5 +6,6 @@
   <url><loc>https://thoughtcoach.org/questions</loc><priority>0.7</priority></url>
   <url><loc>https://thoughtcoach.org/start</loc><priority>0.7</priority></url>
   <url><loc>https://thoughtcoach.org/play</loc><priority>0.6</priority></url>
+  <url><loc>https://thoughtcoach.org/feedback</loc><priority>0.3</priority></url>
   <url><loc>https://thoughtcoach.org/privacy</loc><priority>0.4</priority></url>
 </urlset>

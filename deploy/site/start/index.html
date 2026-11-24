@@ -31,6 +31,9 @@
   <p class="lead">About two minutes, then play: connect lichess and add the extension, play a game while you capture your
     thinking, and review your decisions. This page ticks each step off as you go. <a href="/sample/">See a sample review first</a>.</p>
   <div class="alert" id="signin-msg" hidden></div>
+  <p class="note" id="mobile-note" hidden>You're on a phone or tablet. The extension needs Chrome, Edge or Brave on a
+    computer, because that's where you play with arrows. You can sign in here now and finish on your computer, or look at
+    <a href="/sample/">an example review</a> first.</p>
 
   <ol class="steps">
     <li id="s-signin" class="now">
@@ -132,6 +135,7 @@
       : 'Sign-in didn\'t work. Please try again.';
   }
 
+  if (/Android|iPhone|iPad|Mobile/i.test(navigator.userAgent)) $('mobile-note').hidden = false;
   function mark(id, state) { $(id).className = state; }
 
   function render() {

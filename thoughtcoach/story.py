@@ -1120,20 +1120,24 @@ def render(story: dict) -> str:
     bars = "".join("<i><b></b></i>" for _ in slides)
     # Built outside the f-string: a backslash inside its braces needs Python 3.12 (the worker runs 3.11).
     plies_json = json.dumps({"plies": story.get("plies") or [], "white": story.get("color") != "black"}).replace("</", "<\\/")
-    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Your game · {_e(story['id'])}</title>
 <style>{CSS}</style></head><body><main class="story" aria-live="polite">
 <div class="bars">{bars}</div><button class="close" type="button" onclick="location.href='{_e(game_url(story['id']))}'" aria-label="Close">×</button>
 {body}<button class="nav prev" type="button" aria-label="Previous card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
 <button class="nav next" type="button" aria-label="Next card"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
-<button class="flag" type="button" aria-haspopup="dialog">Doesn't make sense?</button>
-<div class="fb" role="dialog" aria-label="Report this card" hidden><p class="fbh">What's off about this card?</p>
-<label><input type="radio" name="why" value="wrong" checked> It's wrong or contradicts itself</label>
+<button class="flag" type="button" aria-haspopup="dialog">Feedback on this card</button>
+<div class="fb" role="dialog" aria-label="Feedback on this card" hidden><p class="fbh">How is this card?</p>
+<label><input type="radio" name="why" value="accurate" checked> Accurate</label>
+<label><input type="radio" name="why" value="helpful"> Helpful: I learned something</label>
+<label><input type="radio" name="why" value="unrecorded"> I did consider this, I just didn't draw or say it</label>
+<label><input type="radio" name="why" value="misread"> It misreads what I was thinking</label>
+<label><input type="radio" name="why" value="wrong"> It's wrong about the position</label>
 <label><input type="radio" name="why" value="confusing"> It's confusing</label>
 <label><input type="radio" name="why" value="other"> Something else</label>
-<textarea maxlength="1000" placeholder="What did you expect? (optional)"></textarea>
+<textarea maxlength="1000" placeholder="Tell us more (optional)"></textarea>
 <div class="fbr"><button type="button" class="fbsend">Send</button><button type="button" class="fbcancel">Cancel</button></div>
-<p class="fbdone" hidden>Thanks: this helps make the stories better.</p></div>
+<p class="fbdone" hidden>Thanks: every answer is read, and it helps check the coaching.</p></div>
 <p class="hint"><span class="count"></span><span class="keys"> · use ← → to move between cards</span></p></main>
 <script type="application/json" id="plies">{plies_json}</script>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">{PIECE_DEFS}</svg>

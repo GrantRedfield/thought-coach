@@ -204,7 +204,7 @@ def list_page(reviews: Reviews, owner: str | None = None) -> str:
     nav = (guide + "<a class='nav' href='https://lichess.org/'>Play on lichess</a>" if not owner else
            f"<span class='who'>{html.escape(owner)}</span><a class='nav' href='https://lichess.org/'>Play on lichess</a>"
            f"{guide}<a class='nav' href='/start'>Setup</a><a class='nav' href='/api/logout'>Sign out</a>")
-    return f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
+    return f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1">{refresh}<title>Thought Coach</title>
 <link rel="icon" href="/favicon.png">{THEME_HEAD}<style>{LIST_CSS}{profile.CSS}{home.CSS}</style></head><body>{THEME_BUTTON}
 <main class="wrap"><nav class="topbar"><a class="brand" href="/"><img src="/icon.svg" alt="" width="22" height="22" style="vertical-align:-5px;margin-right:6px">Thought Coach</a><span class="sp"></span>{nav}</nav>
