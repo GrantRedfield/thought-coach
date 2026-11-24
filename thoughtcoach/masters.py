@@ -35,6 +35,15 @@ def baseline() -> dict:
         return {}
 
 
+@lru_cache(maxsize=1)
+def splits() -> dict:
+    """Masters' habits split by situation (splits.py), when the baseline has them."""
+    try:
+        return json.loads(DATA.read_text(encoding="utf-8")).get("splits") or {}
+    except (OSError, ValueError):
+        return {}
+
+
 def rate(key: str) -> float | None:
     return (baseline().get(key) or {}).get("rate")
 
