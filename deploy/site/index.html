@@ -59,6 +59,10 @@
   .cap-pills .pill.out { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
   .cap-pills .plus { color:var(--muted); font-weight:700; font-size:18px; }
   .cap-pills.under { margin:14px 0 0; }
+  .novideo { display:flex; gap:10px; align-items:flex-start; margin:12px 0 0; padding:10px 14px; border-radius:12px; font-size:14px;
+    color:var(--fg2); background:color-mix(in srgb, var(--accent) 10%, transparent); border:1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); }
+  .novideo b { color:var(--fg); }
+  .novideo svg { flex:none; width:20px; height:20px; margin-top:1px; fill:none; stroke:var(--accent); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
   .cap-pills svg, .cap .ic svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.2;
     stroke-linecap:round; stroke-linejoin:round; }
   section.capture { margin-top:56px; }
@@ -235,6 +239,7 @@
     <section class="example">
       <p class="exlabel">Two real moments, reviewed (no sound needed)</p>
       <div id="example-card"></div>
+      <p class="novideo"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.5 6H15a2 2 0 0 1 2 2v2.5l4-2.5v8"/><path d="M15 15v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2"/></svg><span><b>No camera, no video, no streaming.</b> The clips show a master who streams. For your own games the free extension just saves the arrows you draw and what you say, while you play on lichess as normal.</span></p>
       <p class="cap-pills under" aria-label="Your arrows plus your voice plus Stockfish make a nuanced coaching experience">
         <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 L17 7" /><path d="M10 7 H17 V14" /></svg>Arrows</span>
         <span class="plus">+</span>
