@@ -34,6 +34,27 @@
   .hero .sub2 { font-size:clamp(17px, 1.6vw, 20px); color:var(--fg); margin:0 0 12px; max-width:44ch; font-weight:500; }
   .hero .why { color:var(--fg2); margin:0 0 22px; max-width:48ch; }
   .hero .row .btn { padding:12px 20px; }
+  /* arrows + voice: the idea, in their face */
+  .cap-pills { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:8px; margin:0 0 18px; }
+  .cap-pills .pill { display:inline-flex; align-items:center; gap:7px; padding:7px 13px; border-radius:999px; font-weight:700;
+    font-size:15px; border:1px solid color-mix(in srgb, var(--accent) 55%, var(--line));
+    background:color-mix(in srgb, var(--accent) 14%, transparent); color:var(--fg); }
+  .cap-pills .pill.out { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
+  .cap-pills .plus { color:var(--muted); font-weight:700; font-size:18px; }
+  .cap-pills svg, .cap .ic svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.2;
+    stroke-linecap:round; stroke-linejoin:round; }
+  section.capture { margin-top:56px; }
+  section.capture h2 em { font-style:normal; color:var(--accent); }
+  .cap3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+  .cap { background:var(--card); border:1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius:18px; padding:20px 20px 18px; }
+  .cap.out { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inset; }
+  .cap .ic { display:inline-grid; place-items:center; width:44px; height:44px; border-radius:12px; color:var(--accent);
+    background:color-mix(in srgb, var(--accent) 16%, transparent); margin-bottom:10px; }
+  .cap .ic svg { width:24px; height:24px; }
+  .cap h3 { margin:0 0 6px; font-size:20px; }
+  .cap p { margin:0 0 10px; color:var(--fg2); font-size:15px; }
+  .cap .eg { margin:0; font-size:14px; color:var(--fg); border-left:3px solid var(--accent); padding:2px 0 2px 10px; font-style:italic; }
+  .capnote { color:var(--muted); font-size:13.5px; margin:14px 0 0; max-width:80ch; }
   .trustline { color:var(--muted); font-size:13.5px; margin:14px 0 0; }
   .trustline a { color:var(--fg2); }
   .exlabel { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; text-align:center; }
@@ -143,7 +164,7 @@
   .final .row { justify-content:center; }
 
   @media (max-width:980px) {
-    .top2, .sample, .prof { grid-template-columns:1fr; }
+    .top2, .sample, .prof, .cap3 { grid-template-columns:1fr; }
     .q4, .stats { grid-template-columns:1fr 1fr; } .finds, ol.three, .facts { grid-template-columns:1fr; }
   }
   @media (max-width:560px) {
@@ -169,10 +190,10 @@
     <section class="hero">
       <p class="eyebrow">Your personal chess thinking coach</p>
       <h1>Review how you <em>think</em>,<br>not just what you played.</h1>
-      <p class="sub2">Discover the threats you overlook, the moves you never consider, and the thinking habits holding back your chess.</p>
-      <p class="why">Traditional game review tells you what you got wrong. Thought Coach helps you understand why you keep
-        getting it wrong: you draw arrows and think out loud while you play on lichess, and after the game it checks your
-        thinking, not just your moves.</p>
+      <p class="sub2">Draw your ideas as arrows and think out loud while you play. Thought Coach captures both, and coaches
+        the thinking behind every move.</p>
+      <p class="why">Traditional game review tells you what you got wrong. Thought Coach shows you why: the threats you
+        overlooked, the moves you never considered, and the thinking habits holding back your chess.</p>
       <div class="row" id="cta">
         <a class="btn primary" href="/sample/">Explore an example game review</a>
         <a class="btn" href="/start" data-ev="get_started">Get started</a>
@@ -180,6 +201,15 @@
       <p class="trustline"><b>Free and open source</b>: no ads, no subscription, and the code is <a href="https://github.com/GrantRedfield/thought-coach">public</a>. Post-game only: nothing is shown during your games. <a href="#trust">Fair play and privacy</a></p>
     </section>
     <section class="example">
+      <p class="cap-pills" aria-label="Your arrows plus your voice plus Stockfish make a nuanced coaching experience">
+        <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 L17 7" /><path d="M10 7 H17 V14" /></svg>Arrows</span>
+        <span class="plus">+</span>
+        <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>Voice</span>
+        <span class="plus">+</span>
+        <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" /><circle cx="12" cy="12" r="3.2" /></svg>Stockfish</span>
+        <span class="plus">=</span>
+        <span class="pill out">Nuanced coaching</span>
+      </p>
       <p class="exlabel">One card from a real game's story</p>
       <div id="example-card"></div>
     </section>
@@ -191,12 +221,45 @@
       .catch(() => { document.querySelector('section.example').hidden = true; document.querySelector('.top2').classList.add('solo'); });
   </script>
 
+  <!-- 1b. what it captures: the arrows and the voice, front and centre -->
+  <section class="blk capture" id="capture">
+    <p class="eyebrow">What no engine review can see</p>
+    <h2>Thought Coach records <em>how</em> you think: your arrows and your voice</h2>
+    <p class="sub">An engine only sees the move you played. While you play on lichess, Thought Coach also captures every
+      arrow you draw and every word you say, tied to the exact move. That's what makes the coaching about you.</p>
+    <div class="cap3">
+      <div class="cap">
+        <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 L17 7" /><path d="M10 7 H17 V14" /></svg></span>
+        <h3>Your arrows</h3>
+        <p>Right-click arrows and circles, exactly as you already do on lichess. They show the moves you weighed, the
+          threats you spotted, and the squares you worried about.</p>
+        <p class="eg">You drew Nf5 and Qh5, then played Qh5. Was Nf5 the move you dropped?</p>
+      </div>
+      <div class="cap">
+        <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg></span>
+        <h3>Your voice</h3>
+        <p>Think out loud as you play. Your words become text, matched to the move you were on: your plans, your
+          calculations, your doubts, the moment you decided it was lost.</p>
+        <p class="eg">"I don't think he can take on e5." He could, and the review shows why.</p>
+      </div>
+      <div class="cap out">
+        <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z" /></svg></span>
+        <h3>Coaching on your thinking</h3>
+        <p>Checked against Stockfish, move by move: was the best move ever in your thinking? Did you see their threat and
+          let it through? Did your confidence match the position?</p>
+        <p class="eg">One habit to work on next game, with the moment from this game that shows why.</p>
+      </div>
+    </div>
+    <p class="capnote">Voice is optional and easy to switch off; arrows alone still give a full review. The more you say,
+      the more precisely the coaching can pinpoint what to fix.</p>
+  </section>
+
   <!-- 2. the sample review -->
   <section class="blk" id="sample">
     <p class="eyebrow">Try it without signing up</p>
     <h2>Explore a complete review of a real game</h2>
-    <p class="sub">A 10-minute game by an international master against a strong national master, recorded with Thought Coach
-      and shared with the player's permission. Every arrow he drew and every word he said is in it, checked by Stockfish.</p>
+    <p class="sub">A 10-minute game by an international master against a strong national master, recorded with Thought
+      Coach. Every arrow he drew and every word he said is in it, checked by Stockfish.</p>
     <div class="sample">
       <div>
         <span class="tag">Sample · real game, real recording</span>
