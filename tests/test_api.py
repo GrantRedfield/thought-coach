@@ -251,3 +251,25 @@ def test_admin_is_for_the_owner_only(api, monkeypatch):
     owner = "tc_session=" + api.make_session("lucidchess")
     r = api.handler(event("GET", "/api/admin", cookies=[owner]), None)
     assert r["statusCode"] == 200 and "AbCd1234" in r["body"] and "boom" in r["body"] and "LucidChess" in r["body"]
+
+
+def test_titled_players_count_as_masters_unless_they_opt_out(api):
+    assert not api.is_master(api.get_or_create_user("plain", "Plain"))
+    assert not api.is_master(api.get_or_create_user("robot", "Robot", "BOT"))
+    gm = api.get_or_create_user("bigshot", "BigShot", "GM")
+    assert gm["title"] == "GM" and api.is_master(gm)
+    cookie = "tc_session=" + api.make_session("bigshot")
+    me = json.loads(api.handler(event("GET", "/api/me", cookies=[cookie]), None)["body"])
+    assert me["title"] == "GM" and me["benchmark"] is True
+    r = api.handler(event("POST", "/api/benchmark", {"on": False}, cookies=[cookie]), None)
+    assert r["statusCode"] == 200 and json.loads(r["body"]) == {"benchmark": False}
+    assert not api.is_master(api.get_or_create_user("bigshot", "BigShot", "GM"))  # signing in again keeps the choice
+    assert api.handler(event("POST", "/api/benchmark", {"on": "yes"}, cookies=[cookie]), None)["statusCode"] == 400
+    assert api.handler(event("POST", "/api/benchmark", {"on": True}), None)["statusCode"] == 401
+
+
+def test_page_events_are_counted_by_name_only(api):
+    assert api.handler({**event("POST", "/api/event"), "body": "sample_open"}, None)["statusCode"] == 204
+    assert api.handler({**event("POST", "/api/event"), "body": "anything"}, None)["statusCode"] == 400
+    [(_, key)] = [k for k in api.fake_s3.objects if k[1].startswith("events/")]
+    assert json.loads(api.fake_s3.objects[("data", key)]) == {"sample_open": 1}

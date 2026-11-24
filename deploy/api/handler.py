@@ -93,15 +93,23 @@ def _key_hash(key: str) -> str:
 # ---------------------------------------------------------------- players
 
 
-def get_or_create_user(uid: str, name: str) -> dict:
-    """users/<id>.json: the player's name and upload key; keys/<sha256>.json maps a key back."""
+def is_master(user: dict) -> bool:
+    """A titled lichess account (any lichess title; never a bot) that hasn't opted out: its reviews count,
+    pooled and anonymous, in the master benchmarks."""
+    title = str(user.get("title") or "").upper()
+    return bool(title) and title != "BOT" and user.get("benchmark", True) is not False
+
+
+def get_or_create_user(uid: str, name: str, title: str | None = None) -> dict:
+    """users/<id>.json: the player's name, lichess title and upload key; keys/<sha256>.json maps a key back."""
+    title = str(title).upper() if title else None
     user = _get_json(DATA, f"users/{uid}.json")
     if user:
-        if user.get("name") != name:
-            user["name"] = name
+        if user.get("name") != name or user.get("title") != title:
+            user["name"], user["title"] = name, title
             _put_json(DATA, f"users/{uid}.json", user)
         return user
-    user = {"id": uid, "name": name, "key": secrets.token_urlsafe(32), "created": time.time()}
+    user = {"id": uid, "name": name, "title": title, "key": secrets.token_urlsafe(32), "created": time.time()}
     _put_json(DATA, f"users/{uid}.json", user)
     _put_json(DATA, f"keys/{_key_hash(user['key'])}.json", {"user": uid})
     # Their games page exists from the start, so the links on /start never lead nowhere.
@@ -274,7 +282,7 @@ def callback(event: dict) -> dict:
     uid, name = str(account.get("id", "")).lower(), str(account.get("username", ""))
     if not USER_ID.match(uid):
         return redirect("/start?signin=failed", [clear])
-    get_or_create_user(uid, name or uid)
+    get_or_create_user(uid, name or uid, account.get("title"))  # lichess title: GM, IM, ... (public)
     # Players with reviews go straight to their games (latest story up front); new ones to setup.
     has_games = s3.list_objects_v2(Bucket=SITE, Prefix=f"status/{uid}/", MaxKeys=1).get("KeyCount", 0) > 0
     return redirect(f"/u/{uid}/" if has_games else "/start",
@@ -286,8 +294,27 @@ def me(event: dict) -> dict:
     user = uid and _get_json(DATA, f"users/{uid}.json")
     if not user:
         return reply(200, {"signed_in": False}, cors=False)
+    titled = bool(user.get("title")) and str(user.get("title")).upper() != "BOT"
     return reply(200, {"signed_in": True, "id": user["id"], "name": user["name"], "key": user["key"],
-                       "home": f"/u/{user['id']}/"}, cors=False)
+                       "home": f"/u/{user['id']}/", "title": user.get("title") if titled else None,
+                       "benchmark": is_master(user)}, cors=False)
+
+
+def set_benchmark(event: dict) -> dict:
+    """A titled player switching their games in or out of the master benchmarks ({"on": true|false})."""
+    uid = signed_in(event)
+    user = uid and _get_json(DATA, f"users/{uid}.json")
+    if not user:
+        return reply(401, {"error": "not signed in"}, cors=False)
+    try:
+        on = json.loads(_body(event) or "{}").get("on")
+    except (ValueError, AttributeError):
+        on = None
+    if not isinstance(on, bool):
+        return reply(400, {"error": "say on: true or false"}, cors=False)
+    user["benchmark"] = on
+    _put_json(DATA, f"users/{uid}.json", user)
+    return reply(200, {"benchmark": is_master(user)}, cors=False)
 
 
 def logout(event: dict) -> dict:
@@ -768,6 +795,8 @@ def handler(event: dict, context) -> dict:
         return feedback(event)
     if path == "/api/event":
         return count_event(event)
+    if path == "/api/benchmark":
+        return set_benchmark(event)
     user = uploader(event)
     if not user:
         return reply(401, {"error": "not connected: sign in at thoughtcoach.org/start to connect the extension"})

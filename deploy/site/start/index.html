@@ -40,6 +40,12 @@
           and get no access to your account.</p>
         <a class="btn primary" href="/api/login">Sign in with lichess</a>
       </div>
+      <div class="note" id="titled" hidden>
+        <p style="margin:0 0 6px"><b>You're a titled player (<span id="title"></span>).</b> Your rapid and classical reviews help set
+          Thought Coach's master benchmarks: your habit rates are pooled with other strong players', and you are never named,
+          quoted, or shown individually. <a href="/research">How the benchmarks work</a></p>
+        <label class="switch"><input type="checkbox" id="bench" checked> <span>Count my games in the master benchmarks</span></label>
+      </div>
     </li>
 
     <li id="s-ext" class="later">
@@ -136,6 +142,8 @@
     for (const a of [$('nav-games'), $('games-btn')]) { a.href = me.home || '#'; a.hidden = !signed; }
     $('nav-out').hidden = !signed;
     $('danger').hidden = !signed;
+    $('titled').hidden = !(signed && me.title);
+    if (signed && me.title) { $('title').textContent = me.title; $('bench').checked = !!me.benchmark; }
 
     mark('s-ext', installed ? 'done' : signed ? 'now' : 'later');
     $('ext-todo').hidden = installed;
@@ -184,6 +192,10 @@
     const r = await fetch('/api/account/delete', { method: 'POST' });
     if (r.ok) { alert('Deleted. You can uninstall the extension too.'); location.href = '/'; }
     else alert('Could not delete: please sign in again and retry.');
+  };
+  $('bench').onchange = async (e) => {
+    const r = await fetch('/api/benchmark', { method: 'POST', body: JSON.stringify({ on: e.target.checked }) }).catch(() => null);
+    if (!r || !r.ok) { e.target.checked = !e.target.checked; alert('Could not save that: please try again.'); }
   };
   $('recheck').onclick = (e) => { e.preventDefault(); location.reload(); };
   $('voice-on').onchange = (e) => window.postMessage({ tc: 'site', type: 'voice', on: e.target.checked }, location.origin);

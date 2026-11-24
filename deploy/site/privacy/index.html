@@ -40,7 +40,7 @@
 
   <h2>What the website stores</h2>
   <ul>
-    <li><b>Your lichess username</b>, from signing in with lichess. We don't see your password, and we don't keep
+    <li><b>Your lichess username and title</b> (if you have one), from signing in with lichess. We don't see your password, and we don't keep
       access to your lichess account: we give the sign-in back to lichess straight away.</li>
     <li>An upload key that links the extension to your account.</li>
     <li>Your recordings and the reviews made from them. <b>Voice audio is deleted once it has been transcribed</b>;
@@ -54,12 +54,21 @@
   <h2>How it is used</h2>
   <p>Only to make your reviews: the game is analysed with the Stockfish chess engine, and the voice is turned into
     text and tagged by speech models running on our own servers. Your data is not sold, not used for advertising,
-    not used to train AI models, and not shared with anyone, except the services that run the site:</p>
+    not used to train AI models, and not shared with anyone, except the services that run the site (and, for titled players,
+    the pooled master benchmarks described below):</p>
   <ul>
     <li><b>lichess.org</b>: for signing in, and to check that a game is over and that you played in it (public game data).</li>
     <li><b>Amazon Web Services</b> (United States): hosting, storage, and the servers that run the engine and the speech-to-text models.</li>
     <li><b>Google</b>, only if you install from the Chrome Web Store: the store handles the install, as for any extension.</li>
   </ul>
+
+  <h2 id="titled">Titled players and the master benchmarks</h2>
+  <p>If your lichess account has a title (GM, IM, FM, CM, NM, LM and the women's titles; never bot accounts), your rapid
+    and classical reviews are included in the master benchmarks that every player is compared with. Only pooled rates
+    are published, averaged with other strong players: you are never named, quoted or shown individually, and no game,
+    position or transcript of yours is shown to anyone else. Your title is read from lichess when you sign in (it is
+    public on your lichess profile). You can switch this off at any time on the <a href="/start">setup page</a>;
+    your games then drop out the next time the benchmarks are rebuilt, as they do if you delete your data.</p>
 
   <h2>Who can see your reviews</h2>
   <p>Review pages are not listed or searchable, but anyone you give a link to can open them, as with a lichess game link.</p>
