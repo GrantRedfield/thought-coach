@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import html
 
-URL = ""  # the Stripe Payment Link (https://buy.stripe.com/...); empty: no ask
+URL = "https://buy.stripe.com/7sYfZh1Qo7dIdHl65f8ww00"  # the Stripe Payment Link; empty: no ask
 AFTER = 5  # reviewed games before asking
 AMOUNTS = (5, 10)  # suggested, in dollars (prefilled on the payment page when Stripe allows it)
 
