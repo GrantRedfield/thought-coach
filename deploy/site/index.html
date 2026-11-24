@@ -41,6 +41,7 @@
     background:color-mix(in srgb, var(--accent) 14%, transparent); color:var(--fg); }
   .cap-pills .pill.out { background:var(--accent); color:var(--accent-fg); border-color:var(--accent); }
   .cap-pills .plus { color:var(--muted); font-weight:700; font-size:18px; }
+  .cap-pills.under { margin:14px 0 0; }
   .cap-pills svg, .cap .ic svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2.2;
     stroke-linecap:round; stroke-linejoin:round; }
   section.capture { margin-top:56px; }
@@ -171,6 +172,12 @@
 
   @media (max-width:980px) {
     .top2, .sample, .prof, .cap3 { grid-template-columns:1fr; }
+    /* one column: headline, then the video straight away, then the rest of the intro */
+    .top2 { display:flex; flex-direction:column; gap:0; margin-top:8px; }
+    .top2 > .hero { display:contents; }
+    .top2 > .hero > * { order:3; }
+    .top2 > .hero > .eyebrow { order:1; } .top2 > .hero > h1 { order:2; }
+    .top2 > section.example { order:2; margin:4px 0 26px; }
     .q4, .stats { grid-template-columns:1fr 1fr; } .finds, ol.three, .facts { grid-template-columns:1fr; }
   }
   @media (max-width:560px) {
@@ -209,7 +216,9 @@
       <p class="trustline"><b>Free and open source</b>: no ads, no subscription, and the code is <a href="https://github.com/GrantRedfield/thought-coach">public</a>. Post-game only: nothing is shown during your games. <a href="#trust">Fair play and privacy</a></p>
     </section>
     <section class="example">
-      <p class="cap-pills" aria-label="Your arrows plus your voice plus Stockfish make a nuanced coaching experience">
+      <p class="exlabel">Two real moments, reviewed (no sound needed)</p>
+      <div id="example-card"></div>
+      <p class="cap-pills under" aria-label="Your arrows plus your voice plus Stockfish make a nuanced coaching experience">
         <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20 L17 7" /><path d="M10 7 H17 V14" /></svg>Arrows</span>
         <span class="plus">+</span>
         <span class="pill"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>Voice</span>
@@ -218,8 +227,6 @@
         <span class="plus">=</span>
         <span class="pill out">Nuanced coaching</span>
       </p>
-      <p class="exlabel">Two real moments, reviewed (no sound needed)</p>
-      <div id="example-card"></div>
     </section>
   </div>
   <script>
