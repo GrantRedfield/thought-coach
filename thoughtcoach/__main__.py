@@ -215,7 +215,8 @@ def write_story(report: dict, analysis: dict, thinking: dict | None, game, out_d
     from . import profile, story
 
     try:
-        loaded = profile.load(out_dir, games)
+        # patterns across games: rapid and slower only (blitz shows too little thinking to measure)
+        loaded = [g for g in profile.load(out_dir, games) if profile.serious(g)]
         history = story.history_from_profile(profile.compute(loaded))
         from . import masters  # how far from masters you are on each habit, across your games
         history["yours"] = masters.your_rates(loaded)

@@ -51,6 +51,17 @@ def _played(pgn: Path) -> str | None:
     return f"{d.group(1)} {t.group(1) if t else ''}".strip() if d else None
 
 
+RAPID_SECONDS = 480  # lichess's line between blitz and rapid (base + 40 x increment): 10+0 counts, 5+3 doesn't
+
+
+def serious(g: dict) -> bool:
+    """Rapid or slower. Patterns, habits and the masters comparison count only these: in blitz the
+    arrows and words mostly stop (about a quarter as many), so there's too little thinking to measure.
+    A game whose time control isn't known is kept."""
+    m = re.match(r"(\d+)(?:\+(\d+))?$", str(g["report"]["game"].get("time_control") or ""))
+    return not m or int(m[1]) + 40 * int(m[2] or 0) >= RAPID_SECONDS
+
+
 def load(out: Path, games: Path) -> list[dict]:
     """Every reviewed game: its report, analysis records and opponent clocks, oldest first."""
     found = []

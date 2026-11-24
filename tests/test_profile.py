@@ -50,3 +50,13 @@ def test_one_game_shows_no_patterns(tmp_path):
     out.mkdir()
     fake_game(out, "game0000", "white", "1-0", [(10, 1, 0.1, 1, 100)])
     assert profile.render(profile.compute(profile.load(out, tmp_path))) == ""
+
+
+def test_serious_is_rapid_or_slower():
+    from thoughtcoach import profile
+
+    def g(tc):
+        return {"report": {"game": {"time_control": tc}}}
+
+    assert profile.serious(g("600+0")) and profile.serious(g("300+5")) and profile.serious(g(None))
+    assert not profile.serious(g("300+3")) and not profile.serious(g("180+0"))

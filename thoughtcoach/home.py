@@ -362,17 +362,27 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
 <a class="btn ghost" href="https://thoughtcoach.org/play">Tips for your first games</a></div></div></section>{f"<div class='grid'>{waiting}</div>" if waiting else ''}"""
     last = rows[-1]
     before = [r for r in rows[:-1] if r["moves"] and r.get("acc") is not None]
-    parts = profile.sections(prof, kpis_shown=False) if len(rows) >= 2 else {}
-    focus = focus_check(loaded, stories)
+    # Progress and patterns count rapid and slower games only: in blitz the arrows and words mostly stop.
+    slow = [g for g in loaded if profile.serious(g)]
+    ids = {g["id"] for g in slow}
+    srows = [r for r in rows if r["id"] in ids]
+    sprof = profile.compute(slow) if len(slow) != len(loaded) and slow else (prof if slow else None)
+    parts = profile.sections(sprof, kpis_shown=False) if len(srows) >= 2 else {}
+    focus = focus_check(slow, stories)
+    fast = len(rows) - len(srows)
+    note = (f"<p class='cap slownote'>Counting your {len(srows)} rapid and classical game{'s' * (len(srows) != 1)}. "
+            f"{fast} blitz game{'s' * (fast != 1)} {'aren' if fast != 1 else 'isn'}'t counted: at that speed there's "
+            f"too little drawing and talking to measure your thinking. Play 10+0 or slower for the full coaching.</p>"
+            if fast else "")
     res = {"won": "you won", "lost": "you lost", "draw": "a draw"}[last["outcome"]]
     tabs = [("story", f"&#9654; Your latest story<small>vs {_e(last['opp'])} · {res}</small>",
              hero(last, stories.get(last['id']), (statistics.mean(r["per_move"] for r in before),
                                                   statistics.mean(r["acc"] for r in before)) if before else None)),
-            ("form", "Your progress", f"""{form(rows, prof)}{focus}
+            ("form", "Your progress", f"""{note}{form(srows, sprof) if srows else ''}{focus}
 <section class="chart"><h2>Every game at a glance</h2><p class="cap">Win chance an average move gave away, game by game (lower is better; hover a column for its accuracy)</p>
 {_games_chart(rows)}</section>"""),
             ("games", f"Your games<small>{len(rows)}</small>", f"<section><div class='grid'>{cards(rows, statuses)}</div></section>"),
-            ("patterns", "Patterns", parts.get("summary", "") + parts.get("charts", "")
+            ("patterns", "Patterns", (note if parts else "") + parts.get("summary", "") + parts.get("charts", "")
              + "".join(f"<section class='profile'><details class='fold big'><summary>{t}</summary>{parts[k]}</details></section>"
                        for k, t in (("questions", "Aagaard's four questions"), ("voice", "Your voice and your play"))
                        if parts.get(k)))]
@@ -386,6 +396,7 @@ loud: the more the review sees, the more it can tell you.</p><div class="cta"><a
 
 
 CSS = bayes.RANGE_CSS + """
+.slownote { margin:0 0 12px; }
 .form h2 small { font-weight:400; color:var(--muted); font-size:13px; margin-left:8px; }
 details.fold.more { margin-top:10px; }
 details.fold.more > summary, details.fold.big > summary { padding:8px 2px; }
