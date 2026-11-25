@@ -237,8 +237,15 @@ class ThoughtCoach(Stack):
         # The landing and setup pages, and the extension download. Never removes anything else
         # (the players' review pages live in the same bucket).
         build_extension_zip()
+        # The example videos and their opening frames get a new file name whenever they change, so browsers and
+        # the CDN may keep them: the homepage video starts without re-checking them on every visit.
+        media = ["example/*.mp4", "example/*.jpg"]
         s3_deploy.BucketDeployment(
-            self, "SitePages", destination_bucket=site, sources=[s3_deploy.Source.asset(SITE_DIR)], prune=False,
+            self, "SiteMedia", destination_bucket=site, sources=[s3_deploy.Source.asset(SITE_DIR)], prune=False,
+            exclude=["*"], include=media,
+            cache_control=[s3_deploy.CacheControl.from_string("public, max-age=31536000, immutable")])
+        s3_deploy.BucketDeployment(
+            self, "SitePages", destination_bucket=site, sources=[s3_deploy.Source.asset(SITE_DIR)], prune=False, exclude=media,
             cache_control=[s3_deploy.CacheControl.from_string("no-cache")], distribution=dist,
             distribution_paths=["/", "/index.html", "/start*", "/privacy*", "/questions*", "/play*", "/img/*", "/example/*", "/sample*", "/research*", "/feedback*", "/robots.txt", "/sitemap.xml", "/live*", "/site.css", "/favicon.png", "/icon.svg", "/apple-touch-icon.png", "/thoughtcoach-extension.zip"])
         if zone:

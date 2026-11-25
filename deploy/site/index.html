@@ -13,6 +13,7 @@
 <meta name="twitter:card" content="summary">
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>window.tcExample = fetch('/example/card.html').then((r) => r.ok ? r.text() : Promise.reject());</script>
 <link rel="stylesheet" href="/site.css">
 <style>
   main.wide { max-width:1180px; } main.wide nav.top { margin-bottom:12px; flex-wrap:wrap; row-gap:6px; }
@@ -467,8 +468,10 @@
     <a href="/research">Research</a> · <a href="/privacy">Privacy and fair play</a> · <a href="/feedback">Feedback and beta testing</a> · not affiliated with lichess.org</footer>
   <script>
     // The real examples are published with the site but kept outside the code repository (they quote a player who gave permission).
-    fetch('/example/card.html').then((r) => r.ok ? r.text() : Promise.reject())
-      .then((h) => { document.getElementById('example-card').innerHTML = h; })
+    // (started in the head) phones get their own opening frame, so only one image is fetched
+    (window.tcExample || Promise.reject())
+      .then((h) => { if (matchMedia('(max-width:640px)').matches) h = h.replace(/poster="[^"]*" data-poster-m="([^"]*)"/, 'poster="$1"');
+        document.getElementById('example-card').innerHTML = h; })
       .catch(() => { document.querySelector('section.example').hidden = true; document.querySelector('.top2').classList.add('solo'); });
     // The tour: a topic list with one topic at a time on wide screens; on phones and tablets, a vertical accordion
     // with every topic heading visible (several can be open, so opening one never moves the others). A link to
