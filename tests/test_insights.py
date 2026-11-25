@@ -112,3 +112,12 @@ def test_opening_moves_and_recaptures_are_not_worth_foreseeing():
     assert not _worth_foreseeing(g, 8)    # 4... dxc6: in the opening (and a recapture)
     assert not _worth_foreseeing(g, 18)   # 9. Rxd1: taking back on d1
     assert _worth_foreseeing(g, 24)       # 12... b6: past move 12, a real move
+
+
+def test_naming_a_move_needs_the_right_piece():
+    from thoughtcoach.insights import names_move
+    from thoughtcoach.voice import tokens
+    said = tokens("let's go to knight a6")
+    assert names_move(said, "Na6") and not names_move(said, "a6")  # the knight move, not the pawn move
+    assert names_move(tokens("a6 was better"), "a6")
+    assert not names_move(tokens("bishop d4 is coming"), "Rd4") and names_move(tokens("bishop d4 is coming"), "Bd4")

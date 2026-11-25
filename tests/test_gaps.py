@@ -126,3 +126,32 @@ def test_costly_move_in_time_trouble():
     m = compare_move(record(wp_after=0.40, clock_before=12.0), win(), T)
     assert m["gap"] == "time_trouble"
     assert compare_move(record(wp_after=0.40, clock_before=95.0), win(), T)["gap"] == "no_thoughts"
+
+
+def test_a_threat_only_explains_the_loss_when_it_is_their_reply():
+    # Bb5 (the best) was drawn and rejected; Nd4 was a threat before the move, and the win chance after d3 is about
+    # what ignoring Nd4 would leave. But their best reply to d3 is Bc5, not Nd4: the threat is a coincidence there.
+    threat = {"move_san": "Nd4", "move_uci": "c6d4", "swing": 0.20, "wp_if_ignored": 0.36}
+    w = win(shape("candidate", "f1", "b5", "Bb5"), shape("candidate", "d2", "d3", "d3"), shape("opponent_idea", "f8", "c5", "Bc5"))
+    m = compare_move(record(move_uci="d2d3", move_san="d3", wp_after=0.38, threat=threat, played_line_san="3. d3 Bc5 4. Nc3"),
+                     w, T, evaluate=lambda fen, uci: 0.38)
+    assert m["gap"] == "wrongly_rejected"
+    assert m["reply"] == {"san": "Bc5", "uci": "f8c5", "recorded": True}  # their reply was in the recorded thinking
+    # when their best reply is the threat itself, the unstopped threat is the cause
+    m = compare_move(record(move_uci="d2d3", move_san="d3", wp_after=0.38, threat=threat, played_line_san="3. d3 Nd4 4. Nxd4"),
+                     w, T, evaluate=lambda fen, uci: 0.38)
+    assert m["gap"] == "opponent_idea" and m["reply"]["san"] == "Nd4" and not m["reply"]["recorded"]
+
+
+def test_saved_reports_are_reattributed_without_the_engine():
+    threat = {"move_san": "Nd4", "move_uci": "c6d4", "swing": 0.20, "wp_if_ignored": 0.36}
+    rec = record(move_uci="d2d3", move_san="d3", wp_after=0.38, threat=threat, played_line_san="3. d3 Bc5 4. Nc3")
+    old = compare_move({k: v for k, v in rec.items() if k != "played_line_san"},
+                       win(shape("candidate", "f1", "b5", "Bb5"), shape("candidate", "d2", "d3", "d3")), T, evaluate=lambda f, u: 0.38)
+    old.pop("reply")
+    assert old["gap"] == "opponent_idea"  # the old attribution
+    from thoughtcoach.gaps import reattribute
+    report = {"moves": [old], "summary": {}}
+    assert reattribute(report, {"moves": [rec]}) == 1
+    assert old["gap"] == "wrongly_rejected" and old["reply"]["san"] == "Bc5"
+    assert report["summary"]["by_gap"]["wrongly_rejected"]["count"] == 1

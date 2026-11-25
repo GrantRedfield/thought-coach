@@ -22,7 +22,7 @@ from .align import align
 from .align import render as render_windows
 from .analyse import Rules, analyse_pgn_game, game_id, live_move, opponent_clocks, player_color
 from .arrows import load_recordings
-from .dashboard import render as render_dashboard
+from .review import render as render_dashboard  # the review page (review.py; dashboard.py keeps its parts)
 from .aagaard import annotate as annotate_aagaard
 from .insights import build as build_insights, verdict
 from .tone import analyse as analyse_tone
@@ -347,7 +347,7 @@ def cmd_review(args: argparse.Namespace) -> int:
                 info = engine.analyse(board, root_moves=[chess.Move.from_uci(uci)])[0]
                 return board.variation_san(info.get("pv", [])[:4])
 
-            write(page, render_dashboard(report, analysis, thinking, args.critical, line_for))
+            write(page, render_dashboard(report, analysis, thinking, args.critical, line_for, game=game))
 
             # 6. The story: the game's standout moments as tap-through cards, and a focus for next game.
             write(out_dir / f"{gid}.story.html", write_story(report, analysis, thinking, game, out_dir, Path(args.games)))

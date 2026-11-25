@@ -31,6 +31,7 @@ The engine decides what is good; the drawings only say what I considered. An und
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import re
 
 import chess
 
@@ -82,6 +83,22 @@ def _drawn(window: dict | None) -> tuple[dict[str, dict], dict[str, dict], list[
         elif s["kind"] == "key_square" and s["from"] and s["from"] not in squares:
             squares.append(s["from"])
     return candidates, ideas, squares
+
+
+def played_reply(record: dict) -> tuple[str, str] | None:
+    """Their best reply to the move played, (san, uci): the second move of the engine's line after it
+    (played_line_san, e.g. "14...Nc7 15. Bd4 Qxb5"). None when the line isn't there or doesn't parse."""
+    line = record.get("played_line_san") or ""
+    sans = [w for w in (re.sub(r"^\d+\.+", "", w) for w in line.split()) if w]
+    if len(sans) < 2 or not record.get("fen") or not record.get("move_uci"):
+        return None
+    try:
+        board = chess.Board(record["fen"])
+        board.push_uci(record["move_uci"])
+        move = board.parse_san(sans[1])
+    except (ValueError, AssertionError):
+        return None
+    return sans[1], move.uci()
 
 
 def _how(sources: set) -> str:
@@ -172,13 +189,24 @@ def compare_move(record: dict, window: dict | None, t: Thresholds, evaluate=None
                 "held_s": s["on_board_s"],
             }
 
+    # Their best reply to the move played (the first move of the engine's line after it), and whether it was in
+    # the recorded thinking. Recognising an idea and answering it are different things: this is the second.
+    reply = played_reply(record)
+    reply_info = None
+    if reply:
+        reply_info = {"san": reply[0], "uci": reply[1], "recorded": reply[1] in drawn_ideas}
+
     # Attribution
     mistake = record["wp_loss"] >= t.mistake
     gap = None
     if mistake:
         has_thoughts = bool(drawn_cands or drawn_ideas or key_squares or picked_up)
+        # A threat left unstopped explains the loss only when it is what punishes the move: their best reply to
+        # it. (A similar win chance after some other reply is a coincidence, not the cause.) Old analyses
+        # without the engine's line after the move keep the earlier test.
         ignored_threat = (
             q3["status"] == "not_drawn" and record["wp_after"] <= q3["wp_if_ignored"] + t.margin
+            and (reply is None or threat is None or reply[1] == threat["move_uci"])
         )
         clock = record.get("clock_before")
         if clock is not None and clock < t.time_trouble:
@@ -208,6 +236,7 @@ def compare_move(record: dict, window: dict | None, t: Thresholds, evaluate=None
         "time_spent_pgn": window["time_spent_pgn"] if window else record.get("time_spent"),
         "clock_before": record.get("clock_before"),
         "drawn_candidates": drawn_list,
+        "reply": reply_info,
         "drawn_opponent_ideas": [
             v["san"] + ("" if _how(v["sources"]) == "arrow" else f" ({_how(v['sources'])})")
             for v in drawn_ideas.values()
@@ -278,6 +307,55 @@ def build(analysis: dict, thinking: dict, t: Thresholds | None = None, evaluate=
         "summary": summary,
         "moves": moves,
     }
+
+
+def _idea_san(text: str) -> str:
+    return text.split(" (")[0]
+
+
+def reattribute(report: dict, analysis: dict) -> int:
+    """Bring a saved report up to the current attribution without engine work: their best reply to each move
+    ("reply"), and a costly move put down to an unstopped threat only when that threat is their best reply.
+    Returns how many moves changed cause. (Reports built by this version already are left as they are.)"""
+    recs = {r.get("ply"): r for r in analysis.get("moves", [])}
+    changed = 0
+    for m in report.get("moves", []):
+        rec = recs.get(m["ply"]) or {}
+        reply = played_reply(rec)
+        if reply and "reply" not in m:
+            m["reply"] = {"san": reply[0], "uci": reply[1],
+                          "recorded": reply[0] in {_idea_san(x) for x in m.get("drawn_opponent_ideas") or []}}
+        threat = rec.get("threat") or {}
+        if m.get("gap") != "opponent_idea" or not reply or not threat.get("move_uci") or reply[1] == threat["move_uci"]:
+            continue
+        q4 = m.get("q4") or {}
+        has_thoughts = bool(m.get("drawn_candidates") or m.get("drawn_opponent_ideas") or m.get("key_squares") or m.get("picked_up"))
+        m["gap"] = ("wrongly_rejected" if q4.get("wrongly_rejected") else "no_thoughts" if not has_thoughts
+                    else "missed_candidate" if not q4.get("found") else "other")
+        changed += 1
+    # "Seen right after moving" notes from before the speech check knew pieces: drop one whose quote names the move
+    # that was just played ("let's go knight a6" after Na6 is not naming the better a6).
+    from .insights import names_move
+    from .voice import tokens
+    by_ply = {m["ply"]: m for m in report.get("moves", [])}
+    kept = []
+    for item in report.get("insights") or []:
+        m = by_ply.get(item.get("ply"))
+        quotes = re.findall(r"\): '(.+?)', ", item.get("body", "")) if item.get("kind") == "hindsight" else []
+        if m and quotes and all(names_move(tokens(q), m["move_san"]) for q in quotes):
+            changed += 1
+            continue
+        kept.append(item)
+    if "insights" in report:
+        report["insights"] = kept
+    if changed:
+        by_gap = {g: {"count": 0, "wp_lost": 0.0} for g in GAPS}
+        for m in report["moves"]:
+            if m.get("gap"):
+                by_gap[m["gap"]]["count"] += 1
+                by_gap[m["gap"]]["wp_lost"] = round(by_gap[m["gap"]]["wp_lost"] + (m.get("wp_loss") or 0), 3)
+        report.setdefault("summary", {})["by_gap"] = by_gap
+    return changed
 
 
 def engine_evaluator(engine, me: chess.Color, wp_model: str):

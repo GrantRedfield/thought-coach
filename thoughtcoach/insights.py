@@ -313,6 +313,25 @@ def _dest(san: str | None) -> str | None:
     return found[-1] if found else None
 
 
+PIECE_WORDS = {"knight": "N", "night": "N", "bishop": "B", "rook": "R", "queen": "Q", "king": "K", "pawn": "P"}
+
+
+def names_move(words: list[str], san: str | None) -> bool:
+    """Does this run of spoken tokens name `san`? Its destination square must be said, and when a piece word comes
+    right before it ("knight a6") that piece must be the one that moves: "knight a6" is Na6, never the pawn move a6."""
+    sq = _dest(san)
+    if not sq:
+        return False
+    piece = san[0] if san[0] in "NBRQK" else "P"
+    for i, w in enumerate(words):
+        if w != sq:
+            continue
+        said = PIECE_WORDS.get(words[i - 1]) if i else None
+        if said is None or said == piece:
+            return True
+    return False
+
+
 def hindsight(g: Game, recording: dict | None, transcript: dict | None, utterances) -> list[dict]:
     """Seen right after moving: after a costly move of yours, in the HINDSIGHT_S seconds after it
     landed, you named the engine's better move, or named their reply with a word of regret, or
@@ -342,11 +361,12 @@ def hindsight(g: Game, recording: dict | None, transcript: dict | None, utteranc
         keep = []
         why = None
         for c in said:
-            words, low = set(tokens(c["text"])), c["text"].lower()
+            seq, low = tokens(c["text"]), c["text"].lower()
             regret = bool(HINDSIGHT_RE.search(low))
-            if best_sq and best_sq in words and best != m["move_san"]:
+            # naming the move just played ("let's go knight a6" for Na6) is not naming the better one
+            if best_sq and best != m["move_san"] and names_move(seq, best) and not names_move(seq, m["move_san"]):
                 keep.append(c["text"].strip()); why = why or "best"
-            elif reply_sq and reply_sq in words:
+            elif reply_sq and names_move(seq, reply):
                 keep.append(c["text"].strip()); why = why or ("reply" if regret else None)
             elif regret:
                 keep.append(c["text"].strip()); why = why or ("regret" if m["wp_loss"] >= 0.10 else None)
