@@ -91,3 +91,12 @@ def test_no_recorded_thinking_means_no_claim_about_it():
     report["summary"]["moves_with_thoughts"] = 0
     f = coach.summary(report, {})["focus"]
     assert f["key"] == "record" and "can only say which moves were costly, not why" in f["why"]
+
+
+def test_someone_elses_game_is_in_the_third_person():
+    assert coach.third("You drew Nf3, and the move you chose didn't answer it. Your moves held; you were right.") == \
+        "He drew Nf3, and the move he chose didn't answer it. His moves held; he was right."
+    report, analysis, game = _report()
+    page = review.render(report, analysis, None, game=game, player="IM Some Player")
+    assert "His focus for the next game" in page and "he played white" in page and "Your focus" not in page
+    assert '"third":true' in page

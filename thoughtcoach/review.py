@@ -284,8 +284,17 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
     chosen = pick(report, analysis, n) if analysis.get("moves") else []
     moments = [{"pos": c["move"]["ply"] - 1, "label": f"{c['move']['move_number']}{'.' if white else '...'} {c['move']['move_san']}",
                 "costly": c["why"] == "costly"} for c in chosen]
-    focus_pos = (min(summ["focus"]["plies"]) - 1) if summ["focus"]["plies"] else (moments[0]["pos"] if moments else 0)
-    data = {"fens": fens, "sans": sans, "ucis": ucis, "wp": wp, "white": white, "dec": decisions, "moments": moments,
+    focus_pos = (summ["focus"]["start"] - 1) if summ["focus"].get("start") else (moments[0]["pos"] if moments else 0)
+    T = coach.third if player else (lambda x: x)  # someone else's game: "he", "his"
+    if player:
+        summ["focus"]["why"] = T(summ["focus"]["why"])
+        for w in summ["well"]:
+            w["text"] = T(w["text"])
+        for st_ in summ["stats"]:
+            st_["label"], st_["tip"] = T(st_["label"]), T(st_.get("tip", ""))
+        for d_ in decisions.values():
+            d_["coach"] = [(k, t if k == "lesson" else T(t)) for k, t in d_["coach"]]
+    data = {"fens": fens, "sans": sans, "ucis": ucis, "wp": wp, "white": white, "dec": decisions, "moments": moments, "third": bool(player),
             "start": focus_pos, "cats": [{"key": k, "label": lb, "color": c, "dash": d, "on": on} for k, lb, c, d, on in CATS]}
     blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
     pieces = "".join(chess.svg.PIECES[sym].replace('id="', 'id="p-', 1) for sym in "PNBRQKpnbrqk")
@@ -303,8 +312,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
         f"<label class='cat'><input type='checkbox' data-cat='{k}'{' checked' if on else ''}><svg viewBox='0 0 28 10' aria-hidden='true'>"
         f"<line x1='1' y1='5' x2='27' y2='5' stroke='{c}' stroke-width='3' stroke-dasharray='{d}'/></svg>{_e(lb)}</label>"
         for k, lb, c, d, on in CATS)
-    sample = (f"<p class='note'><b>This is {_e(player)}'s game</b>, shared with permission. The review is worded the way a player sees "
-              f"their own games, so in it <b>“you” means {_e(player.split()[-1])}</b>.</p>") if player else ""
+    sample = f"<p class='note'><b>This is {_e(player)}'s game</b>, shared with his permission.</p>" if player else ""
     voice_off = sample + ("<p class='note'>Voice was off this game: the thinking here comes from your arrows and circles only.</p>"
                  if report.get("voice") == "off" else "")
     chart = game_chart(report, analysis, [c["move"]["ply"] for c in chosen], "." if white else "...") if analysis.get("moves") else ""
@@ -323,14 +331,14 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
   <header class="top">
     <a class="homelink" href="{_e(home_url())}">{'&larr; About this sample' if player else '&larr; All your games'}</a>
     <div class="gi"><h1>{_e(g['white'])} <span>vs</span> {_e(g['black'])}</h1>
-      <p>{outcome} ({_e(res)}) · {_e(coach.human_tc(g.get('time_control')))} · you played {_e(g['my_color'])} · {s['moves_reviewed']} moves reviewed,
+      <p>{outcome} ({_e(res)}) · {_e(coach.human_tc(g.get('time_control')))} · {'he' if player else 'you'} played {_e(g['my_color'])} · {s['moves_reviewed']} moves reviewed,
         {s['moves_with_thoughts']} with recorded thinking</p></div>
     <nav class="modes" aria-label="Review modes"><a class="mode story" href="{_e(story_url)}">&#9654; Game Story</a>
       <a class="mode" href="#report">Thinking Report</a><a class="mode" href="#workspace">Deep Analysis</a></nav>
   </header>
   {voice_off}
   <section class="summary" aria-label="Your coaching summary">
-    <div class="focus"><p class="k">Your focus for the next game</p><h2>{_e(f['title'])}</h2><p>{_e(f['why'])}</p>
+    <div class="focus"><p class="k">{T('Your focus for the next game')}</p><h2>{_e(f['title'])}</h2><p>{_e(f['why'])}</p>
       <p class="habit"><b>Practice habit:</b> {_e(f['habit'])}</p></div>
     <div class="side">
       {f"<div class='well'><p class='k'>What went well</p><ul>{well}</ul></div>" if well else ""}
@@ -338,7 +346,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
       {f"<div class='dec'><p class='k'>Decisions that mattered</p><div class='chips'>{dec}</div></div>" if dec else ""}
     </div>
   </section>
-  <a class="storybtn" href="{_e(story_url)}">&#9654; Start with your Game Story <small>a 2-minute guided lesson</small></a>
+  <a class="storybtn" href="{_e(story_url)}">&#9654; {'Start with his Game Story' if player else 'Start with your Game Story'} <small>a 2-minute guided lesson</small></a>
 
   <section class="ws" id="workspace" aria-label="The board and the selected position">
     <div class="boardcol">
@@ -367,8 +375,8 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
   </section>
 
   <section class="report" id="report"><h2>Thinking Report</h2>
-    <p class="sub">Your thinking through this game, by subject. Each row opens its position on the board.</p>
-    {thinking_report(report, analysis, decisions, white)}
+    <p class="sub">{T('Your thinking through this game, by subject.')} Each row opens its position on the board.</p>
+    {T(thinking_report(report, analysis, decisions, white))}
   </section>
 
   <section class="deep" id="analysis"><h2>Deep Analysis</h2>
@@ -378,7 +386,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
     <details class="rs"><summary><span class="rt">The four questions, position by position</span><span class="rv">boards from this game</span></summary><div class="rb">{aagaard}</div></details>
     <details class="rs"><summary><span class="rt">How the numbers are made</span><span class="rv">methodology</span></summary><div class="rb method">{METHOD}</div></details>
   </section>
-  <section class="practice"><p class="k">Before your next game</p><p><b>{_e(f['title'])}.</b> {_e(f['habit'])}</p></section>
+  <section class="practice"><p class="k">{'What to take from his game' if player else 'Before your next game'}</p><p><b>{_e(f['title'])}.</b> {_e(f['habit'])}</p></section>
 </div>
 <div id="tip"></div>
 <script type="application/json" id="rvdata">{blob}</script>
@@ -489,6 +497,7 @@ p.row { cursor:default; } .row b { color:var(--fg); } button.row:hover { backgro
   header.top .homelink { display:inline-flex; align-items:center; min-height:44px; }
 }
 @media (max-width:360px) { .nav .mv { display:none; } }
+@media (max-width:860px) { .theme-toggle { position:absolute !important; top:8px; right:10px; bottom:auto !important; } }
 """
 
 JS = """
@@ -529,6 +538,8 @@ JS = """
     return out;
   }
   const pctx = (x) => Math.round(x * 100) + '%';
+  const T = (s) => !D.third ? s : s.replace(/\\byou'd\\b/g, "he'd").replace(/\\bYour\\b/g, 'His').replace(/\\byour\\b/g, 'his')
+    .replace(/\\bYou\\b/g, 'He').replace(/\\byou\\b/g, 'he');
   function render() {
     let fen, last, arrows, circles = [];
     if (st.v) {
@@ -545,7 +556,7 @@ JS = """
     draw(fen, arrows, last, circles);
     const w = D.wp[st.pos] ?? .5, bar = document.querySelector('.evalbar i');
     bar.style.height = ((D.white ? w : 1 - w) * 100) + '%';
-    document.querySelector('.evalbar span').textContent = 'You ' + pctx(w);
+    document.querySelector('.evalbar span').textContent = T('You ') + pctx(w);
     document.querySelector('.nav .mv').textContent = st.pos ? D.sans[st.pos - 1] : 'Start';
     context();
     document.querySelectorAll('[data-pos]').forEach(b => b.classList.toggle('on', +b.dataset.pos === st.pos));
@@ -557,15 +568,15 @@ JS = """
     if (!d) {
       const prev = D.dec[st.pos - 1];
       h.querySelector('.cl').textContent = st.pos ? 'After ' + D.sans[st.pos - 1] : 'The starting position';
-      h.querySelector('.cw').textContent = 'Your win chance: about ' + pctx(D.wp[st.pos] ?? .5) + ' (engine estimate).';
+      h.querySelector('.cw').textContent = T('Your win chance: about ') + pctx(D.wp[st.pos] ?? .5) + ' (engine estimate).';
       coach.innerHTML = prev ? (prev.reply && prev.reply.san ? `<p class='cl-line why'>Their best reply to ${esc(prev.label)} was <b>${esc(prev.reply.san)}</b>`
-        + (prev.reply.recorded ? ', and it is in your recorded thinking.' : ', not in your recorded thinking.') + '</p>' : '')
+        + T(prev.reply.recorded ? ', and it is in your recorded thinking.' : ', not in your recorded thinking.') + '</p>' : '')
         + `<p class='cl-line'>${esc(D.sans[st.pos] || '')} ${D.sans[st.pos] ? 'was their move.' : ''}</p>`
-        : "<p class='cl-line'>Not one of your reviewed moves. Use the arrows, or pick a critical moment.</p>";
-      think.innerHTML = "<p class='cl-line'>Recorded thinking is shown on the position before each of your moves.</p>"; eng.innerHTML = '';
+        : "<p class='cl-line'>" + T('Not one of your reviewed moves.') + " Use the arrows, or pick a critical moment.</p>";
+      think.innerHTML = "<p class='cl-line'>" + T('Recorded thinking is shown on the position before each of your moves.') + "</p>"; eng.innerHTML = '';
       return;
     }
-    h.querySelector('.cl').textContent = 'Your move: ' + d.label + (d.costly ? ' · costly' : '');
+    h.querySelector('.cl').textContent = T('Your move: ') + d.label + (d.costly ? ' · costly' : '');
     h.querySelector('.cw').textContent = `Win chance ${pctx(d.wp_before)} → ${pctx(d.wp_after)} (engine estimate)` + (d.time ? ` · ${Math.round(d.time)} s` : '');
     coach.innerHTML = d.coach.map(([k, t]) => `<p class='cl-line ${k}'>${esc(t)}</p>`).join('');
     think.innerHTML = (d.said.length ? `<p class='quote'>“${esc(d.said.map(q => q.replace(/[,.\\s]+$/, '')).join(' … '))}”</p>` : "<p class='cl-line'>Nothing said at this move.</p>")
@@ -573,10 +584,10 @@ JS = """
       + `<p><b>Their ideas you noted:</b> ${d.noted.length ? d.noted.map(s => `<span class='tag'>${esc(s)}</span>`).join('') : 'none recorded'}</p>`;
     let e = '';
     const sameAsBest = d.engine[0] && d.engine[0].line[0] && d.played_line[0] && d.engine[0].line[0].uci === d.played_line[0].uci;
-    if (d.played_line.length && !sameAsBest) e += `<button type='button' class='eline' data-line='played'><b>Played: ${esc(d.played_line.map(s => s.san).slice(0, 5).join(' '))}</b><small>after your move, ${pctx(d.wp_after)} · step through it</small></button>`;
+    if (d.played_line.length && !sameAsBest) e += `<button type='button' class='eline' data-line='played'><b>Played: ${esc(d.played_line.map(s => s.san).slice(0, 5).join(' '))}</b><small>${T('after your move')}, ${pctx(d.wp_after)} · step through it</small></button>`;
     d.engine.forEach((c, i) => { if (c.line.length) e += `<button type='button' class='eline' data-line='${i}'><b>${i ? '' : 'Best: '}${esc(c.line.map(s => s.san).slice(0, 5).join(' '))}</b><small>${c.wp != null ? pctx(c.wp) : ''} · step through it</small></button>`; });
     if (d.threat_san) e += `<p class='cl-line threat'>Their threat before your move: <b>${esc(d.threat_san)}</b></p>`;
-    if (d.reply && d.reply.san) e += `<p class='cl-line why'>Their best reply to your move: <b>${esc(d.reply.san)}</b>${d.reply.recorded ? ' (in your recorded thinking)' : ''}</p>`;
+    if (d.reply && d.reply.san) e += `<p class='cl-line why'>${T('Their best reply to your move:')} <b>${esc(d.reply.san)}</b>${d.reply.recorded ? T(' (in your recorded thinking)') : ''}</p>`;
     eng.innerHTML = e || "<p class='cl-line'>No engine lines saved for this move.</p>";
     eng.querySelectorAll('.eline').forEach(b => b.onclick = () => {
       const line = b.dataset.line === 'played' ? d.played_line : d.engine[+b.dataset.line].line;

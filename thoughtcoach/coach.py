@@ -131,8 +131,8 @@ def summary(report: dict, analysis: dict) -> dict:
                f"what the move allowed. You may have seen it without drawing or saying it, but the move didn't answer it.")
     elif key == "widen":
         cs = not_found
-        why = (f"At {names(cs)} the engine's best move ({cs[0]['best']}) isn't among the moves you drew or said, "
-               f"and the move played cost {_pct(cs[0]['loss'])}.")
+        why = ("At " + " and ".join(f"{c['label']} (best {c['best']})" for c in cs[:2])
+               + f", the engine's best move isn't among the moves you drew or said. The costliest cost {_pct(cs[0]['loss'])} of your win chance.")
     elif key == "clock":
         cs = []
         why = (f"{len(tt)} costly move{'s' * (len(tt) != 1)} came in time trouble, from move {min(m['move_number'] for m in tt)} on.")
@@ -181,5 +181,20 @@ def summary(report: dict, analysis: dict) -> dict:
     for p in crit_held[:1]:
         decisions.append({"ply": p["ply"], "label": p["label"], "kind": "good", "text": "only move found"})
     decisions.sort(key=lambda d: d["ply"])
-    return {"focus": {"key": key, "title": title, "why": why, "habit": habit, "plies": [c["ply"] for c in cs]},
+    start = max(cs, key=lambda c: c["loss"])["ply"] if cs else None  # the page opens on the costliest of them
+    return {"focus": {"key": key, "title": title, "why": why, "habit": habit, "plies": [c["ply"] for c in cs], "start": start},
             "well": well[:2], "stats": stats, "decisions": decisions}
+
+
+THIRD = [(r"\byou'd\b", "he'd"), (r"\byou're\b", "he's"), (r"\byou've\b", "he's"), (r"\bYou\b", "He"), (r"\byou\b", "he"),
+         (r"\byours\b", "his"), (r"\bYour\b", "His"), (r"\byour\b", "his"), (r"\bhe were\b", "he was"), (r"\bhe have\b", "he has"),
+         (r"\bhe are\b", "he is"), (r"\bhe don't\b", "he doesn't"), (r"\bHe were\b", "He was"), (r"\bHe have\b", "He has")]
+
+
+def third(text: str) -> str:
+    """The review's wording about someone else's game (the public sample): "you drew" -> "he drew", "your" -> "his"."""
+    import re
+
+    for a, b in THIRD:
+        text = re.sub(a, b, text)
+    return text
