@@ -1,0 +1,118 @@
+{
+ "updated": "2026-11-24",
+ "updated_text": "24 November 2026",
+ "titled": 6,
+ "players_word": "seven",
+ "titled_word": "six",
+ "rating_range": [
+  1963,
+  2703
+ ],
+ "opponent_range": [
+  1433,
+  2307
+ ],
+ "quiet_pct": 13,
+ "players": 7,
+ "games": 591,
+ "games_per_player": [
+  28,
+  201
+ ],
+ "fast_excluded": 202,
+ "moves": 14202,
+ "moves_thinking": 9110,
+ "thinking_pct": 64,
+ "arrows": 26065,
+ "rated_games": 502,
+ "rating_median": 2479,
+ "opponent_median": 1960.0,
+ "measures": [
+  {
+   "key": "q3",
+   "label": "Real threats left unstopped",
+   "rate": 5,
+   "low": 2,
+   "high": 11,
+   "players": 7
+  },
+  {
+   "key": "q3_quiet",
+   "label": "Quiet threats named early",
+   "rate": 13,
+   "low": 6,
+   "high": 18,
+   "players": 7
+  },
+  {
+   "key": "q1",
+   "label": "Weaknesses pointed at",
+   "rate": 58,
+   "low": 29,
+   "high": 82,
+   "players": 7
+  },
+  {
+   "key": "candidates",
+   "label": "Best move among their candidates",
+   "rate": 59,
+   "low": 50,
+   "high": 65,
+   "players": 7
+  },
+  {
+   "key": "q2",
+   "label": "Least active piece brought into play",
+   "rate": 30,
+   "low": 19,
+   "high": 42,
+   "players": 7
+  },
+  {
+   "key": "trust",
+   "label": "Good moves drawn, then dropped",
+   "rate": 7,
+   "low": 5,
+   "high": 10,
+   "players": 7
+  },
+  {
+   "key": "sharp",
+   "label": "Critical positions that went wrong",
+   "rate": 14,
+   "low": 7,
+   "high": 24,
+   "players": 6
+  },
+  {
+   "key": "time",
+   "label": "Moves in time trouble",
+   "rate": 6,
+   "low": 0,
+   "high": 12,
+   "players": 7
+  },
+  {
+   "key": "input",
+   "label": "Moves with an arrow or words",
+   "rate": 72,
+   "low": 46,
+   "high": 87,
+   "players": 7
+  },
+  {
+   "key": "acc",
+   "label": "Accuracy (lichess formula)",
+   "rate": 91,
+   "low": 88,
+   "high": 93,
+   "players": 6
+  }
+ ],
+ "trust_pct": 7,
+ "trust_one_in": 14,
+ "threats_pct": 5,
+ "critical_costly_pct": 14,
+ "all_costly_pct": 5,
+ "version": "2026-11-24-55ec00c"
+}

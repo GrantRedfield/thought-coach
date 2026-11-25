@@ -259,7 +259,8 @@ to the move you actually played. They are different: a costly move is put down t
 <p><b>Small sample</b>: rates over fewer than 5 cases are shown as counts, not as percentages to trust.</p>"""
 
 
-def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line_for=None, game=None) -> str:
+def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line_for=None, game=None, player: str | None = None) -> str:
+    """`player`: whose game this is, when it isn't the reader's own (the public sample): the page says so up front."""
     g, s = report["game"], report["summary"]
     white = g["my_color"] == "white"
     windows = {w["ply"]: w for w in (thinking or {}).get("windows", [])}
@@ -302,7 +303,9 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
         f"<label class='cat'><input type='checkbox' data-cat='{k}'{' checked' if on else ''}><svg viewBox='0 0 28 10' aria-hidden='true'>"
         f"<line x1='1' y1='5' x2='27' y2='5' stroke='{c}' stroke-width='3' stroke-dasharray='{d}'/></svg>{_e(lb)}</label>"
         for k, lb, c, d, on in CATS)
-    voice_off = ("<p class='note'>Voice was off this game: the thinking here comes from your arrows and circles only.</p>"
+    sample = (f"<p class='note'><b>This is {_e(player)}'s game</b>, shared with permission. The review is worded the way a player sees "
+              f"their own games, so in it <b>“you” means {_e(player.split()[-1])}</b>.</p>") if player else ""
+    voice_off = sample + ("<p class='note'>Voice was off this game: the thinking here comes from your arrows and circles only.</p>"
                  if report.get("voice") == "off" else "")
     chart = game_chart(report, analysis, [c["move"]["ply"] for c in chosen], "." if white else "...") if analysis.get("moves") else ""
     aagaard = questions.render(questions.compute([{"id": g["id"], "report": report}], examples=6),
@@ -318,7 +321,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
 <marker id='ah-var' viewBox='0 0 10 10' refX='5' refY='5' markerWidth='3.2' markerHeight='3.2' orient='auto'><path d='M0 0 10 5 0 10z' fill='#9c36b5'/></marker></defs></svg>
 <div class="review">
   <header class="top">
-    <a class="homelink" href="{_e(home_url())}">&larr; All your games</a>
+    <a class="homelink" href="{_e(home_url())}">{'&larr; About this sample' if player else '&larr; All your games'}</a>
     <div class="gi"><h1>{_e(g['white'])} <span>vs</span> {_e(g['black'])}</h1>
       <p>{outcome} ({_e(res)}) · {_e(coach.human_tc(g.get('time_control')))} · you played {_e(g['my_color'])} · {s['moves_reviewed']} moves reviewed,
         {s['moves_with_thoughts']} with recorded thinking</p></div>
@@ -451,7 +454,7 @@ header.top .gi p { margin:2px 0 0; color:var(--fg2); font-size:13.5px; }
 .eline:hover { border-color:#9c36b5; } .eline b { color:var(--fg); } .eline small { color:var(--muted); display:block; }
 .movelist { display:grid; grid-template-columns:42px 1fr 1fr; gap:2px; max-height:360px; overflow-y:auto; font-variant-numeric:tabular-nums; }
 .movelist .no { color:var(--muted); padding:5px 4px; font-size:13px; }
-.movelist button { all:unset; cursor:pointer; padding:5px 8px; border-radius:6px; font-size:13.5px; }
+.movelist button { all:unset; cursor:pointer; padding:5px 8px; border-radius:6px; font-size:13.5px; min-height:36px; display:flex; align-items:center; }
 .movelist button.cur { background:var(--accent); color:#fff; } .movelist button.costly { color:var(--s2); font-weight:700; }
 .movelist button.crit::after { content:" !"; color:var(--good); }
 .report, .deep { margin-top:8px; } .report h2, .deep h2 { font-size:20px; margin:20px 0 4px; } .report .sub { color:var(--fg2); margin:0 0 12px; font-size:14px; }
@@ -482,7 +485,8 @@ p.row { cursor:default; } .row b { color:var(--fg); } button.row:hover { backgro
   .nav button { flex:1 1 0; min-width:0; }
   .board { max-width:min(100%, 560px); margin:0 auto; }
   .ctx > summary { min-height:48px; }
-  .movelist { max-height:none; }
+  .movelist { max-height:none; } .movelist button { min-height:44px; } .cats summary { min-height:44px; }
+  header.top .homelink { display:inline-flex; align-items:center; min-height:44px; }
 }
 @media (max-width:360px) { .nav .mv { display:none; } }
 """

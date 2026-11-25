@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Research and methods · Thought Coach — Chess Thinking Analysis</title>
-<meta name="description" content="How Thought Coach measures chess thinking: the master benchmark dataset (350 rapid and classical games by strong players), how arrows and speech are matched to Stockfish, what the findings are, and their limits.">
+<meta name="description" content="How Thought Coach measures chess thinking: the master benchmark dataset (591 rapid and classical games by strong players), how arrows and speech are matched to Stockfish, what the findings are, and their limits.">
 <link rel="canonical" href="https://thoughtcoach.org/research">
 <meta property="og:title" content="How strong players think: Thought Coach research and methods">
-<meta property="og:description" content="350 rapid and classical games by strong players, recorded while they drew arrows and talked, put through the same review as yours.">
+<meta property="og:description" content="591 rapid and classical games by strong players, recorded while they drew arrows and talked, put through the same review as yours.">
 <meta property="og:image" content="https://thoughtcoach.org/apple-touch-icon.png">
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -25,6 +25,7 @@
   .toc a { color:var(--fg2); } .toc ol { margin:6px 0; padding-left:20px; }
   .lim { border-left:3px solid var(--warn); padding:2px 0 2px 14px; }
   @media (max-width:640px) { .stats { grid-template-columns:1fr 1fr; } th, td { padding:7px 5px; } }
+  .lvl { font-size:12px; font-weight:600; color:var(--muted); border:1px solid var(--line); border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -34,13 +35,14 @@
   <h1>How strong players think: data and methods</h1>
   <p class="lead">Thought Coach compares your thinking habits with strong players' on the same measures. This page says
     where those benchmarks come from, how they are measured, what they show, and where they fall short. Last updated
-    23 November 2026.</p>
+    <span data-stat="updated_text">24 November 2026</span> (dataset version <span data-stat="version">2026-11-24-55ec00c</span>). The figures on every page come from
+    <a href="/research/stats.json">one published file</a>.</p>
 
   <div class="stats">
-    <div class="stat"><b>350</b><span>rapid and classical games</span></div>
-    <div class="stat"><b>6</b><span>players, 5 of them GMs or IMs</span></div>
-    <div class="stat"><b>8,465</b><span>moves reviewed</span></div>
-    <div class="stat"><b>23,716</b><span>arrows checked by Stockfish</span></div>
+    <div class="stat"><b data-stat="games">591</b><span>rapid and classical games</span></div>
+    <div class="stat"><b data-stat="players">7</b><span>players, <span data-stat="titled">6</span> of them GMs or IMs</span></div>
+    <div class="stat"><b data-stat="moves">14,202</b><span>moves reviewed</span></div>
+    <div class="stat"><b data-stat="arrows">26,065</b><span>arrows checked by Stockfish</span></div>
   </div>
 
   <nav class="toc" aria-label="On this page"><ol>
@@ -53,19 +55,19 @@
     Thought Coach read the board, the arrows and the speech from them and put each game through the same review your
     games get.</p>
   <ul>
-    <li><b>Players:</b> six strong players, five of them grandmasters or international masters. Each player needs at least 3 reviewed games, and counts equally however many games they have
-      (28 to 92 each), so no one prolific player stands for "masters". Benchmarks are only ever shown pooled: no names,
+    <li><b>Players:</b> <span data-stat="players_word">seven</span> strong players, <span data-stat="titled_word">six</span> of them grandmasters or international masters. Each player needs at least 3 reviewed games, and counts equally however many games they have
+      (<span data-stat="games_per_player">28 to 201</span> each), so no one prolific player stands for "masters". Benchmarks are only ever shown pooled: no names,
       games or quotes.</li>
-    <li><b>Games:</b> 350 rapid and classical games (lichess's rapid line and slower). 192 blitz and bullet games were
+    <li><b>Games:</b> <span data-stat="games">591</span> rapid and classical games (lichess's rapid line and slower). <span data-stat="fast_excluded">202</span> blitz and bullet games were
       processed but are left out: at that speed players draw and say much less (for one player, arrows fell from 2.3 per
       move in rapid to 0.5 in 3-minute games and 0.1 in bullet), so the measures would mostly measure silence.</li>
-    <li><b>Ratings:</b> in the 270 games with ratings in the game record, the players' online rating had a median of 2523
-      (10th to 90th percentile: 1948 to 2689; the low end is fresh accounts climbing from scratch) and their opponents' a
-      median of 1963 (1435 to 2315). Strong players often face much weaker opponents in these videos: see the limits.</li>
+    <li><b>Ratings:</b> in the <span data-stat="rated_games">502</span> games with ratings in the game record, the players' online rating had a median of <span data-stat="rating_median">2,479</span>
+      (10th to 90th percentile: <span data-stat="rating_range">1,963 to 2,703</span>; the low end is fresh accounts climbing from scratch) and their opponents' a
+      median of <span data-stat="opponent_median">1,960</span> (<span data-stat="opponent_range">1,433 to 2,307</span>). Strong players often face much weaker opponents in these videos: see the limits.</li>
     <li><b>Selection:</b> players who regularly draw arrows and think out loud in rapid or classical games, with videos
       where the board, arrows and speech can be read reliably. Speed-chess series, gimmick games, odds games and
       games that couldn't be matched to a game record are left out.</li>
-    <li><b>Moves:</b> 8,465 of the players' own moves were reviewed; 6,205 of them (73%) had recorded thinking behind them
+    <li><b>Moves:</b> <span data-stat="moves">14,202</span> of the players' own moves were reviewed; <span data-stat="moves_thinking">9,110</span> of them (<span data-stat="thinking_pct">64</span>%) had recorded thinking behind them
       (an arrow, a circle or a spoken move).</li>
     <li><b>Titled Thought Coach players:</b> players with a lichess title who use Thought Coach are added to the
       benchmarks automatically, each as one more player, unless they switch it off (see <a href="/privacy#titled">privacy</a>).
@@ -87,13 +89,13 @@
   <h3>The measures</h3>
   <table>
     <tr><th>Measure</th><th>What is counted</th></tr>
-    <tr><td>Real threats left unstopped</td><td>Real threats your move did not stop, whether or not you drew them (lower is better)</td></tr>
+    <tr><td>Real threats left unstopped</td><td>Real threats your move did not stop, whether or not you drew them (lower is better). A costly move is put down to a threat only when the threat is their best reply to it.</td></tr>
     <tr><td>Quiet threats named early</td><td>Threats that aren't captures (a fork being set up, a mating idea) that you drew or said before they could happen</td></tr>
     <tr><td>Weaknesses pointed at</td><td>Weak pawns, holes and loose pieces the engine's best line used, that you marked or targeted</td></tr>
     <tr><td>Best move among your candidates</td><td>Positions where you drew something, and the engine's best move was among it</td></tr>
     <tr><td>Least active piece brought into play</td><td>Clearly passive pieces you named, or improved with a candidate</td></tr>
     <tr><td>Good moves drawn, then dropped</td><td>Positions where you drew the best move but played a costly one instead (lower is better)</td></tr>
-    <tr><td>Critical positions that went wrong</td><td>Positions where only one or two moves hold, where your move was costly (lower is better)</td></tr>
+    <tr><td>Critical positions that went wrong</td><td>Positions where only one move holds (and it isn't an obvious recapture), where your move was costly (lower is better)</td></tr>
     <tr><td>Moves in time trouble</td><td>Moves played with under 30 seconds on the clock (lower is better)</td></tr>
   </table>
   <p>Moves made in time trouble aren't held against your thinking: there is no time to think out loud there.</p>
@@ -144,33 +146,24 @@
     and highest player.</p>
   <table>
     <tr><th>Measure</th><th class="n">Masters</th><th class="n">Range</th></tr>
-    <tr><td>Real threats left unstopped</td><td class="n">5%</td><td class="n">2–11%</td></tr>
-    <tr><td>Quiet threats named early</td><td class="n">14%</td><td class="n">8–18%</td></tr>
-    <tr><td>Weaknesses pointed at</td><td class="n">64%</td><td class="n">53–82%</td></tr>
-    <tr><td>Best move among their candidates</td><td class="n">59%</td><td class="n">50–64%</td></tr>
-    <tr><td>Least active piece brought into play</td><td class="n">31%</td><td class="n">20–42%</td></tr>
-    <tr><td>Good moves drawn, then dropped</td><td class="n">6%</td><td class="n">5–9%</td></tr>
-    <tr><td>Critical positions that went wrong</td><td class="n">12%</td><td class="n">7–17%</td></tr>
-    <tr><td>Moves in time trouble</td><td class="n">8%</td><td class="n">0–13%</td></tr>
-    <tr><td>Moves with an arrow or words</td><td class="n">76%</td><td class="n">63–87%</td></tr>
-    <tr><td>Accuracy (lichess formula)</td><td class="n">92%</td><td class="n">90–93%</td></tr>
+    <!--stat:measures--><tr><td>Real threats left unstopped</td><td class="n">5%</td><td class="n">2–11%</td></tr><tr><td>Quiet threats named early</td><td class="n">13%</td><td class="n">6–18%</td></tr><tr><td>Weaknesses pointed at</td><td class="n">58%</td><td class="n">29–82%</td></tr><tr><td>Best move among their candidates</td><td class="n">59%</td><td class="n">50–65%</td></tr><tr><td>Least active piece brought into play</td><td class="n">30%</td><td class="n">19–42%</td></tr><tr><td>Good moves drawn, then dropped</td><td class="n">7%</td><td class="n">5–10%</td></tr><tr><td>Critical positions that went wrong</td><td class="n">14%</td><td class="n">7–24%</td></tr><tr><td>Moves in time trouble</td><td class="n">6%</td><td class="n">0–12%</td></tr><tr><td>Moves with an arrow or words</td><td class="n">72%</td><td class="n">46–87%</td></tr><tr><td>Accuracy (lichess formula)</td><td class="n">91%</td><td class="n">88–93%</td></tr><!--/stat:measures-->
   </table>
 
   <h2 id="find">4. Findings</h2>
-  <p>Descriptive findings from this dataset. They describe these six players in these games; they are not established
-    laws of chess thinking.</p>
-  <h3>Few candidates, chosen well</h3>
+  <p>Descriptive findings from this dataset. They describe these <span data-stat="players_word">seven</span> players in these games; they are not established
+    laws of chess thinking. Each is labelled: <b>descriptive</b> (what the data shows) or <b>preliminary</b> (a pattern seen in too few players to rely on).</p>
+  <h3>Few candidates, chosen well <small class="lvl">descriptive</small></h3>
   <p>The typical move has 2 or 3 candidates drawn; 8 or more on only about 1 move in 20. When the best move is among
-    them, it is played most of the time: a drawn best move is dropped for a costly one only about 6% of the time.</p>
-  <h3>Threats are mostly answered, not announced</h3>
-  <p>Strong players name only a minority of threats aloud, even quiet ones (about 14%), yet leave only about 5% of real
+    them, it is played most of the time: a drawn best move is dropped for a costly one only about <span data-stat="trust_pct">7</span>% of the time.</p>
+  <h3>Threats are mostly answered, not announced <small class="lvl">descriptive</small></h3>
+  <p>Strong players name only a minority of threats aloud, even quiet ones (about <span data-stat="quiet_pct">13</span>%), yet leave only about <span data-stat="threats_pct">5</span>% of real
     threats unstopped. Most threats (an attacked piece, a hanging pawn) are handled without a word. That is why Thought
     Coach measures threats left unstopped, not threats named.</p>
-  <h3>Wider searchers went wrong less in critical positions</h3>
+  <h3>Wider searchers went wrong less in critical positions <small class="lvl">preliminary</small></h3>
   <p>The players who drew about 3 candidates per move went wrong in critical positions about half as often (7–8%) as
-    those who usually drew 2 (13–18%). With six players this is a hint, not a result, and part of it is time control:
+    those who usually drew 2 (13–18%), measured on the six-player dataset of 23 November and not yet re-checked. With this few players it is a hint, not a result, and part of it is time control:
     the narrower searchers played faster games more often.</p>
-  <h3>More than one strong way to think</h3>
+  <h3>More than one strong way to think <small class="lvl">descriptive</small></h3>
   <p>Some strong players spell out threats and weaknesses constantly; others talk mostly about plans and structure and
     still play at the same accuracy. The benchmarks are an average of styles, so a gap on one measure is a question to
     look at, not a verdict.</p>
@@ -178,13 +171,13 @@
   <h2 id="limits">5. Limits</h2>
   <div class="lim">
   <ul>
-    <li><b>Six players.</b> Averages over a handful of people are uncertain: the clearest gaps (good moves dropped,
+    <li><b><span data-stat="players_word_cap">Seven</span> players.</b> Averages over a handful of people are uncertain: the clearest gaps (good moves dropped,
       critical positions) are well beyond the players' range, but smaller differences can be noise. More players would
       roughly halve the uncertainty by about 20.</li>
     <li><b>Thinking on camera isn't silent thinking.</b> Players narrating for an audience may draw and say more, or
       differently, than they would alone. The same is true for you: thinking out loud can itself change how you play,
       usually by slowing you down.</li>
-    <li><b>Weaker opponents.</b> The masters' opponents had a median rating near 1960. Some rates (threats left unstopped,
+    <li><b>Weaker opponents.</b> The masters' opponents had a median rating near <span data-stat="opponent_median">1,960</span>. Some rates (threats left unstopped,
       critical positions) may look better than they would against equals.</li>
     <li><b>Who streams.</b> Players who think out loud on video are not a random sample of strong players; their styles
       may lean toward explaining, and toward openings and positions that make good content.</li>

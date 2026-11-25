@@ -60,3 +60,7 @@ ol.steps h2 { display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; }
   border:1px solid var(--line); background:var(--card); color:var(--fg); font-size:17px; line-height:1; opacity:.85; }
 footer { margin-top:56px; color:var(--muted); font-size:14px; border-top:1px solid var(--line); padding-top:18px; }
 @media (max-width:560px) { ol.steps > li { padding-left:20px; padding-top:56px; } ol.steps > li::before { top:16px; } }
+
+/* phones: links in running text may wrap (long addresses), and the top links are easy to tap */
+main a { overflow-wrap:anywhere; }
+@media (max-width:640px) { nav.top { flex-wrap:wrap; row-gap:2px; } nav.top a.link { display:inline-flex; align-items:center; min-height:44px; padding:0 6px; } }
