@@ -11,8 +11,16 @@ Uploads (header X-Thought-Coach-Key = your upload key, which the extension gets 
     POST /api/uploads                     {"game_id"}: a one-time signed S3 link to upload the recording to
     POST /api/recordings/<id>/uploaded    {"upload_id"}: the recording is in S3, review it
     POST /api/recordings                  a small recording in the request body (under ~6 MB)
-    GET  /api/u/<user>/games/<id>         a review's status
+    GET  /api/u/<user>/games/<id>         a review's status (its state only, unless you may see the review)
     GET  /health
+Reviews are private: the pages under /u/<user>/ and the live status under /status/<user>/ are served from here
+(not straight from the CDN) to the player signed in, to anyone with one of their share links, or to anyone at all
+when the player has made their reviews public:
+    GET  /u/<user>/...  /status/<user>/...    the page, or "this review is private"
+    GET  /api/sharing                     your setting and your share links (signed in)
+    POST /api/sharing                     {"visibility": "private" | "public"}
+    POST /api/share                       {"game_id": id | null}: a new share link (one game, or all your reviews)
+    POST /api/share/revoke                {"token"}: the link stops working at once
 Recordings with voice are often bigger than a Lambda request can carry, so the extension uploads
 them straight to S3 with the signed link (valid 15 minutes, for that one file).
 
@@ -356,7 +364,7 @@ def delete_account(event: dict) -> dict:
         s3.delete_object(Bucket=DATA, Key=f"keys/{_key_hash(user['key'])}.json")
     for key in (f"users/{uid}.json", f"usage/{uid}.json"):
         s3.delete_object(Bucket=DATA, Key=key)
-    for prefix in (f"recordings/{uid}/", f"data/{uid}/", f"incoming/{uid}/"):
+    for prefix in (f"recordings/{uid}/", f"data/{uid}/", f"incoming/{uid}/", f"shares/{uid}/"):
         _delete_prefix(DATA, prefix)
     for prefix in (f"u/{uid}/", f"status/{uid}/"):
         _delete_prefix(SITE, prefix)
@@ -591,6 +599,144 @@ def accept(raw: str, user: str, expected: str | None, checked: bool) -> dict:
     return reply(202, {"game_id": gid, "state": "queued", **urls})
 
 
+# ---------------------------------------------------------------- reviews: private unless shared
+
+PAGE = re.compile(r"^/(u|status)/([a-z0-9_-]{2,30})(/.*)?$")
+SHARE_TOKEN = re.compile(r"^[A-Za-z0-9_-]{16,64}$")
+SHARE_DAYS = 365  # how long a share link's cookie lasts in the visitor's browser (revoking the link ends it at once)
+TYPES = {".html": "text/html; charset=utf-8", ".json": "application/json", ".svg": "image/svg+xml", ".txt": "text/plain; charset=utf-8"}
+
+
+def visibility(uid: str) -> str:
+    """A player's reviews are private unless they made them public."""
+    return "public" if (_get_json(DATA, f"users/{uid}.json") or {}).get("visibility") == "public" else "private"
+
+
+def share(uid: str, token: str | None) -> dict | None:
+    if not token or not SHARE_TOKEN.match(token):
+        return None
+    return _get_json(DATA, f"shares/{uid}/{token}.json")
+
+
+def _page_game(kind: str, rest: str) -> str | None:
+    m = re.match(r"^/games/([A-Za-z0-9]{8})(/|$)", rest) if kind == "u" else re.match(r"^/([A-Za-z0-9]{8})\.json$", rest)
+    return m.group(1) if m else None
+
+
+def may_view(event: dict, uid: str, gid: str | None) -> tuple[bool, str | None]:
+    """(allowed, share token that came in the address and should be remembered in a cookie)."""
+    if signed_in(event) == uid or visibility(uid) == "public":
+        return True, None
+    q = event.get("queryStringParameters") or {}
+    for token, from_query in ((q.get("s"), True), (cookies(event).get(f"tc_s_{uid}"), False)):
+        sh = share(uid, token)
+        if sh and sh.get("user") == uid and sh.get("game") in (None, gid):
+            return True, token if from_query else None
+    return False, None
+
+
+PRIVATE = """<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Private review · Thought Coach</title>
+<link rel="stylesheet" href="/site.css"></head><body><main class="narrow"><nav class="top"><p class="brand"><a href="/">
+<span class="mark"></span>Thought Coach</a></p></nav><h1>This review is private</h1>
+<p class="lead">Thought Coach reviews are private to the player who recorded them. If it's yours, sign in to see it.
+If someone wanted to show it to you, ask them for a share link.</p>
+<p><a class="btn primary" href="/start">Sign in</a> <a class="btn" href="/sample/">See a sample review</a></p></main></body></html>"""
+
+
+def serve_page(event: dict, path: str) -> dict:
+    """A review page or live status, from the site bucket, to someone allowed to see it."""
+    m = PAGE.match(path)
+    if not m:
+        return reply(404, {"error": "not found"})
+    kind, uid, rest = m.group(1), m.group(2), m.group(3) or "/"
+    if ".." in rest:
+        return reply(400, {"error": "bad path"})
+    gid = _page_game(kind, rest)
+    ok, remember = may_view(event, uid, gid)
+    if not ok:
+        if kind == "status":
+            return reply(403, {"error": "private"}, cors=False)
+        return {"statusCode": 403, "headers": {"Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store",
+                                               "X-Robots-Tag": "noindex"}, "body": PRIVATE}
+    key = f"{kind}/{uid}{rest}"
+    if key.endswith("/"):
+        key += "index.html"
+    elif "." not in key.rsplit("/", 1)[-1]:
+        key += "/index.html"
+    try:
+        obj = s3.get_object(Bucket=SITE, Key=key)
+    except Exception:  # noqa: BLE001 - missing page
+        return {"statusCode": 404, "headers": {"Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store"},
+                "body": "<!doctype html><p>No such page. <a href='/'>Thought Coach</a></p>"}
+    ext = "." + key.rsplit(".", 1)[-1]
+    out = {"statusCode": 200, "body": obj["Body"].read().decode("utf-8", errors="replace"),
+           "headers": {"Content-Type": TYPES.get(ext, "application/octet-stream"), "Cache-Control": "private, no-store",
+                       "X-Robots-Tag": "noindex"}}
+    if remember:
+        out["cookies"] = [_cookie(f"tc_s_{uid}", remember, "/", SHARE_DAYS * 86400)]
+    return out
+
+
+def sharing(event: dict) -> dict:
+    uid = signed_in(event)
+    if not uid:
+        return reply(401, {"error": "sign in first"}, cors=False)
+    links = []
+    for o in _list(DATA, f"shares/{uid}/"):
+        sh = _get_json(DATA, o["Key"]) or {}
+        token = o["Key"].rsplit("/", 1)[-1][:-5]
+        where = f"/u/{uid}/games/{sh['game']}/" if sh.get("game") else f"/u/{uid}/"
+        links.append({"token": token, "game": sh.get("game"), "created": sh.get("created"), "url": f"{where}?s={token}"})
+    return reply(200, {"visibility": visibility(uid), "shares": sorted(links, key=lambda x: -(x["created"] or 0))}, cors=False)
+
+
+def set_sharing(event: dict) -> dict:
+    uid = signed_in(event)
+    if not uid:
+        return reply(401, {"error": "sign in first"}, cors=False)
+    try:
+        want = json.loads(_body(event) or "{}").get("visibility")
+    except ValueError:
+        want = None
+    if want not in ("private", "public"):
+        return reply(400, {"error": "visibility is private or public"}, cors=False)
+    user = _get_json(DATA, f"users/{uid}.json") or {"id": uid}
+    user["visibility"] = want
+    _put_json(DATA, f"users/{uid}.json", user)
+    return reply(200, {"visibility": want}, cors=False)
+
+
+def new_share(event: dict) -> dict:
+    uid = signed_in(event)
+    if not uid:
+        return reply(401, {"error": "sign in first"}, cors=False)
+    try:
+        gid = json.loads(_body(event) or "{}").get("game_id")
+    except ValueError:
+        gid = None
+    if gid is not None and not GAME_ID.match(str(gid)):
+        return reply(400, {"error": "bad game id"}, cors=False)
+    token = secrets.token_urlsafe(18)
+    _put_json(DATA, f"shares/{uid}/{token}.json", {"user": uid, "game": gid, "created": time.time()})
+    where = f"/u/{uid}/games/{gid}/" if gid else f"/u/{uid}/"
+    return reply(200, {"token": token, "url": f"{where}?s={token}"}, cors=False)
+
+
+def revoke_share(event: dict) -> dict:
+    uid = signed_in(event)
+    if not uid:
+        return reply(401, {"error": "sign in first"}, cors=False)
+    try:
+        token = json.loads(_body(event) or "{}").get("token")
+    except ValueError:
+        token = None
+    if not token or not SHARE_TOKEN.match(token):
+        return reply(400, {"error": "bad token"}, cors=False)
+    s3.delete_object(Bucket=DATA, Key=f"shares/{uid}/{token}.json")
+    return reply(200, {"revoked": token}, cors=False)
+
+
 # ---------------------------------------------------------------- routes
 
 
@@ -815,13 +961,21 @@ def handler(event: dict, context) -> dict:
             return me(event)
         if path == "/api/logout":
             return logout(event)
+        if path == "/api/sharing":
+            return sharing(event)
+        if PAGE.match(path):
+            return serve_page(event, path)
         m = re.fullmatch(r"/api/u/([a-z0-9_-]{2,30})/active", path)
         if m:
-            return reply(200, {"active": active(m.group(1))})
+            return reply(200, {"active": active(m.group(1)) if may_view(event, m.group(1), None)[0] else []})
         m = re.fullmatch(r"/api/u/([a-z0-9_-]{2,30})/games/([A-Za-z0-9]{8})", path)
         if m:
             s = status(m.group(1), m.group(2))
-            return reply(200, s) if s else reply(404, {"error": "unknown game"})
+            if not s:
+                return reply(404, {"error": "unknown game"})
+            if not may_view(event, m.group(1), m.group(2))[0]:  # the extension only needs to know when it's done
+                s = {k: s[k] for k in ("game_id", "state", "error", "story", "dashboard", "updated") if k in s}
+            return reply(200, s)
         m = re.fullmatch(r"/api/games/([A-Za-z0-9]{8})", path)  # extensions before 0.8 (the owner's games)
         if m and OWNER:
             s = status(OWNER, m.group(1))
@@ -837,6 +991,12 @@ def handler(event: dict, context) -> dict:
         return count_event(event)
     if path == "/api/benchmark":
         return set_benchmark(event)
+    if path == "/api/sharing":
+        return set_sharing(event)
+    if path == "/api/share":
+        return new_share(event)
+    if path == "/api/share/revoke":
+        return revoke_share(event)
     user = uploader(event)
     if not user:
         return reply(401, {"error": "not connected: sign in at thoughtcoach.org/start to connect the extension"})

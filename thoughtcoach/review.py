@@ -21,7 +21,7 @@ import re
 import chess
 import chess.svg
 
-from . import coach, questions, timing
+from . import coach, questions, sharing, timing
 from .critical import pick
 from .dashboard import CSS as DASH_CSS, JS as DASH_JS, SHORT, game_chart, time_card
 from .fmt import THEME_BUTTON, THEME_HEAD, game_url, home_url, pct
@@ -323,7 +323,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
 
     return f"""<!doctype html>
 <html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Thought Coach · {_e(g['white'])} vs {_e(g['black'])}</title>{THEME_HEAD}<style>{DASH_CSS}{questions.CSS}{CSS}</style></head><body>{THEME_BUTTON}
+<title>Thought Coach · {_e(g['white'])} vs {_e(g['black'])}</title>{THEME_HEAD}<style>{DASH_CSS}{questions.CSS}{sharing.CSS}{CSS}</style></head><body>{THEME_BUTTON}
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>{pieces}
 {''.join(f"<marker id='ah-{k}' viewBox='0 0 10 10' refX='5' refY='5' markerWidth='3.2' markerHeight='3.2' orient='auto-start-reverse'><path d='M0 0 10 5 0 10z' fill='{c}'/></marker>" for k, _, c, _, _ in CATS)}
 <marker id='ah-var' viewBox='0 0 10 10' refX='5' refY='5' markerWidth='3.2' markerHeight='3.2' orient='auto'><path d='M0 0 10 5 0 10z' fill='#9c36b5'/></marker></defs></svg>
@@ -333,7 +333,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
     <div class="gi"><h1>{_e(g['white'])} <span>vs</span> {_e(g['black'])}</h1>
       <p>{outcome} ({_e(res)}) · {_e(coach.human_tc(g.get('time_control')))} · {'he' if player else 'you'} played {_e(g['my_color'])} · {s['moves_reviewed']} moves reviewed,
         {s['moves_with_thoughts']} with recorded thinking</p></div>
-    <nav class="modes" aria-label="Review modes"><a class="mode story" href="{_e(story_url)}">&#9654; Game Story</a>
+    {'' if player else sharing.BUTTON}<nav class="modes" aria-label="Review modes"><a class="mode story" href="{_e(story_url)}">&#9654; Game Story</a>
       <a class="mode" href="#report">Thinking Report</a><a class="mode" href="#workspace">Deep Analysis</a></nav>
   </header>
   {voice_off}
@@ -388,9 +388,9 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
   </section>
   <section class="practice"><p class="k">{'What to take from his game' if player else 'Before your next game'}</p><p><b>{_e(f['title'])}.</b> {_e(f['habit'])}</p></section>
 </div>
-<div id="tip"></div>
+{'' if player else sharing.PANEL}<div id="tip"></div>
 <script type="application/json" id="rvdata">{blob}</script>
-<script>{DASH_JS}</script><script>{JS}</script>
+<script>{DASH_JS}</script><script>{JS}</script>{'' if player else f"<script>{sharing.JS}</script>"}
 </body></html>"""
 
 
@@ -399,7 +399,7 @@ body { overflow:auto; }
 .review { max-width:1400px; margin:0 auto; padding:12px 18px 40px; }
 .review .k { font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:700; margin:0 0 6px; }
 .review em { font-style:normal; font-size:11px; color:var(--warn); border:1px solid currentColor; border-radius:6px; padding:0 5px; margin-left:6px; white-space:nowrap; }
-header.top { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:4px 18px; align-items:end; margin-bottom:12px; }
+header.top { display:grid; grid-template-columns:minmax(0, 1fr) auto auto; gap:4px 12px; align-items:end; margin-bottom:12px; }
 header.top .homelink { grid-column:1 / -1; }
 header.top h1 { margin:0; font-size:20px; } header.top h1 span { color:var(--muted); font-weight:400; }
 header.top .gi p { margin:2px 0 0; color:var(--fg2); font-size:13.5px; }

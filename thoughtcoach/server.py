@@ -177,7 +177,7 @@ a { color:var(--accent); } .state { color:var(--fg2); } .error { color:#c0392b; 
 def list_page(reviews: Reviews, owner: str | None = None) -> str:
     """The home page: your latest game's story up front, your form, every game, the patterns.
     owner (hosted service): whose games, with links to setup and sign out."""
-    from . import home, profile, questions
+    from . import home, profile, questions, sharing
     from .fmt import THEME_BUTTON, THEME_HEAD
 
     loaded, prof, stories = [], None, {}
@@ -202,14 +202,14 @@ def list_page(reviews: Reviews, owner: str | None = None) -> str:
     refresh = "<meta http-equiv='refresh' content='10'>" if busy else ""
     guide = f"<a class='nav' href='{questions.GUIDE}'>The four questions</a>"
     nav = (guide + "<a class='nav' href='https://lichess.org/'>Play on lichess</a>" if not owner else
-           f"<span class='who'>{html.escape(owner)}</span><a class='nav' href='https://lichess.org/'>Play on lichess</a>"
+           f"<span class='who'>{html.escape(owner)}</span>{sharing.BUTTON}<a class='nav' href='https://lichess.org/'>Play on lichess</a>"
            f"{guide}<a class='nav' href='/start'>Setup</a><a class='nav' href='/api/logout'>Sign out</a>")
     return f"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1">{refresh}<title>Thought Coach</title>
-<link rel="icon" href="/favicon.png">{THEME_HEAD}<style>{LIST_CSS}{profile.CSS}{home.CSS}</style></head><body>{THEME_BUTTON}
+<link rel="icon" href="/favicon.png">{THEME_HEAD}<style>{LIST_CSS}{profile.CSS}{home.CSS}{sharing.CSS}</style></head><body>{THEME_BUTTON}
 <main class="wrap"><nav class="topbar"><a class="brand" href="/"><img src="/icon.svg" alt="" width="22" height="22" style="vertical-align:-5px;margin-right:6px">Thought Coach</a><span class="sp"></span>{nav}</nav>
 {f'<div id="live-banner" data-user="{html.escape(owner)}" hidden></div>' if owner else ''}{main}
-</main><script>{home.JS}</script>{"<script>try{navigator.sendBeacon('/api/event','profile_view')}catch(e){}</script>" if owner else ''}</body></html>"""
+</main>{sharing.PANEL if owner else ''}<script>{home.JS}</script>{f"<script>{sharing.JS}</script>" if owner else ''}{"<script>try{navigator.sendBeacon('/api/event','profile_view')}catch(e){}</script>" if owner else ''}</body></html>"""
 
 
 class Handler(BaseHTTPRequestHandler):

@@ -199,8 +199,11 @@ def test_queued_status_has_game_facts_and_shows_as_active(api):
     status = json.loads(api.fake_s3.objects[("site", "status/lucidchess/AbCd1234.json")])
     assert status["facts"]["opp"] == "someone" and status["facts"]["color"] == "white" and status["facts"]["rating_diff"] == "-6"
     assert status["cold_start"] is True and status["boot_s"] == 160
-    active = json.loads(api.handler(event("GET", "/api/u/lucidchess/active"), None)["body"])["active"]
+    mine = [f"tc_session={api.make_session('lucidchess')}"]
+    active = json.loads(api.handler(event("GET", "/api/u/lucidchess/active", cookies=mine), None)["body"])["active"]
     assert active[0]["game_id"] == "AbCd1234" and active[0]["facts"]["opening"] == "English Opening"
+    # someone else sees nothing about a private player's games in progress
+    assert json.loads(api.handler(event("GET", "/api/u/lucidchess/active"), None)["body"])["active"] == []
 
 
 def test_feedback_from_a_story_card(api):
@@ -283,3 +286,70 @@ def test_general_feedback_needs_a_reason_and_words(api):
     [(_, key)] = [k for k in api.fake_s3.objects if k[1].startswith("feedback/")]
     rec = json.loads(api.fake_s3.objects[("data", key)])
     assert rec["reason"] == "bug" and rec["by"] == "anonymous"
+
+
+# ---------------------------------------------------------------- private reviews and share links
+
+def _page(api, path, cookies=None, query=None):
+    return api.handler(event("GET", path, cookies=cookies, query=query), None)
+
+
+def _seed(api):
+    api.fake_s3.put_object("site", "u/lucidchess/index.html", "<p>home</p>")
+    api.fake_s3.put_object("site", "u/lucidchess/games/AbCd1234/index.html", "<p>review</p>")
+    api.fake_s3.put_object("site", "u/lucidchess/games/ZzZz9999/index.html", "<p>other</p>")
+    api.fake_s3.put_object("site", "status/lucidchess/AbCd1234.json", json.dumps({"game_id": "AbCd1234", "state": "done", "found": {"moves": 40}}))
+    api.fake_s3.put_object("data", "users/lucidchess.json", json.dumps({"id": "lucidchess", "name": "LucidChess", "key": "k"}))
+
+
+def test_reviews_are_private_by_default(api):
+    _seed(api)
+    r = _page(api, "/u/lucidchess/games/AbCd1234/")
+    assert r["statusCode"] == 403 and "This review is private" in r["body"] and "review" not in r["body"].split("<h1>")[0][-5:]
+    assert _page(api, "/u/lucidchess/")["statusCode"] == 403
+    assert _page(api, "/status/lucidchess/AbCd1234.json")["statusCode"] == 403
+    # the extension still learns the state, nothing more
+    s = json.loads(api.handler(event("GET", "/api/u/lucidchess/games/AbCd1234"), None)["body"])
+    assert s == {"game_id": "AbCd1234", "state": "done"}
+
+
+def test_the_owner_sees_their_reviews_and_others_do_not(api):
+    _seed(api)
+    mine = [f"tc_session={api.make_session('lucidchess')}"]
+    r = _page(api, "/u/lucidchess/games/AbCd1234", cookies=mine)  # (no trailing slash: index.html)
+    assert r["statusCode"] == 200 and r["body"] == "<p>review</p>" and r["headers"]["Cache-Control"] == "private, no-store"
+    other = [f"tc_session={api.make_session('someone')}"]
+    assert _page(api, "/u/lucidchess/games/AbCd1234/", cookies=other)["statusCode"] == 403
+    assert _page(api, "/u/lucidchess/../someone/", cookies=mine)["statusCode"] in (400, 403, 404)
+
+
+def test_share_links_open_one_game_and_can_be_revoked(api):
+    _seed(api)
+    mine = [f"tc_session={api.make_session('lucidchess')}"]
+    made = json.loads(api.handler(event("POST", "/api/share", body={"game_id": "AbCd1234"}, cookies=mine), None)["body"])
+    token = made["token"]
+    assert made["url"] == f"/u/lucidchess/games/AbCd1234/?s={token}"
+    r = _page(api, "/u/lucidchess/games/AbCd1234/", query={"s": token})
+    assert r["statusCode"] == 200 and r["cookies"][0].startswith(f"tc_s_lucidchess={token};")
+    # the remembered link opens the game's story too, but not other games
+    remembered = [f"tc_s_lucidchess={token}"]
+    api.fake_s3.put_object("site", "u/lucidchess/games/AbCd1234/story/index.html", "<p>story</p>")
+    assert _page(api, "/u/lucidchess/games/AbCd1234/story/", cookies=remembered)["statusCode"] == 200
+    assert _page(api, "/u/lucidchess/games/ZzZz9999/", cookies=remembered)["statusCode"] == 403
+    assert _page(api, "/u/lucidchess/games/AbCd1234/", query={"s": "guessed-token-guessed-token"})["statusCode"] == 403
+    # revoked: gone at once, for the address and the remembered cookie alike
+    api.handler(event("POST", "/api/share/revoke", body={"token": token}, cookies=mine), None)
+    assert _page(api, "/u/lucidchess/games/AbCd1234/", query={"s": token})["statusCode"] == 403
+    assert _page(api, "/u/lucidchess/games/AbCd1234/", cookies=remembered)["statusCode"] == 403
+
+
+def test_making_reviews_public_and_private_again(api):
+    _seed(api)
+    mine = [f"tc_session={api.make_session('lucidchess')}"]
+    assert api.handler(event("POST", "/api/sharing", body={"visibility": "public"}), None)["statusCode"] == 401  # signed in only
+    api.handler(event("POST", "/api/sharing", body={"visibility": "public"}, cookies=mine), None)
+    assert _page(api, "/u/lucidchess/")["statusCode"] == 200
+    info = json.loads(api.handler(event("GET", "/api/sharing", cookies=mine), None)["body"])
+    assert info["visibility"] == "public"
+    api.handler(event("POST", "/api/sharing", body={"visibility": "private"}, cookies=mine), None)
+    assert _page(api, "/u/lucidchess/")["statusCode"] == 403

@@ -233,7 +233,9 @@ class ThoughtCoach(Stack):
                 origin=origins.S3BucketOrigin.with_origin_access_control(site),
                 viewer_protocol_policy=cf.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                 function_associations=[cf.FunctionAssociation(function=rewrite, event_type=cf.FunctionEventType.VIEWER_REQUEST)]),
-            additional_behaviors={"/api/*": api_behavior, "/health": api_behavior})
+            # Players' reviews and live status go through the API, which serves them only to the player, to a share link,
+            # or to anyone when the player made them public (never straight from the bucket).
+            additional_behaviors={"/api/*": api_behavior, "/health": api_behavior, "/u/*": api_behavior, "/status/*": api_behavior})
         # The landing and setup pages, and the extension download. Never removes anything else
         # (the players' review pages live in the same bucket).
         build_extension_zip()
