@@ -23,7 +23,7 @@
   section.blk { margin:64px 0 0; }
   section.blk > h2 { font-size:clamp(22px, 2.5vw, 30px); margin:0 0 8px; letter-spacing:-.01em; text-wrap:balance; line-height:1.2; }
   section.blk > .sub { color:var(--fg2); margin:0 0 22px; max-width:62ch; }
-  .more { display:inline-block; margin-top:14px; font-weight:600; }
+  .more { display:inline-flex; align-items:center; min-height:44px; margin-top:6px; font-weight:600; }
   .panel { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:20px 22px; }
 
   /* 1. hero beside the real example */
@@ -83,7 +83,8 @@
   .ins { display:grid; grid-template-columns:minmax(0, 380px) minmax(0, 1fr); gap:28px; align-items:start; }
   .ins-board { margin:0; } .ins-board img { width:100%; height:auto; display:block; border-radius:10px; box-shadow:0 10px 30px #0006; }
   .ins-board figcaption { display:flex; flex-wrap:wrap; gap:6px 12px; margin-top:10px; font-size:13px; color:var(--fg2); }
-  .k { display:inline-block; font-weight:700; font-size:11.5px; padding:1px 7px; border-radius:5px; color:#fff; margin-right:4px; }
+  .ins-board .lg { white-space:nowrap; }
+  .k { display:inline-block; font-weight:700; font-size:12px; padding:1px 7px; border-radius:5px; color:#fff; margin-right:4px; }
   .k.g { background:#15781B; } .k.o { background:#e8590c; } .k.r { background:#e03131; }
   .ins-src { font-size:12.5px; color:var(--muted); margin:0 0 6px; }
   .ins h3 { font-size:clamp(19px, 1.9vw, 24px); line-height:1.2; margin:0 0 14px; }
@@ -97,7 +98,10 @@
   .qc { border:1px solid var(--line); border-radius:16px; padding:16px 18px; }
   .qc .n { display:inline-grid; place-items:center; width:26px; height:26px; border-radius:50%; border:2px solid var(--accent);
     color:var(--accent); font-weight:700; font-size:13px; }
+  .qc summary { list-style:none; } .qc summary::-webkit-details-marker { display:none; }
   .qc h3 { margin:8px 0 6px; font-size:16.5px; line-height:1.25; } .qc p { margin:0; color:var(--fg2); font-size:14px; }
+  .qc p.ex { margin-top:8px; padding-top:8px; border-top:1px solid var(--line); font-size:13.5px; }
+  @media (min-width:981px) { .qc summary { pointer-events:none; } }
 
   /* 5. Game Story */
   .story { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 340px); gap:32px; align-items:center; }
@@ -166,7 +170,7 @@
 
   @media (max-width:980px) {
     /* one column: headline, then the example straight away, then the rest of the intro */
-    .top2 { display:flex; flex-direction:column; gap:0; margin-top:8px; }
+    .top2 { display:flex; flex-direction:column; align-items:stretch; gap:0; margin-top:8px; }
     .top2 > .hero { display:contents; }
     .top2 > .hero > * { order:3; }
     .top2 > .hero > .eyebrow { order:1; } .top2 > .hero > h1 { order:2; }
@@ -181,17 +185,87 @@
     section.blk { margin-top:48px; } .vs, .q4, ol.three, .trust, .cycle { grid-template-columns:1fr; }
     .mx { grid-template-columns:1fr; } .panel { padding:16px; }
   }
+
+  /* ---- phones and tablets: one vertical column, nothing to swipe sideways ---- */
+  .menu-btn, .mobnote, .tp-head { display:none; }
+  .navlinks { display:contents; }
+  @media (max-width:980px) {
+    main.wide nav.top a.link { display:inline-flex; align-items:center; min-height:44px; padding:0 4px; }
+    /* the topics: a vertical accordion, every heading visible */
+    .tour { display:block; margin-top:36px; border-radius:16px; }
+    .tour-nav { display:none; }
+    .tour-body { padding:0; min-height:0; }
+    .tp-head { all:unset; box-sizing:border-box; display:grid; grid-template-columns:minmax(0, 1fr) 28px; align-items:center; gap:2px 12px;
+      width:100%; min-height:56px; padding:12px 16px; cursor:pointer; border-top:1px solid var(--line); }
+    .tp-head:first-child { border-top:0; }
+    .tp-head b { font-size:16px; } .tp-head small { grid-column:1; color:var(--muted); font-size:13px; }
+    .tp-head i { grid-column:2; grid-row:1 / span 2; width:28px; height:28px; border-radius:50%; border:1px solid var(--line);
+      display:grid; place-items:center; transition:transform .2s; }
+    .tp-head i::before { content:""; width:7px; height:7px; border-right:2px solid var(--fg2); border-bottom:2px solid var(--fg2);
+      transform:translateY(-2px) rotate(45deg); }
+    .tp-head[aria-expanded="true"] i { transform:rotate(180deg); }
+    .tp-head:focus-visible { outline:2px solid var(--accent); outline-offset:-2px; }
+    .tour section.blk { padding:4px 16px 20px; }
+    .tour .tp > h2, .tour .tp > .eyebrow { font-size:19px; }
+    .tour .tp > .eyebrow, .tour #story .eyebrow { display:none; }
+    .tour .tour-step { display:none; }
+    /* the cycle: a vertical timeline */
+    .cycle { display:block; position:relative; padding-left:22px; }
+    .cycle::before { content:""; position:absolute; left:6px; top:8px; bottom:8px; width:2px; background:var(--line); }
+    .cycle li { border:0; padding:6px 0 10px; }
+    .cycle li::before { content:""; position:absolute; left:-21px; top:11px; width:12px; height:12px; border-radius:50%; background:var(--accent); }
+    .cycle li.rep::before { background:var(--card); border:2px solid var(--accent); box-sizing:border-box; }
+    .cycle li b { display:inline; font-size:15.5px; margin-right:6px; } .cycle li span { display:inline; }
+    /* steps and trust: compact rows */
+    ol.three, .trust { display:block; }
+    ol.three li { border:0; border-top:1px solid var(--line); border-radius:0; padding:12px 0 12px 44px; }
+    ol.three li:first-child { border-top:0; } ol.three li::before { left:0; top:12px; width:26px; height:26px; }
+    .trust li { border:0; border-top:1px solid var(--line); border-radius:0; padding:10px 0; } .trust li:first-child { border-top:0; }
+    .notes { display:block; } .notes li { padding:3px 0; }
+    .rs { grid-template-columns:1fr 1fr; gap:10px 16px; }
+    .q4 { grid-template-columns:1fr; gap:0; border:1px solid var(--line); border-radius:14px; }
+    .qc { border:0; border-top:1px solid var(--line); border-radius:0; padding:0 14px; } .qc:first-child { border-top:0; }
+    .qc summary { display:flex; align-items:center; gap:12px; min-height:52px; cursor:pointer; }
+    .qc summary h3 { margin:0; font-size:15.5px; flex:1; }
+    .qc summary::after { content:"+"; color:var(--muted); font-size:20px; } .qc[open] summary::after { content:"–"; }
+    .qc > p { padding-bottom:4px; } .qc > p.ex { padding-bottom:14px; }
+    .story { gap:20px; } .phone { width:min(100%, 300px); }
+  }
+  @media (max-width:640px) {
+    body { padding-top:12px; }
+    main.wide nav.top { margin-bottom:8px; position:relative; flex-wrap:nowrap; }
+    .menu-btn { display:grid; gap:5px; align-content:center; justify-items:center; width:44px; height:44px; padding:0; border-radius:10px;
+      background:transparent; border:1px solid var(--line); cursor:pointer; }
+    .menu-btn span { display:block; width:18px; height:2px; border-radius:1px; background:var(--fg); transition:transform .2s, opacity .2s; }
+    nav.top.open .menu-btn span:nth-child(1) { transform:translateY(7px) rotate(45deg); }
+    nav.top.open .menu-btn span:nth-child(2) { opacity:0; }
+    nav.top.open .menu-btn span:nth-child(3) { transform:translateY(-7px) rotate(-45deg); }
+    .navlinks { display:none; position:absolute; top:52px; left:0; right:0; z-index:20; flex-direction:column; padding:6px;
+      background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:0 14px 40px #0006; }
+    nav.top.open .navlinks { display:flex; }
+    .navlinks a.link { display:flex; align-items:center; min-height:44px; padding:0 12px; border-radius:10px; font-size:16px; }
+    .navlinks a.link:hover { background:color-mix(in srgb, var(--accent) 10%, transparent); }
+    .navlinks a.link[hidden] { display:none; }
+    .hero h1 { font-size:clamp(28px, 8.6vw, 38px); margin-bottom:12px; }
+    .hero .sub2 { font-size:16px; margin-bottom:18px; }
+    #cta { flex-direction:column; align-items:stretch; gap:10px; }
+    #cta .btn, .final .btn { display:flex; justify-content:center; align-items:center; text-align:center; min-height:48px; box-sizing:border-box; }
+    .mobnote { display:block; font-size:13.5px; color:var(--fg2); margin:10px 0 0; }
+    .final { margin-top:40px; } .final .row { flex-direction:column; align-items:stretch; }
+  }
 </style>
 </head>
 <body>
 <main class="wide">
   <nav class="top">
     <p class="brand"><a href="/"><span class="mark"></span>Thought Coach</a></p><span class="sp"></span>
+    <button class="menu-btn" type="button" aria-expanded="false" aria-controls="navlinks" aria-label="Menu" onclick="var n=this.closest('nav'), o=n.classList.toggle('open'); this.setAttribute('aria-expanded', o)"><span></span><span></span><span></span></button>
+    <span class="navlinks" id="navlinks">
     <a class="link" id="nav-games" href="/start" hidden>Your games</a>
     <a class="link" href="/sample/">Sample review</a>
     <a class="link" href="/questions">The four questions</a>
     <a class="link" href="/research">Research</a>
-    <a class="link" href="/start">Get started</a>
+    <a class="link" href="/start">Get started</a></span>
   </nav>
 
   <!-- 1. hero, beside a real example -->
@@ -206,6 +280,7 @@
         <a class="btn" href="/start" data-ev="get_started">Get started for free</a>
       </div>
       <p class="trustline">Free · Open source · Post-game analysis only</p>
+      <p class="mobnote">Recording your games needs a desktop browser. On your phone, explore the sample review and the research.</p>
     </section>
     <section class="example">
       <p class="exlabel">Two real moments, reviewed (no sound needed)</p>
@@ -219,7 +294,7 @@
     <nav class="tour-nav" role="tablist" aria-label="About Thought Coach"></nav>
     <div class="tour-body">
   <!-- 2. how it differs -->
-  <section class="blk tp" id="compare" data-tab="Why it's different" role="tabpanel">
+  <section class="blk tp" id="compare" data-desc="What engine review can't tell you" data-tab="Why it's different" role="tabpanel">
     <h2>Engines answer what. Thought Coach asks why.</h2>
     <div class="vs">
       <div class="col old"><h3>Traditional game review</h3>
@@ -232,27 +307,31 @@
   </section>
 
   <!-- 3. one real coaching insight -->
-  <section class="blk tp" id="insight" data-tab="A real insight" role="tabpanel">
+  <section class="blk tp" id="insight" data-desc="A strong move found, then dropped" data-tab="A real insight" role="tabpanel">
     <p class="eyebrow">One real coaching insight</p>
     <h2>What normal game review would never tell you</h2>
     <div class="panel" id="insight-card"><p class="cap">Loading the example…</p></div>
   </section>
 
   <!-- 4. the four questions -->
-  <section class="blk tp" id="questions" data-tab="Four questions" role="tabpanel">
+  <section class="blk tp" id="questions" data-desc="What strong players check on every move" data-tab="Four questions" role="tabpanel">
     <h2>Four questions, in the order strong players ask them</h2>
     <p class="sub">Each review checks which of these show up in your recorded thinking, and which don't.</p>
     <div class="q4">
-      <div class="qc"><span class="n">1</span><h3>What does your opponent want?</h3><p>Their threat or plan, before you choose your move.</p></div>
-      <div class="qc"><span class="n">2</span><h3>Where are the weaknesses?</h3><p>Loose pawns, holes and an exposed king, on both sides.</p></div>
-      <div class="qc"><span class="n">3</span><h3>What are your candidates?</h3><p>Two or three real options, so the best one can be on the list.</p></div>
-      <div class="qc"><span class="n">4</span><h3>Which piece is doing least?</h3><p>Improving your worst piece is often the best quiet move.</p></div>
+      <details class="qc"><summary><span class="n">1</span><h3>What does your opponent want?</h3></summary>
+        <p>Their threat or plan, before you choose your move.</p><p class="ex">Try: draw their best move as an arrow before you choose yours.</p></details>
+      <details class="qc"><summary><span class="n">2</span><h3>Where are the weaknesses?</h3></summary>
+        <p>Loose pawns, holes and an exposed king, on both sides.</p><p class="ex">Try: before a pawn move, circle the squares it stops guarding.</p></details>
+      <details class="qc"><summary><span class="n">3</span><h3>What are your candidates?</h3></summary>
+        <p>Two or three real options, so the best one can be on the list.</p><p class="ex">Try: draw two different moves before you play one.</p></details>
+      <details class="qc"><summary><span class="n">4</span><h3>Which piece is doing least?</h3></summary>
+        <p>Improving your worst piece is often the best quiet move.</p><p class="ex">Try: make one of your candidates a move for that piece.</p></details>
     </div>
     <a class="more" href="/questions">How to use them in a game →</a>
   </section>
 
   <!-- 5. the Game Story -->
-  <section class="blk tp" id="story" data-tab="Game Story" role="tabpanel">
+  <section class="blk tp" id="story" data-desc="A lesson from your own game" data-tab="Game Story" role="tabpanel">
     <div class="story">
       <div>
         <p class="eyebrow">Game Story</p>
@@ -273,7 +352,7 @@
   </section>
 
   <!-- 6. the thinking profile -->
-  <section class="blk tp" id="profile" data-tab="Your profile" role="tabpanel">
+  <section class="blk tp" id="profile" data-desc="The patterns across your games" data-tab="Your profile" role="tabpanel">
     <p class="eyebrow">Your thinking profile</p>
     <h2>Every game reveals something. Together, they reveal your habits.</h2>
     <p class="sub">Across your rapid and classical games, Thought Coach looks for the patterns no single review can show, sets
@@ -311,7 +390,7 @@
   </section>
 
   <!-- 7. selected master findings -->
-  <section class="blk tp" id="research" data-tab="Research" role="tabpanel">
+  <section class="blk tp" id="research" data-desc="How strong players think, in numbers" data-tab="Research" role="tabpanel">
     <p class="eyebrow">Research</p>
     <h2>How strong players think, in the same review</h2>
     <div class="rs" aria-label="The research data">
@@ -332,7 +411,7 @@
   </section>
 
   <!-- 8. the improvement cycle -->
-  <section class="blk tp" id="loop" data-tab="The cycle" role="tabpanel">
+  <section class="blk tp" id="loop" data-desc="Play, analyze, train, measure" data-tab="The cycle" role="tabpanel">
     <h2>Built for long-term improvement</h2>
     <p class="sub">Each game adds to your profile, and your next focus comes from what keeps repeating.</p>
     <ol class="cycle">
@@ -345,7 +424,7 @@
   </section>
 
   <!-- 9. getting started -->
-  <section class="blk tp" id="how" data-tab="Get started" role="tabpanel">
+  <section class="blk tp" id="how" data-desc="Three steps to your first review" data-tab="Get started" role="tabpanel">
     <h2>Three steps to your first review</h2>
     <ol class="three">
       <li><h3>Connect</h3><p>Sign in with lichess and install the free Chrome extension.</p></li>
@@ -361,7 +440,7 @@
   </section>
 
   <!-- 10. trust, then the last call -->
-  <section class="blk tp" id="trust" data-tab="Trust &amp; privacy" role="tabpanel">
+  <section class="blk tp" id="trust" data-desc="Free, private, post-game only" data-tab="Trust &amp; privacy" role="tabpanel">
     <h2>Fair play, privacy, open source</h2>
     <ul class="trust">
       <li><b>Free and open source</b><a href="https://github.com/GrantRedfield/thought-coach">Code on GitHub</a> (AGPL-3.0)</li>
@@ -391,36 +470,55 @@
     fetch('/example/card.html').then((r) => r.ok ? r.text() : Promise.reject())
       .then((h) => { document.getElementById('example-card').innerHTML = h; })
       .catch(() => { document.querySelector('section.example').hidden = true; document.querySelector('.top2').classList.add('solo'); });
-    // The tour: build the topic list from the panels, show one at a time; a link to #trust, #profile... opens that topic.
+    // The tour: a topic list with one topic at a time on wide screens; on phones and tablets, a vertical accordion
+    // with every topic heading visible (several can be open, so opening one never moves the others). A link to
+    // #trust, #profile... opens that topic.
     (() => {
       const nav = document.querySelector('.tour-nav'), panels = [...document.querySelectorAll('.tour .tp')];
+      const narrow = matchMedia('(max-width:980px)');
+      let cur = 0; const open = new Set();
       const btns = panels.map((p, i) => {
         const b = document.createElement('button');
         b.type = 'button'; b.setAttribute('role', 'tab'); b.id = 'tab-' + p.id; b.setAttribute('aria-controls', p.id);
         b.innerHTML = `<span class="i">${i + 1}</span>${p.dataset.tab}`; nav.appendChild(b);
-        p.setAttribute('aria-labelledby', b.id);
+        b.onclick = () => { cur = i; render(); };
+        const h = document.createElement('button');
+        h.type = 'button'; h.className = 'tp-head'; h.setAttribute('aria-controls', p.id); h.setAttribute('aria-expanded', 'false');
+        h.innerHTML = `<b>${p.dataset.tab}</b><small>${p.dataset.desc || ''}</small><i aria-hidden="true"></i>`;
+        h.onclick = () => { open.has(i) ? open.delete(i) : open.add(i); render(); };
+        p.before(h);
         const next = panels[i + 1];
         const step = document.createElement('div'); step.className = 'tour-step';
         step.innerHTML = `<span>${i + 1} of ${panels.length}</span>` + (next ? `<button type="button">Next: ${next.dataset.tab} →</button>`
           : `<button type="button">Back to the start ↺</button>`);
-        step.querySelector('button').onclick = () => { show(next ? i + 1 : 0, true); };
+        step.querySelector('button').onclick = () => {
+          cur = next ? i + 1 : 0; render(); document.getElementById('tour').scrollIntoView({ block: 'start', behavior: 'smooth' }); };
         p.appendChild(step);
-        b.onclick = () => show(i, false);
-        return b;
+        return { b, h };
       });
-      function show(i, scroll) {
-        panels.forEach((p, k) => { p.hidden = k !== i; });
-        btns.forEach((b, k) => { b.setAttribute('aria-selected', String(k === i)); b.tabIndex = k === i ? 0 : -1; });
-        btns[i].scrollIntoView({ block: 'nearest', inline: 'nearest' });
-        if (scroll) document.getElementById('tour').scrollIntoView({ block: 'start', behavior: 'smooth' });
+      function render() {
+        const acc = narrow.matches;
+        panels.forEach((p, k) => {
+          p.hidden = acc ? !open.has(k) : k !== cur;
+          p.setAttribute('role', acc ? 'region' : 'tabpanel');
+          btns[k].b.setAttribute('aria-selected', String(k === cur)); btns[k].b.tabIndex = k === cur ? 0 : -1;
+          btns[k].h.setAttribute('aria-expanded', String(acc && open.has(k)));
+        });
       }
       nav.addEventListener('keydown', (e) => {
-        const i = btns.findIndex(b => b.getAttribute('aria-selected') === 'true');
-        if (['ArrowDown', 'ArrowRight'].includes(e.key)) { e.preventDefault(); show(Math.min(i + 1, btns.length - 1)); btns[Math.min(i + 1, btns.length - 1)].focus(); }
-        if (['ArrowUp', 'ArrowLeft'].includes(e.key)) { e.preventDefault(); show(Math.max(i - 1, 0)); btns[Math.max(i - 1, 0)].focus(); }
+        const d = ['ArrowDown', 'ArrowRight'].includes(e.key) ? 1 : ['ArrowUp', 'ArrowLeft'].includes(e.key) ? -1 : 0;
+        if (!d) return; e.preventDefault(); cur = Math.max(0, Math.min(panels.length - 1, cur + d)); render(); btns[cur].b.focus();
       });
-      const fromHash = () => { const k = panels.findIndex(p => '#' + p.id === location.hash); if (k >= 0) show(k, true); };
-      show(0, false); fromHash(); addEventListener('hashchange', fromHash);
+      const fromHash = () => {
+        const k = panels.findIndex(p => '#' + p.id === location.hash); if (k < 0) return;
+        cur = k; open.add(k); render();
+        (narrow.matches ? btns[k].h : document.getElementById('tour')).scrollIntoView({ block: 'start' });
+      };
+      // the four questions: always open on wide screens, tap to open on phones and tablets
+      const qs = [...document.querySelectorAll('details.qc')];
+      const qmode = () => qs.forEach(d => { d.open = !narrow.matches; });
+      narrow.addEventListener('change', () => { render(); qmode(); });
+      render(); qmode(); fromHash(); addEventListener('hashchange', fromHash);
     })();
     fetch('/example/insight.html').then((r) => r.ok ? r.text() : Promise.reject())
       .then((h) => { document.getElementById('insight-card').innerHTML = h; })
