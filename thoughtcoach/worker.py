@@ -170,6 +170,30 @@ def review_one(s3, data: str, site: str, user: str, gid: str) -> None:
     _status(s3, site, user, gid, "done", finished_at=time.time())
 
 
+PUZZLE_JOB = re.compile(r"^[A-Za-z0-9-]{8,40}$")
+
+
+def puzzle_voice_one(s3, data: str, user: str, jid: str) -> None:
+    """A recorded puzzle solve: what was said, as moves on the puzzle's board. The upload (with the audio) is
+    deleted whatever happens; the result (text and moves) is kept for the player's page to fetch."""
+    from .puzzle_voice import process
+
+    if not USER.match(user) or not PUZZLE_JOB.match(jid):
+        raise ValueError(f"bad puzzle job {user!r} {jid!r}")
+    key = f"puzzles/voice/{user}/{jid}"
+    try:
+        job = json.loads(s3.get_object(Bucket=data, Key=f"{key}.json")["Body"].read())
+        try:
+            result = {"state": "done", **process(job)}
+        except Exception as err:  # noqa: BLE001 - the page shows the arrows' comparison anyway
+            traceback.print_exc()
+            result = {"state": "error", "error": f"{type(err).__name__}: {err}"}
+        result.update(puzzle=job.get("puzzle"), finished=time.time())
+        s3.put_object(Bucket=data, Key=f"{key}.result.json", Body=json.dumps(result).encode(), ContentType="application/json")
+    finally:
+        s3.delete_object(Bucket=data, Key=f"{key}.json")  # the audio: never kept
+
+
 PER_SERVER = 4  # queued games per server before another one is worth starting
 MAX_BURST = 3
 
@@ -262,6 +286,15 @@ def run() -> int:
             continue
         msg = got[0]
         job = json.loads(msg["Body"])
+        if job.get("type") == "puzzle_voice":  # a puzzle solved out loud: seconds, not a review
+            print(f"puzzle voice {job.get('job')} for {job.get('user')}", file=sys.stderr)
+            try:
+                puzzle_voice_one(s3, data, job.get("user", ""), job.get("job", ""))
+            except Exception:  # noqa: BLE001
+                traceback.print_exc()
+            sqs.delete_message(QueueUrl=source, ReceiptHandle=msg["ReceiptHandle"])
+            last_job = time.time()
+            continue
         gid, user = job["game_id"], job.get("user", "")
         print(f"reviewing {gid} for {user}", file=sys.stderr)
         try:

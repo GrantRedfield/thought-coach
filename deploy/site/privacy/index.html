@@ -16,7 +16,7 @@
     <a class="link" href="/start">Setup</a></nav>
   <h1>Privacy and fair play</h1>
   <p class="lead">Thought Coach is a free, open-source tool that reviews how you think in your own lichess games.
-    This page says what it collects, why, how to delete it, and how it stays fair. Last updated 23 November 2026.</p>
+    This page says what it collects, why, how to delete it, and how it stays fair. Last updated 27 November 2026.</p>
 
   <h2 id="fair-play">Fair play: nothing during the game</h2>
   <ul>
@@ -45,6 +45,9 @@
     <li>An upload key that links the extension to your account.</li>
     <li>Your recordings and the reviews made from them. <b>Voice audio is deleted once it has been transcribed</b>;
       the text transcript is kept as part of the review.</li>
+    <li><b>Puzzles, if you try them signed in:</b> your puzzle rating and which puzzles you tried, with the move you chose.
+      Every puzzle also keeps its own rating, worked out from everyone's tries, with no names. Your lichess puzzle rating
+      (public on your profile) is read once, to choose where your rating starts.</li>
     <li>A sign-in cookie, used only to keep you signed in. No advertising or tracking cookies.</li>
     <li><b>Anonymous step counts:</b> the public pages count how many times a few steps happen each day (the home page
       was opened, the sample review was opened, the setup page was reached). Only a daily total per step is stored: no
@@ -52,10 +55,11 @@
   </ul>
 
   <h2>How it is used</h2>
-  <p>Only to make your reviews: the game is analysed with the Stockfish chess engine, and the voice is turned into
-    text and tagged by speech models running on our own servers. Your data is not sold, not used for advertising,
-    not used to train AI models, and not shared with anyone, except the services that run the site (and, for titled players,
-    the pooled master benchmarks described below):</p>
+  <p>To make your reviews: the game is analysed with the Stockfish chess engine, and the voice is turned into
+    text and tagged by speech models running on our own servers. Two more uses are described below: anonymous
+    <a href="#puzzles">puzzles from players' games</a>, and, for titled players, the pooled
+    <a href="#titled">master benchmarks</a>. Your data is not sold, not used for advertising, not used to train AI models,
+    and not shared with anyone else, except the services that run the site:</p>
   <ul>
     <li><b>lichess.org</b>: for signing in, and to check that a game is over and that you played in it (public game data).</li>
     <li><b>Amazon Web Services</b> (United States): hosting, storage, and the servers that run the engine and the speech-to-text models.</li>
@@ -65,10 +69,27 @@
   <h2 id="titled">Titled players and the master benchmarks</h2>
   <p>If your lichess account has a title (GM, IM, FM, CM, NM, LM and the women's titles; never bot accounts), your rapid
     and classical reviews are included in the master benchmarks that every player is compared with. Only pooled rates
-    are published, averaged with other strong players: you are never named, quoted or shown individually, and no game,
-    position or transcript of yours is shown to anyone else. Your title is read from lichess when you sign in (it is
+    are published, averaged with other strong players: you are never named, quoted or shown individually, and no game
+    or transcript of yours is shown to anyone else (positions may appear as anonymous puzzles, as below, unless you switch that off). Your title is read from lichess when you sign in (it is
     public on your lichess profile). You can switch this off at any time on the <a href="/start">setup page</a>;
     your games then drop out the next time the benchmarks are rebuilt, as they do if you delete your data.</p>
+
+  <h2 id="puzzles">Puzzles from players' games</h2>
+  <p>Positions from reviewed games can become <a href="/puzzles/">puzzles</a> for other players: a moment where one move
+    was clearly best. A puzzle is anonymous:</p>
+  <ul>
+    <li><b>Shown:</b> the position, the clock, the engine's answer and line, and a rating range for the player (for example
+      "1900–2000 rapid"), credited as "a Thought Coach player's game".</li>
+    <li><b>Never shown:</b> your username, a link to the game or its date, your arrows, your words or your voice.
+      What players drew and said may only feed pooled figures across many players (for example, how often a kind of threat
+      was missed), never shown as one person's.</li>
+    <li><b>Which games:</b> any game you review, unless you switch this off on the <a href="/start">setup page</a>.</li>
+    <li><b>How anonymous:</b> we never attach your name, but a lichess game is public, so someone could look up an exact
+      position in public game databases and find the game it came from. If that matters to you, switch it off.</li>
+    <li><b>Your choice:</b> switch it off on the <a href="/start">setup page</a> at any time. Your positions then leave the
+      puzzles the next time the set is rebuilt, as they do if you delete your data.</li>
+  </ul>
+  <p>Puzzles from the games of named masters (such as the current set) are shown only with that player's permission.</p>
 
   <h2>Who can see your reviews</h2>
   <p>Your reviews are <b>private</b>: your games page, every review and story, and the live status of a review are shown only

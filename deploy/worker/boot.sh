@@ -15,7 +15,11 @@ md() { curl -sf -H "X-aws-ec2-metadata-token: $(imds_token)" "http://169.254.169
 
 IID=$(md instance-id)
 aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "${REPO%%/*}"
+# Old images left behind by earlier pulls fill the disk (each is several GB), and then a pull of new code fails
+# and the old code runs: clear them before pulling and after.
+docker image prune -f >/dev/null 2>&1 || true
 docker pull "$REPO:latest" || echo "pull failed: using the image already here"
+docker image prune -f >/dev/null 2>&1 || true
 
 GROUP=$(aws autoscaling describe-auto-scaling-instances --instance-ids "$IID" --region "$REGION" \
   --query 'AutoScalingInstances[0].AutoScalingGroupName' --output text)

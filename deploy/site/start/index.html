@@ -52,6 +52,13 @@
           quoted, or shown individually. <a href="/research">How the benchmarks work</a></p>
         <label class="switch"><input type="checkbox" id="bench" checked> <span>Count my games in the master benchmarks</span></label>
       </div>
+      <div class="note" id="pz-share" hidden>
+        <p style="margin:0 0 6px"><b>Puzzles from players' games.</b> A position from a game you review can become a
+          <a href="/puzzles/">puzzle</a> for other players. It's anonymous: only the position, the clock and the engine's answer,
+          credited as "a Thought Coach player's game" with a rating range. Never your username, a link to the game, your
+          arrows, your words or your voice. It's on unless you switch it off. <a href="/privacy#puzzles">More on this</a></p>
+        <label class="switch"><input type="checkbox" id="pz-on" checked> <span>Let positions from my games become puzzles</span></label>
+      </div>
     </li>
 
     <li id="s-ext" class="later">
@@ -151,6 +158,8 @@
     $('danger').hidden = !signed;
     $('titled').hidden = !(signed && me.title);
     if (signed && me.title) { $('title').textContent = me.title; $('bench').checked = !!me.benchmark; }
+    $('pz-share').hidden = !(signed && me.puzzles);
+    if (signed && me.puzzles) $('pz-on').checked = me.puzzles.on;
 
     mark('s-ext', installed ? 'done' : signed ? 'now' : 'later');
     $('ext-todo').hidden = installed;
@@ -204,6 +213,12 @@
     const r = await fetch('/api/benchmark', { method: 'POST', body: JSON.stringify({ on: e.target.checked }) }).catch(() => null);
     if (!r || !r.ok) { e.target.checked = !e.target.checked; alert('Could not save that: please try again.'); }
   };
+  async function savePuzzleSharing(body, undo) {
+    const r = await fetch('/api/puzzle-sharing', { method: 'POST', body: JSON.stringify(body) }).catch(() => null);
+    if (!r || !r.ok) { undo(); alert('Could not save that: please try again.'); return; }
+    me.puzzles = (await r.json()).puzzles;
+  }
+  $('pz-on').onchange = (e) => savePuzzleSharing({ on: e.target.checked }, () => { e.target.checked = !e.target.checked; });
   $('recheck').onclick = (e) => { e.preventDefault(); location.reload(); };
   $('voice-on').onchange = (e) => window.postMessage({ tc: 'site', type: 'voice', on: e.target.checked }, location.origin);
   $('copy-ext').onclick = async () => {

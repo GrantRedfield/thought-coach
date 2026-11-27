@@ -46,6 +46,8 @@ import uuid
 
 import boto3
 
+import glicko
+
 GAME_ID = re.compile(r"^[A-Za-z0-9]{8}$")
 USER_ID = re.compile(r"^[a-z0-9_-]{2,30}$")
 FORMAT = "thoughtcoach-arrows/2"
@@ -106,6 +108,16 @@ def is_master(user: dict) -> bool:
     pooled and anonymous, in the master benchmarks."""
     title = str(user.get("title") or "").upper()
     return bool(title) and title != "BOT" and user.get("benchmark", True) is not False
+
+
+# Positions from players' reviewed games may become puzzles for others: no name attached (the position, the clock and
+# the engine's answer, with a rating range; never the player's name, the game, their words or voice), unless the
+# player switches it off.
+
+
+def puzzle_sharing(user: dict) -> dict:
+    """on: positions from their reviewed games may become puzzles (the default)."""
+    return {"on": user.get("puzzles", True) is not False}
 
 
 def get_or_create_user(uid: str, name: str, title: str | None = None) -> dict:
@@ -264,8 +276,14 @@ def challenge(verifier: str) -> str:
     return base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
 
 
+RETURN_TO = {"/puzzles/"}  # pages sign-in may come back to (anything else goes to the games page or setup)
+
+
 def login(event: dict) -> dict:
     state, verifier = secrets.token_urlsafe(16), secrets.token_urlsafe(48)
+    back = (event.get("queryStringParameters") or {}).get("next")
+    if back in RETURN_TO:
+        verifier += "." + back
     origin = _origin(event)
     query = urllib.parse.urlencode({
         "response_type": "code", "client_id": origin.split("//", 1)[1], "redirect_uri": f"{origin}/api/callback",
@@ -287,6 +305,7 @@ def _lichess(path: str, token: str | None = None, data: dict | None = None, meth
 def callback(event: dict) -> dict:
     q = event.get("queryStringParameters") or {}
     state, _, verifier = cookies(event).get("tc_oauth", "").partition(".")
+    verifier, _, back = verifier.partition(".")
     clear = _cookie("tc_oauth", "", "/api", 0)
     if q.get("error"):
         return redirect("/start?signin=cancelled", [clear])
@@ -310,7 +329,7 @@ def callback(event: dict) -> dict:
     get_or_create_user(uid, name or uid, account.get("title"))  # lichess title: GM, IM, ... (public)
     # Players with reviews go straight to their games (latest story up front); new ones to setup.
     has_games = s3.list_objects_v2(Bucket=SITE, Prefix=f"status/{uid}/", MaxKeys=1).get("KeyCount", 0) > 0
-    return redirect(f"/u/{uid}/" if has_games else "/start",
+    return redirect(back if back in RETURN_TO else f"/u/{uid}/" if has_games else "/start",
                     [clear, _cookie("tc_session", make_session(uid), "/", SESSION_DAYS * 86400)])
 
 
@@ -322,7 +341,24 @@ def me(event: dict) -> dict:
     titled = bool(user.get("title")) and str(user.get("title")).upper() != "BOT"
     return reply(200, {"signed_in": True, "id": user["id"], "name": user["name"], "key": user["key"],
                        "home": f"/u/{user['id']}/", "title": user.get("title") if titled else None,
-                       "benchmark": is_master(user)}, cors=False)
+                       "benchmark": is_master(user), "puzzles": puzzle_sharing(user)}, cors=False)
+
+
+def set_puzzle_sharing(event: dict) -> dict:
+    """{"on": true|false}: whether positions from their games may become puzzles."""
+    uid = signed_in(event)
+    user = uid and _get_json(DATA, f"users/{uid}.json")
+    if not user:
+        return reply(401, {"error": "not signed in"}, cors=False)
+    try:
+        on = json.loads(_body(event) or "{}").get("on")
+    except (ValueError, AttributeError):
+        on = None
+    if not isinstance(on, bool):
+        return reply(400, {"error": "say on: true or false"}, cors=False)
+    user["puzzles"] = on
+    _put_json(DATA, f"users/{uid}.json", user)
+    return reply(200, {"puzzles": puzzle_sharing(user)}, cors=False)
 
 
 def set_benchmark(event: dict) -> dict:
@@ -362,9 +398,9 @@ def delete_account(event: dict) -> dict:
     user = _get_json(DATA, f"users/{uid}.json")
     if user:
         s3.delete_object(Bucket=DATA, Key=f"keys/{_key_hash(user['key'])}.json")
-    for key in (f"users/{uid}.json", f"usage/{uid}.json"):
+    for key in (f"users/{uid}.json", f"usage/{uid}.json", f"puzzles/players/{uid}.json"):
         s3.delete_object(Bucket=DATA, Key=key)
-    for prefix in (f"recordings/{uid}/", f"data/{uid}/", f"incoming/{uid}/", f"shares/{uid}/"):
+    for prefix in (f"recordings/{uid}/", f"data/{uid}/", f"incoming/{uid}/", f"shares/{uid}/", f"puzzles/voice/{uid}/"):
         _delete_prefix(DATA, prefix)
     for prefix in (f"u/{uid}/", f"status/{uid}/"):
         _delete_prefix(SITE, prefix)
@@ -737,6 +773,165 @@ def revoke_share(event: dict) -> dict:
     return reply(200, {"revoked": token}, cors=False)
 
 
+# ---------------------------------------------------------------- puzzles: a Glicko-2 rating for signed-in players
+
+PUZZLE_SET = "puzzles/set/puzzles.json"  # in the site bucket, next to the page
+PUZZLE_ID = re.compile(r"^[A-Za-z0-9]{8,12}-\d{1,3}$")
+SOLVED = 0.03  # an answer within this much win chance of the best move counts as solved
+_puzzles: dict = {"t": 0.0, "by_id": {}}
+
+
+def puzzle_set() -> dict:
+    """The published puzzles by id (re-read at most once a minute)."""
+    if time.time() - _puzzles["t"] > 60:
+        data = _get_json(SITE, PUZZLE_SET) or {}
+        _puzzles["by_id"] = {p["id"]: p for p in data.get("puzzles") or []}
+        _puzzles["t"] = time.time()
+    return _puzzles["by_id"]
+
+
+def judge(puzzle: dict, uci: str | None) -> bool:
+    best = puzzle["moves"][0]
+    m = next((x for x in puzzle["moves"] if x["uci"] == uci), None) if uci else None
+    return bool(m) and best["wp"] - m["wp"] <= SOLVED
+
+
+def _lichess_start(uid: str) -> dict | None:
+    """Where a new player's puzzle rating starts: their lichess rating at the slowest speed they play enough
+    (these are positions from classical and rapid games), a little less certain than lichess has it, since it
+    is a different pool. Players with no such rating start from their lichess puzzle rating, then at 1500."""
+    try:
+        perfs = _lichess(f"/api/user/{uid}").get("perfs") or {}
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+    for speed in ("classical", "rapid", "blitz", "puzzle"):
+        perf = perfs.get(speed) or {}
+        if perf.get("rating") and (perf.get("games") or 0) >= 10 and not perf.get("prov"):
+            return {"r": float(perf["rating"]), "rd": max(150.0, float(perf.get("rd") or 0)), "vol": 0.06, "from": f"lichess {speed}"}
+    return None
+
+
+def puzzle_player(uid: str) -> dict:
+    p = _get_json(DATA, f"puzzles/players/{uid}.json")
+    if p:
+        return p
+    return {**(_lichess_start(uid) or {**glicko.START, "from": "new"}), "n": 0, "attempts": {}}
+
+
+def _rating_out(p: dict) -> dict:
+    now = glicko.aged(p, time.time())
+    return {"rating": round(now["r"]), "rd": round(now["rd"]), "provisional": now["rd"] > 110, "n": p.get("n", 0),
+            "from": p.get("from")}
+
+
+def puzzles_me(event: dict) -> dict:
+    uid = signed_in(event)
+    if not uid:
+        return reply(200, {"signed_in": False}, cors=False)
+    p = puzzle_player(uid)
+    return reply(200, {"signed_in": True, "id": uid, **_rating_out(p),
+                       "attempts": {k: {"ok": v["ok"], "uci": v.get("uci")} for k, v in p.get("attempts", {}).items()}}, cors=False)
+
+
+def puzzle_attempt(event: dict) -> dict:
+    """{"id", "uci" (null: gave up)}. The first try at a puzzle is rated, for the player and the puzzle."""
+    uid = signed_in(event)
+    if not uid:
+        return reply(401, {"error": "sign in first"}, cors=False)
+    try:
+        body = json.loads(_body(event) or "{}")
+    except ValueError:
+        body = {}
+    pid, uci = body.get("id"), body.get("uci")
+    if not isinstance(pid, str) or not PUZZLE_ID.match(pid) or (uci is not None and not re.fullmatch(r"[a-h][1-8][a-h][1-8][qrbn]?", str(uci))):
+        return reply(400, {"error": "bad attempt"}, cors=False)
+    puzzle = puzzle_set().get(pid)
+    if not puzzle:
+        return reply(404, {"error": "unknown puzzle"}, cors=False)
+    ok = judge(puzzle, uci)
+    player = puzzle_player(uid)
+    if pid in player.get("attempts", {}):
+        return reply(200, {"ok": ok, "rated": False, **_rating_out(player)}, cors=False)
+    now = time.time()
+    rated = _get_json(DATA, f"puzzles/ratings/{pid}.json") or {**glicko.START, "n": 0, "solved": 0}
+    me_now, pz_now = glicko.aged(player, now), glicko.aged(rated, now)
+    me_new, pz_new = glicko.update(me_now, pz_now, 1.0 if ok else 0.0), glicko.update(pz_now, me_now, 0.0 if ok else 1.0)
+    before = round(me_now["r"])
+    player.update(me_new, t=now, n=player.get("n", 0) + 1)
+    arrows = [x for x in body.get("arrows") or [] if isinstance(x, str) and re.fullmatch(r"[a-h][1-8][a-h][1-8]", x)][:40]
+    player.setdefault("attempts", {})[pid] = {"ok": ok, "uci": uci, "t": round(now), "before": before, "after": round(me_new["r"]),
+                                              "arrows": arrows}
+    rated.update(pz_new, t=now, n=rated.get("n", 0) + 1, solved=rated.get("solved", 0) + (1 if ok else 0))
+    _put_json(DATA, f"puzzles/players/{uid}.json", player)
+    _put_json(DATA, f"puzzles/ratings/{pid}.json", rated)
+    return reply(200, {"ok": ok, "rated": True, "before": before, **_rating_out(player),
+                       "puzzle_rating": round(pz_new["r"]), "puzzle_attempts": rated["n"]}, cors=False)
+
+
+# ---------------------------------------------------------------- puzzles solved out loud
+
+VOICE_JOB = re.compile(r"^[A-Za-z0-9-]{8,40}$")
+VOICE_MAX_B64 = 4_000_000  # about 3 MB of audio: several minutes of speech
+VOICE_PER_DAY = 100
+VOICE_MIME = re.compile(r"^audio/(webm|ogg|mp4|aac|x-m4a)(;[ =a-z0-9.,\"-]*)?$")
+
+
+def _count_voice_today(uid: str) -> bool:
+    key, day = f"usage/{uid}.voice.json", time.strftime("%Y-%m-%d", time.gmtime())
+    usage = _get_json(DATA, key) or {}
+    if usage.get(day, 0) >= VOICE_PER_DAY:
+        return False
+    _put_json(DATA, key, {day: usage.get(day, 0) + 1})
+    return True
+
+
+def puzzle_voice(event: dict) -> dict:
+    """{"id", "uci", "arrows", "audio" (base64), "mime"}: what the player said while solving, for the worker to
+    turn into moves. Returns the job id to ask about, and roughly how long until a worker is listening."""
+    uid = signed_in(event)
+    if not uid:
+        return reply(401, {"error": "sign in first"}, cors=False)
+    try:
+        body = json.loads(_body(event) or "{}")
+    except ValueError:
+        body = {}
+    pid, uci, audio, mime = body.get("id"), body.get("uci"), body.get("audio"), str(body.get("mime") or "audio/webm")
+    if not isinstance(pid, str) or not PUZZLE_ID.match(pid) or not isinstance(audio, str) or not audio \
+            or len(audio) > VOICE_MAX_B64 or not VOICE_MIME.match(mime) \
+            or (uci is not None and not re.fullmatch(r"[a-h][1-8][a-h][1-8][qrbn]?", str(uci))):
+        return reply(400, {"error": "bad recording"}, cors=False)
+    try:
+        base64.b64decode(audio, validate=True)
+    except ValueError:
+        return reply(400, {"error": "bad recording"}, cors=False)
+    puzzle = puzzle_set().get(pid)
+    if not puzzle:
+        return reply(404, {"error": "unknown puzzle"}, cors=False)
+    if not _count_voice_today(uid):
+        return reply(429, {"error": "that's enough out loud for today"}, cors=False)
+    arrows = [x for x in body.get("arrows") or [] if isinstance(x, str) and re.fullmatch(r"[a-h][1-8][a-h][1-8]", x)][:40]
+    jid = f"{pid}-{secrets.token_hex(4)}"
+    _put_json(DATA, f"puzzles/voice/{uid}/{jid}.json", {
+        "id": jid, "user": uid, "puzzle": pid, "fen": puzzle["fen"], "uci": uci, "arrows": arrows, "created": time.time(),
+        "audio": [{"start_t": 0, "mime": mime, "data_base64": audio}]})
+    sqs.send_message(QueueUrl=QUEUE, MessageBody=json.dumps({"type": "puzzle_voice", "user": uid, "job": jid}))
+    try:
+        wait = wake_worker()
+    except Exception:  # noqa: BLE001 - the queue still has it
+        wait = None
+    return reply(200, {"job": jid, "wait_s": wait}, cors=False)
+
+
+def puzzle_voice_result(event: dict, jid: str) -> dict:
+    uid = signed_in(event)
+    if not uid:
+        return reply(401, {"error": "sign in first"}, cors=False)
+    if not VOICE_JOB.match(jid):
+        return reply(400, {"error": "bad job"}, cors=False)
+    r = _get_json(DATA, f"puzzles/voice/{uid}/{jid}.result.json")
+    return reply(200, r if r else {"state": "queued"}, cors=False)
+
+
 # ---------------------------------------------------------------- routes
 
 
@@ -963,6 +1158,11 @@ def handler(event: dict, context) -> dict:
             return logout(event)
         if path == "/api/sharing":
             return sharing(event)
+        if path == "/api/puzzles/me":
+            return puzzles_me(event)
+        m = re.fullmatch(r"/api/puzzles/voice/([A-Za-z0-9-]{8,40})", path)
+        if m:
+            return puzzle_voice_result(event, m.group(1))
         if PAGE.match(path):
             return serve_page(event, path)
         m = re.fullmatch(r"/api/u/([a-z0-9_-]{2,30})/active", path)
@@ -991,12 +1191,18 @@ def handler(event: dict, context) -> dict:
         return count_event(event)
     if path == "/api/benchmark":
         return set_benchmark(event)
+    if path == "/api/puzzle-sharing":
+        return set_puzzle_sharing(event)
     if path == "/api/sharing":
         return set_sharing(event)
     if path == "/api/share":
         return new_share(event)
     if path == "/api/share/revoke":
         return revoke_share(event)
+    if path == "/api/puzzles/attempt":
+        return puzzle_attempt(event)
+    if path == "/api/puzzles/voice":
+        return puzzle_voice(event)
     user = uploader(event)
     if not user:
         return reply(401, {"error": "not connected: sign in at thoughtcoach.org/start to connect the extension"})

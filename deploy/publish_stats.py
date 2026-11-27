@@ -12,7 +12,7 @@ import re
 from pathlib import Path
 
 SITE = Path(__file__).resolve().parent / "site"
-PAGES = [SITE / "index.html", SITE / "research" / "index.html"]
+PAGES = [SITE / "index.html", SITE / "research" / "index.html", SITE / "questions" / "index.html"]
 
 
 def fmt(v) -> str:
@@ -25,6 +25,7 @@ def fmt(v) -> str:
 
 def fill(text: str, s: dict) -> tuple[str, list[str]]:
     missing = []
+    s = {**s, **{f"m_{r['key']}": r["rate"] for r in s.get("measures", [])}}  # one measure's rate: data-stat="m_candidates"
 
     def one(m):
         key = m.group(3)

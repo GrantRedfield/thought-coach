@@ -241,7 +241,7 @@ class ThoughtCoach(Stack):
         build_extension_zip()
         # The example videos and their opening frames get a new file name whenever they change, so browsers and
         # the CDN may keep them: the homepage video starts without re-checking them on every visit.
-        media = ["example/*.mp4", "example/*.jpg"]
+        media = ["example/*.mp4", "example/*.jpg", "example/*.m4a"]
         s3_deploy.BucketDeployment(
             self, "SiteMedia", destination_bucket=site, sources=[s3_deploy.Source.asset(SITE_DIR)], prune=False,
             exclude=["*"], include=media,
@@ -249,7 +249,7 @@ class ThoughtCoach(Stack):
         s3_deploy.BucketDeployment(
             self, "SitePages", destination_bucket=site, sources=[s3_deploy.Source.asset(SITE_DIR)], prune=False, exclude=media,
             cache_control=[s3_deploy.CacheControl.from_string("no-cache")], distribution=dist,
-            distribution_paths=["/", "/index.html", "/start*", "/privacy*", "/questions*", "/play*", "/img/*", "/example/*", "/sample*", "/research*", "/feedback*", "/robots.txt", "/sitemap.xml", "/live*", "/site.css", "/favicon.png", "/favicon.ico", "/icon.svg", "/apple-touch-icon.png", "/thoughtcoach-extension.zip"])
+            distribution_paths=["/", "/index.html", "/start*", "/privacy*", "/questions*", "/play*", "/img/*", "/example/*", "/sample*", "/research*", "/puzzles*", "/feedback*", "/robots.txt", "/sitemap.xml", "/live*", "/site.css", "/favicon.png", "/favicon.ico", "/icon.svg", "/apple-touch-icon.png", "/thoughtcoach-extension.zip"])
         if zone:
             route53.ARecord(self, "Alias", zone=zone, target=route53.RecordTarget.from_alias(targets.CloudFrontTarget(dist)))
 

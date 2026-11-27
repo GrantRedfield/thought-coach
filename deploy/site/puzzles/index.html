@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Master puzzles · Thought Coach</title>
+<meta name="description" content="Positions from real master games. Find the move, then see what the master was thinking: the moves they considered, what they said, and what the engine says.">
+<script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
+<link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="stylesheet" href="/site.css">
+<style>
+  .pz-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 16px; margin-bottom:6px; }
+  .pz-head h1 { margin:0; }
+  .credit { color:var(--fg2); font-size:15px; margin:4px 0 8px; }
+  .rating { display:inline-flex; align-items:baseline; gap:8px; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px 14px; margin:6px 0 18px; font-size:15px; color:var(--fg2); }
+  .rating b { font-size:22px; color:var(--fg); } .rating[hidden] { display:none; }
+  .delta { font-weight:700; } .delta.up { color:var(--good); } .delta.down { color:var(--warn); }
+  .stats { color:var(--muted); font-size:14px; }
+
+  /* list */
+  .pz-list { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:12px; margin:18px 0 30px; padding:0; list-style:none; }
+  .pz-list a { display:block; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:8px; text-decoration:none; color:var(--fg); }
+  .pz-list a:hover { border-color:var(--accent); }
+  .pz-list svg { width:100%; height:auto; display:block; border-radius:6px; }
+  .pz-list .meta { display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:6px; color:var(--fg2); }
+  .badge { font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px; background:var(--soft); color:var(--fg2); }
+  .badge.ok { background:#1e8e3e22; color:var(--good); } .badge.no { background:#c26a0022; color:var(--warn); }
+
+  /* one puzzle */
+  .pz { display:grid; grid-template-columns:minmax(0, 1.1fr) minmax(0, 1fr); gap:24px; align-items:start; }
+  .boardwrap { position:relative; }
+  svg.board { width:100%; height:auto; aspect-ratio:1; display:block; border-radius:8px; box-shadow:0 6px 20px #0005; touch-action:none; user-select:none; -webkit-user-select:none; }
+  svg.board .pc { cursor:grab; }
+  .side { display:flex; flex-direction:column; gap:14px; }
+  .task { font-size:20px; font-weight:700; margin:0; }
+  .ctx { color:var(--fg2); font-size:15px; margin:0; }
+  .verdict { border-radius:12px; padding:12px 16px; font-weight:600; }
+  .verdict.best { background:#1e8e3e1f; color:var(--good); } .verdict.good { background:var(--soft); color:var(--accent); }
+  .verdict.miss { background:#c26a001f; color:var(--warn); }
+  .verdict small { display:block; font-weight:400; color:var(--fg2); margin-top:4px; font-size:14px; }
+  .reveal { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .reveal h2 { font-size:16px; margin:0 0 8px; }
+  .reveal p { margin:6px 0; color:var(--fg2); font-size:15px; }
+  .reveal ul { margin:6px 0; padding-left:18px; color:var(--fg2); font-size:15px; }
+  .quote { border-left:3px solid var(--accent); padding:2px 0 2px 12px; margin:8px 0; color:var(--fg); font-style:italic; }
+  .key { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:13px; color:var(--fg2); margin-top:8px; }
+  .key i { display:inline-block; width:18px; height:4px; border-radius:2px; vertical-align:middle; margin-right:5px; }
+  .line { font:14px ui-monospace, Consolas, monospace; color:var(--fg2); overflow-wrap:anywhere; }
+  .btns { display:flex; flex-wrap:wrap; gap:8px; } .btns .btn { min-height:44px; }
+  .promo { position:absolute; inset:0; display:grid; place-items:center; background:#0008; border-radius:8px; }
+  .promo[hidden] { display:none; }
+  .promo div { display:flex; gap:6px; background:var(--card); padding:10px; border-radius:12px; }
+  .promo button { width:56px; height:56px; border-radius:10px; border:1px solid var(--line); background:var(--bg); cursor:pointer; padding:4px; }
+  .crumbs { font-size:14px; margin:0 0 12px; } .crumbs a { text-decoration:none; }
+  .tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+  .tools .btn { min-height:40px; padding:6px 12px; font-size:14px; } .tools .btn[aria-pressed="true"] { border-color:#2f9e44; background:#2f9e44; color:#fff; box-shadow:0 0 0 3px #2f9e4455; }
+  .boardwrap.drawing svg.board { box-shadow:0 0 0 4px #2f9e44, 0 6px 20px #0005; }
+  .drawtag { margin:10px 0 0; background:#2f9e4422; border:1px solid #2f9e44; color:var(--fg); font-size:14px; font-weight:600;
+    padding:7px 12px; border-radius:10px; text-align:center; }
+  .drawtag[hidden] { display:none; }
+  .hint { color:var(--fg2); font-size:14px; margin:0; }
+  .compare { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+  .compare h2 { font-size:16px; margin:0 0 8px; }
+  .checks { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+  .checks li { display:grid; grid-template-columns:22px 1fr; gap:8px; font-size:15px; color:var(--fg2); }
+  .checks li > span:first-child { font-weight:700; text-align:center; }
+  .checks .y > span:first-child { color:var(--good); } .checks .n > span:first-child { color:var(--warn); } .checks .o > span:first-child { color:var(--muted); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+  .chip { font-size:13px; padding:2px 9px; border-radius:999px; border:1px solid var(--line); color:var(--fg); }
+  .chip.best { border-color:var(--good); color:var(--good); } .chip.good { border-color:var(--accent); color:var(--accent); }
+  .chip.bad { border-color:var(--warn); color:var(--warn); }
+  #mic[aria-pressed="true"] { background:#c92a2a; border-color:#c92a2a; color:#fff; box-shadow:0 0 0 3px #c92a2a55; }
+  #mic[aria-pressed="true"]::before { content:""; display:inline-block; width:9px; height:9px; border-radius:50%; background:#fff;
+    margin-right:2px; animation:recpulse 1s ease-in-out infinite; }
+  @keyframes recpulse { 50% { opacity:.25; } }
+  .said { border-left:3px solid #15781b; padding:2px 0 2px 12px; margin:6px 0 0; color:var(--fg); font-style:italic; }
+  [hidden] { display:none !important; }
+  @media (max-width:480px) { nav.top a.hide-sm { display:none; } }
+  @media (max-width:820px) { .pz { grid-template-columns:1fr; gap:16px; } .task { font-size:18px; } }
+</style>
+</head>
+<body>
+<main>
+  <nav class="top"><p class="brand"><a href="/"><span class="mark"></span>Thought Coach</a></p><span class="sp"></span>
+    <a class="link hide-sm" href="/sample/">Sample review</a><a class="link" href="/start">Get started</a></nav>
+
+  <section id="list">
+    <div class="pz-head"><h1>Master puzzles</h1><span class="stats" id="score"></span></div>
+    <p class="credit" id="credit"></p>
+    <p class="rating" id="rating" hidden></p>
+    <p class="lead">Positions from real master games, with the clock as it was. Find the move, then see what the master was
+      thinking: the moves they considered, what they said out loud, and what the engine says. Sometimes they found it.
+      Sometimes they didn't.</p>
+    <ul class="pz-list" id="grid"></ul>
+  </section>
+
+  <section id="one" hidden>
+    <p class="crumbs"><a href="#">&larr; All puzzles</a> · <span id="pos"></span></p>
+    <div class="pz">
+      <div class="boardwrap">
+        <svg class="board" viewBox="0 0 360 360" role="img" aria-label="Chess board: drag or tap a piece, then its square"></svg>
+        <div class="promo" hidden><div></div></div>
+        <div class="tools">
+          <button type="button" class="btn" id="mic" aria-pressed="false">&#127897; Think out loud</button>
+          <button type="button" class="btn" id="drawmode" aria-pressed="false">&#9998; Draw arrows</button>
+          <button type="button" class="btn" id="clear">Clear arrows</button>
+        </div>
+        <p class="hint" id="micnote" hidden style="margin-top:8px"></p>
+        <div class="drawtag" hidden>&#9998; Drawing mode: drag for an arrow, tap a square to circle it. Pieces won't move until you stop.</div>
+      </div>
+      <div class="side">
+        <p class="task" id="task"></p>
+        <p class="ctx" id="ctx"></p>
+        <p class="hint" id="hint">Think it through on the board first: draw arrows for the moves you're considering, and for what
+          your opponent wants (right-click and drag, or switch on <b>Draw arrows</b>), and press <b>Think out loud</b> to say
+          what you're thinking. Then play your move, and see how your thinking compares with the master's.</p>
+        <div class="verdict" id="verdict" hidden></div>
+        <div class="compare" id="compare" hidden></div>
+        <div class="reveal" id="reveal" hidden></div>
+        <div class="btns">
+          <button type="button" class="btn" id="giveup">Show the answer</button>
+          <button type="button" class="btn" id="retry" hidden>Try again</button>
+          <button type="button" class="btn primary" id="next">Next puzzle &rarr;</button>
+        </div>
+      </div>
+    </div>
+  </section>
+  <footer>Thought Coach · not affiliated with lichess.org</footer>
+</main>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><g id="p-white-pawn" class="white pawn"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linecap="round"/></g><g id="p-white-knight" class="white knight" fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" style="fill:#ffffff; stroke:#000000;"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" style="fill:#ffffff; stroke:#000000;"/><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" style="fill:#000000; stroke:#000000;"/><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" style="fill:#000000; stroke:#000000;"/></g><g id="p-white-bishop" class="white bishop" fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><g fill="#fff" stroke-linecap="butt"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2zM15 32c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2zM25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z"/></g><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke-linejoin="miter"/></g><g id="p-white-rook" class="white rook" fill="#fff" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12 36v-4h21v4H12zM11 14V9h4v2h5V9h5v2h5V9h4v5" stroke-linecap="butt"/><path d="M34 14l-3 3H14l-3-3"/><path d="M31 17v12.5H14V17" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M31 29.5l1.5 2.5h-20l1.5-2.5"/><path d="M11 14h23" fill="none" stroke-linejoin="miter"/></g><g id="p-white-queen" class="white queen" fill="#fff" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM24.5 7.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM41 12a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM16 8.5a2 2 0 1 1-4 0 2 2 0 1 1 4 0zM33 9a2 2 0 1 1-4 0 2 2 0 1 1 4 0z"/><path d="M9 26c8.5-1.5 21-1.5 27 0l2-12-7 11V11l-5.5 13.5-3-15-3 15-5.5-14V25L7 14l2 12zM9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11.5 30c3.5-1 18.5-1 22 0M12 33.5c6-1 15-1 21 0" fill="none"/></g><g id="p-white-king" class="white king" fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6M20 8h5" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#fff" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#fff"/><path d="M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0"/></g><g id="p-black-pawn" class="black pawn"><path d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" fill="#000" stroke="#000" stroke-width="1.5" stroke-linecap="round"/></g><g id="p-black-knight" class="black knight" fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M 22,10 C 32.5,11 38.5,18 38,39 L 15,39 C 15,30 25,32.5 23,18" style="fill:#000000; stroke:#000000;"/><path d="M 24,18 C 24.38,20.91 18.45,25.37 16,27 C 13,29 13.18,31.34 11,31 C 9.958,30.06 12.41,27.96 11,28 C 10,28 11.19,29.23 10,30 C 9,30 5.997,31 6,26 C 6,24 12,14 12,14 C 12,14 13.89,12.1 14,10.5 C 13.27,9.506 13.5,8.5 13.5,7.5 C 14.5,6.5 16.5,10 16.5,10 L 18.5,10 C 18.5,10 19.28,8.008 21,7 C 22,7 22,10 22,10" style="fill:#000000; stroke:#000000;"/><path d="M 9.5 25.5 A 0.5 0.5 0 1 1 8.5,25.5 A 0.5 0.5 0 1 1 9.5 25.5 z" style="fill:#ececec; stroke:#ececec;"/><path d="M 15 15.5 A 0.5 1.5 0 1 1 14,15.5 A 0.5 1.5 0 1 1 15 15.5 z" transform="matrix(0.866,0.5,-0.5,0.866,9.693,-5.173)" style="fill:#ececec; stroke:#ececec;"/><path d="M 24.55,10.4 L 24.1,11.85 L 24.6,12 C 27.75,13 30.25,14.49 32.5,18.75 C 34.75,23.01 35.75,29.06 35.25,39 L 35.2,39.5 L 37.45,39.5 L 37.5,39 C 38,28.94 36.62,22.15 34.25,17.66 C 31.88,13.17 28.46,11.02 25.06,10.5 L 24.55,10.4 z " style="fill:#ececec; stroke:none;"/></g><g id="p-black-bishop" class="black bishop" fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 36c3.39-.97 10.11.43 13.5-2 3.39 2.43 10.11 1.03 13.5 2 0 0 1.65.54 3 2-.68.97-1.65.99-3 .5-3.39-.97-10.11.46-13.5-1-3.39 1.46-10.11.03-13.5 1-1.354.49-2.323.47-3-.5 1.354-1.94 3-2 3-2zm6-4c2.5 2.5 12.5 2.5 15 0 .5-1.5 0-2 0-2 0-2.5-2.5-4-2.5-4 5.5-1.5 6-11.5-5-15.5-11 4-10.5 14-5 15.5 0 0-2.5 1.5-2.5 4 0 0-.5.5 0 2zM25 8a2.5 2.5 0 1 1-5 0 2.5 2.5 0 1 1 5 0z" fill="#000" stroke-linecap="butt"/><path d="M17.5 26h10M15 30h15m-7.5-14.5v5M20 18h5" stroke="#fff" stroke-linejoin="miter"/></g><g id="p-black-rook" class="black rook" fill="#000" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 39h27v-3H9v3zM12.5 32l1.5-2.5h17l1.5 2.5h-20zM12 36v-4h21v4H12z" stroke-linecap="butt"/><path d="M14 29.5v-13h17v13H14z" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M14 16.5L11 14h23l-3 2.5H14zM11 14V9h4v2h5V9h5v2h5V9h4v5H11z" stroke-linecap="butt"/><path d="M12 35.5h21M13 31.5h19M14 29.5h17M14 16.5h17M11 14h23" fill="none" stroke="#fff" stroke-width="1" stroke-linejoin="miter"/></g><g id="p-black-queen" class="black queen" fill="#000" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><g fill="#000" stroke="none"><circle cx="6" cy="12" r="2.75"/><circle cx="14" cy="9" r="2.75"/><circle cx="22.5" cy="8" r="2.75"/><circle cx="31" cy="9" r="2.75"/><circle cx="39" cy="12" r="2.75"/></g><path d="M9 26c8.5-1.5 21-1.5 27 0l2.5-12.5L31 25l-.3-14.1-5.2 13.6-3-14.5-3 14.5-5.2-13.6L14 25 6.5 13.5 9 26zM9 26c0 2 1.5 2 2.5 4 1 1.5 1 1 .5 3.5-1.5 1-1.5 2.5-1.5 2.5-1.5 1.5.5 2.5.5 2.5 6.5 1 16.5 1 23 0 0 0 1.5-1 0-2.5 0 0 .5-1.5-1-2.5-.5-2.5-.5-2 .5-3.5 1-2 2.5-2 2.5-4-8.5-1.5-18.5-1.5-27 0z" stroke-linecap="butt"/><path d="M11 38.5a35 35 1 0 0 23 0" fill="none" stroke-linecap="butt"/><path d="M11 29a35 35 1 0 1 23 0M12.5 31.5h20M11.5 34.5a35 35 1 0 0 22 0M10.5 37.5a35 35 1 0 0 24 0" fill="none" stroke="#fff"/></g><g id="p-black-king" class="black king" fill="none" fill-rule="evenodd" stroke="#000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22.5 11.63V6" stroke-linejoin="miter"/><path d="M22.5 25s4.5-7.5 3-10.5c0 0-1-2.5-3-2.5s-3 2.5-3 2.5c-1.5 3 3 10.5 3 10.5" fill="#000" stroke-linecap="butt" stroke-linejoin="miter"/><path d="M11.5 37c5.5 3.5 15.5 3.5 21 0v-7s9-4.5 6-10.5c-4-6.5-13.5-3.5-16 4V27v-3.5c-3.5-7.5-13-10.5-16-4-3 6 5 10 5 10V37z" fill="#000"/><path d="M20 8h5" stroke-linejoin="miter"/><path d="M32 29.5s8.5-4 6.03-9.65C34.15 14 25 18 22.5 24.5l.01 2.1-.01-2.1C20 18 9.906 14 6.997 19.85c-2.497 5.65 4.853 9 4.853 9M11.5 30c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0m-21 3.5c5.5-3 15.5-3 21 0" stroke="#fff"/></g></defs></svg>
+<script>
+(() => {
+  const NS = 'http://www.w3.org/2000/svg', S = 45;
+  const PIECE = { p: 'pawn', n: 'knight', b: 'bishop', r: 'rook', q: 'queen', k: 'king' };
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const el = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const pct = (x) => Math.round(x * 100) + '%';
+  const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
+  let HE = 'they', HIS = 'their';
+  let D = null, P = null, st = {}, ME = { signed_in: false };
+  const done = (() => { try { return JSON.parse(localStorage.getItem('tc-puzzles') || '{}'); } catch (e) { return {}; } })();
+  const save = () => { try { localStorage.setItem('tc-puzzles', JSON.stringify(done)); } catch (e) {} };
+
+  // ---------------------------------------------------------------- the board
+  function parse(fen) {
+    const b = {}; fen.split(' ')[0].split('/').forEach((row, ri) => { let f = 0;
+      for (const ch of row) { if (/\d/.test(ch)) { f += +ch; continue; } b[String.fromCharCode(97 + f) + (8 - ri)] = ch; f++; } });
+    return b;
+  }
+  function apply(b, uci) {  // the move on a copy of the board: castling, en passant and promotion included
+    b = { ...b }; const f = uci.slice(0, 2), t = uci.slice(2, 4), pc = b[f];
+    if (!pc) return b;
+    if (pc.toLowerCase() === 'k' && Math.abs(f.charCodeAt(0) - t.charCodeAt(0)) === 2) {
+      const r = f[1], [rf, rt] = t[0] === 'g' ? ['h', 'f'] : ['a', 'd'];
+      b[rt + r] = b[rf + r]; delete b[rf + r];
+    }
+    if (pc.toLowerCase() === 'p' && f[0] !== t[0] && !b[t]) delete b[t[0] + f[1]];
+    delete b[f]; b[t] = uci[4] ? (pc === 'P' ? uci[4].toUpperCase() : uci[4]) : pc;
+    return b;
+  }
+  const xy = (s, flip) => { const f = s.charCodeAt(0) - 97, r = +s[1] - 1; return flip ? [7 - f, r] : [f, 7 - r]; };
+  function draw(svg, b, flip, o = {}) {
+    svg.textContent = '';
+    const defs = el('defs', {});
+    for (const [k, c] of Object.entries({ you: '#2a78d6', best: '#1e8e3e', played: '#e8590c', cand: '#9c36b5', mine: '#15781b', theirs: '#c92a2a' })) {
+      const m = el('marker', { id: 'ah-' + k + (o.tag || ''), viewBox: '0 0 10 10', refX: 5, refY: 5, markerWidth: 3.2, markerHeight: 3.2, orient: 'auto-start-reverse' });
+      m.append(el('path', { d: 'M0,0 L10,5 L0,10 z', fill: c })); defs.append(m);
+    }
+    svg.append(defs);
+    for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++)
+      svg.append(el('rect', { x: x * S, y: y * S, width: S, height: S, fill: (x + y) % 2 ? '#b58863' : '#f0d9b5' }));
+    if (o.coords) for (let i = 0; i < 8; i++) {
+      const file = String.fromCharCode(97 + (flip ? 7 - i : i)), rank = flip ? i + 1 : 8 - i;
+      const tf = el('text', { x: i * S + S - 3, y: 8 * S - 3, 'font-size': 9, 'text-anchor': 'end', fill: (i + 7) % 2 ? '#f0d9b5' : '#b58863', 'font-family': 'system-ui' }); tf.textContent = file; svg.append(tf);
+      const tr = el('text', { x: 2, y: i * S + 10, 'font-size': 9, fill: i % 2 ? '#f0d9b5' : '#b58863', 'font-family': 'system-ui' }); tr.textContent = rank; svg.append(tr);
+    }
+    for (const s of o.circles || []) { const [x, y] = xy(s, flip);
+      svg.append(el('circle', { cx: x * S + S / 2, cy: y * S + S / 2, r: 20, fill: 'none', stroke: '#15781b', 'stroke-width': 3.5, opacity: .8 })); }
+    for (const s of o.hl || []) { const [x, y] = xy(s, flip); svg.append(el('rect', { x: x * S, y: y * S, width: S, height: S, fill: '#cdd26a', opacity: .6 })); }
+    if (o.sel) { const [x, y] = xy(o.sel, flip); svg.append(el('rect', { x: x * S, y: y * S, width: S, height: S, fill: '#14551e', opacity: .45 })); }
+    for (const s of o.dots || []) { const [x, y] = xy(s, flip);
+      svg.append(el('circle', { cx: x * S + S / 2, cy: y * S + S / 2, r: b[s] ? 19 : 7, fill: b[s] ? 'none' : '#14551e', stroke: b[s] ? '#14551e' : 'none', 'stroke-width': 3, opacity: .5 })); }
+    for (const [s, ch] of Object.entries(b)) { if (s === o.drag) continue; const [x, y] = xy(s, flip);
+      svg.append(el('use', { href: '#p-' + (ch === ch.toUpperCase() ? 'white-' : 'black-') + PIECE[ch.toLowerCase()], transform: `translate(${x * S} ${y * S})`, class: 'pc' })); }
+    for (const a of o.arrows || []) { const [x1, y1] = xy(a.u.slice(0, 2), flip), [x2, y2] = xy(a.u.slice(2, 4), flip);
+      const c1 = [x1 * S + S / 2, y1 * S + S / 2], c2 = [x2 * S + S / 2, y2 * S + S / 2], len = Math.hypot(c2[0] - c1[0], c2[1] - c1[1]) || 1;
+      const e = [c2[0] - (c2[0] - c1[0]) / len * 11, c2[1] - (c2[1] - c1[1]) / len * 11];
+      svg.append(el('line', { x1: c1[0], y1: c1[1], x2: e[0], y2: e[1], stroke: a.c, 'stroke-width': a.w || 7, 'stroke-dasharray': a.d || '',
+        'stroke-linecap': a.d ? 'butt' : 'round', opacity: .85, 'marker-end': `url(#ah-${a.k}${o.tag || ''})` })); }
+    if (o.drag && o.dragAt) { const ch = b[o.drag];
+      svg.append(el('use', { href: '#p-' + (ch === ch.toUpperCase() ? 'white-' : 'black-') + PIECE[ch.toLowerCase()],
+        transform: `translate(${o.dragAt[0] - S / 2} ${o.dragAt[1] - S / 2})`, style: 'pointer-events:none' })); }
+  }
+
+  // ---------------------------------------------------------------- the list
+  function list() {
+    $('one').hidden = true; $('list').hidden = false; document.title = 'Master puzzles · Thought Coach';
+    const grid = $('grid'); grid.textContent = '';
+    D.puzzles.forEach((p, i) => {
+      const li = document.createElement('li'), a = document.createElement('a'), svg = el('svg', { viewBox: '0 0 360 360' });
+      a.href = '#' + (i + 1); draw(svg, parse(p.fen), !p.white, { tag: 'l' + i });
+      const r = done[p.id], badge = r ? (r.ok ? "<span class='badge ok'>Solved</span>" : "<span class='badge no'>Missed</span>") : '';
+      const meta = document.createElement('div'); meta.className = 'meta';
+      meta.innerHTML = `<span>#${i + 1} · ${p.white ? 'White' : 'Black'} to play</span>${badge}`;
+      a.append(svg, meta); li.append(a); grid.append(li);
+    });
+    const tried = D.puzzles.filter(p => done[p.id]), ok = tried.filter(p => done[p.id].ok);
+    $('score').textContent = tried.length ? `${ok.length} of ${tried.length} solved` : `${D.puzzles.length} puzzles`;
+  }
+
+  // ---------------------------------------------------------------- one puzzle
+  const svg = document.querySelector('#one svg.board');
+  const clock = (s) => s == null ? null : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+  const tc = (t) => { const m = /^(\d+)\+(\d+)$/.exec(t || ''); if (!m) return ''; const base = +m[1] / 60, inc = +m[2];
+    const speed = +m[1] + 40 * inc >= 1500 ? 'classical' : 'rapid'; return `${base}+${inc} ${speed}`; };
+  function open(i) {
+    P = D.puzzles[i]; if (!P) return list();
+    st = { i, b: parse(P.fen), sel: null, answered: null, revealed: false, flip: !P.white, legal: new Set(P.moves.map(m => m.uci)), arrows: [], circles: [], draw: st.draw || false };
+    $('list').hidden = true; $('one').hidden = false; window.scrollTo(0, 0);
+    document.title = `Puzzle ${i + 1} · Master puzzles`;
+    $('pos').textContent = `Puzzle ${i + 1} of ${D.puzzles.length}`;
+    $('task').textContent = `${P.white ? 'White' : 'Black'} to play. Find the best move.`;
+    const bits = [`Move ${P.number}`, tc(P.tc), clock(P.clock) && `${D.short || 'The master'} had ${clock(P.clock)} on the clock`,
+      P.opening].filter(Boolean);
+    $('ctx').textContent = bits.join(' · ') + '.';
+    $('verdict').hidden = true; $('reveal').hidden = true; $('retry').hidden = true; $('giveup').hidden = false;
+    $('compare').hidden = true; $('hint').hidden = false; drawMode(st.draw);
+    document.querySelector('.tools').hidden = false; $('micnote').hidden = true;
+    micStop(); st.audio = null; st.voice = null;
+    render();
+  }
+  function render(drag) {
+    const o = { coords: true, sel: st.sel, hl: [], arrows: [], circles: st.answered || st.revealed ? [] : st.circles };
+    const mineArrow = (u) => ({ u, c: kindOf(u) === 'theirs' ? '#c92a2a' : '#15781b', k: kindOf(u) === 'theirs' ? 'theirs' : 'mine' });
+    if (!st.answered && !st.revealed) o.arrows = st.arrows.map(mineArrow);
+    if (st.sel && !st.answered) o.dots = P.moves.filter(m => m.uci.startsWith(st.sel)).map(m => m.uci.slice(2, 4));
+    let b = st.b;
+    if (st.answered) { b = apply(parse(P.fen), st.answered); o.hl = [st.answered.slice(0, 2), st.answered.slice(2, 4)]; }
+    if (st.revealed) {
+      b = parse(P.fen); o.hl = [];
+      for (const c of P.candidates || []) if (c.uci !== P.move_uci && c.uci !== P.moves[0].uci) o.arrows.push({ u: c.uci, c: '#9c36b5', d: '6 5', k: 'cand', w: 5 });
+      if (P.move_uci !== P.moves[0].uci) o.arrows.push({ u: P.move_uci, c: '#e8590c', k: 'played' });
+      if (st.answered && st.answered !== P.moves[0].uci && st.answered !== P.move_uci) o.arrows.push({ u: st.answered, c: '#2a78d6', k: 'you', d: '2 4', w: 6 });
+      o.arrows.push({ u: P.moves[0].uci, c: '#1e8e3e', k: 'best' });
+      if (st.showMine) o.arrows = st.arrows.map(u => ({ ...mineArrow(u), w: 5, d: '3 4' })).concat(o.arrows);
+    }
+    if (drag && drag.preview) o.arrows = o.arrows.concat([mineArrow(drag.preview)]);
+    if (drag) Object.assign(o, drag);
+    draw(svg, b, st.flip, o);
+  }
+  function rated(uci) {
+    if (!ME.signed_in || !P) return;
+    const pid = P.id;
+    fetch('/api/puzzles/attempt', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: pid, uci, arrows: st.arrows }) })
+      .then(r => r.json()).then(r => {
+        if (r.rating == null) return;
+        const first = !ME.attempts[pid];
+        ME = { ...ME, rating: r.rating, rd: r.rd, provisional: r.provisional, n: r.n, attempts: { ...ME.attempts, [pid]: { ok: r.ok, uci } } };
+        if (!P || P.id !== pid) return;
+        const box = document.createElement('small');
+        if (r.rated) { const d = r.rating - r.before, cls = d >= 0 ? 'up' : 'down';
+          box.innerHTML = `Your rating: ${r.before} &rarr; <b>${r.rating}${r.provisional ? '?' : ''}</b> <span class="delta ${cls}">(${d >= 0 ? '+' : ''}${d})</span> · this puzzle is now rated ${r.puzzle_rating}`; }
+        else if (!first || !r.rated) box.textContent = "You had already tried this one, so it isn't rated again.";
+        $('verdict').hidden = false; if (!$('verdict').className.includes('verdict ')) $('verdict').className = 'verdict good';
+        $('verdict').append(box); showRating();
+      }).catch(() => {});
+  }
+  function showRating() {
+    const el = $('rating');
+    if (ME.signed_in) { el.hidden = false;
+      el.innerHTML = `Your puzzle rating <b>${ME.rating}${ME.provisional ? '?' : ''}</b> <span class="muted">${ME.n ? ME.n + ' rated puzzle' + (ME.n === 1 ? '' : 's') : 'first try at each puzzle counts'}</span>`; }
+    else { el.hidden = false; el.innerHTML = `<a href="/api/login?next=/puzzles/">Sign in with lichess</a> to get a puzzle rating. Your first try at each puzzle counts.`; }
+  }
+  function judge(uci) {
+    const m = P.moves.find(x => x.uci === uci), best = P.moves[0];
+    if (!m) return;
+    st.answered = uci; st.sel = null;
+    const loss = best.wp - m.wp, ok = loss <= 0.03;
+    rated(uci);
+    done[P.id] = done[P.id] || { ok, uci }; save();
+    const v = $('verdict'); v.hidden = false;
+    if (uci === best.uci) { v.className = 'verdict best'; v.innerHTML = `${esc(m.san)}: the best move. <small>Engine ${esc(m.eval)}, ${pct(m.wp)} win chance.</small>`; }
+    else if (ok) { v.className = 'verdict good'; v.innerHTML = `${esc(m.san)}: as good as the best move. <small>Engine ${esc(m.eval)}; ${esc(best.san)} is ${esc(best.eval)}.</small>`; }
+    else { v.className = 'verdict miss'; v.innerHTML = `${esc(m.san)}: not this time. <small>Engine ${esc(m.eval)}, ${pct(m.wp)} win chance. The best move keeps ${pct(best.wp)}.</small>`; }
+    reveal(); compare(uci); render(); sendVoice(uci);
+  }
+  // what one of the solver's arrows is: one of their own moves, an opponent's move, or something else
+  function kindOf(u) {
+    const pc = (st.b || {})[u.slice(0, 2)]; if (!pc) return 'other';
+    return (pc === pc.toUpperCase()) === P.white ? 'mine' : 'theirs';
+  }
+  function compare(uci) {
+    const best = P.moves[0], tag = (m) => best.wp - m.wp <= 0.005 ? 'best' : best.wp - m.wp <= 0.03 ? 'good' : best.wp - m.wp <= 0.10 ? '' : 'bad';
+    const cands = [], theirs = [], voice = st.voice && st.voice.state === 'done' ? st.voice : null;
+    const addMine = (u) => { const m = P.moves.find(x => x.uci.startsWith(u)); if (m && !cands.includes(m)) cands.push(m); };
+    const addTheirs = (u) => { const k = Object.keys(P.their_moves || {}).find(x => x.startsWith(u)); if (k && !theirs.includes(k)) theirs.push(k); };
+    for (const u of st.arrows) { if (kindOf(u) === 'mine') addMine(u); else if (kindOf(u) === 'theirs') addTheirs(u); }
+    if (voice) { (voice.candidates || []).forEach(c => addMine(c.uci)); (voice.ideas || []).forEach(c => addTheirs(c.uci)); }
+    const listening = st.voice && (st.voice.state === 'sending' || st.voice.state === 'waiting');
+    const played = uci ? P.moves.find(x => x.uci === uci) : null, rows = [];
+    const row = (cls, html) => rows.push(`<li class="${cls}"><span>${cls === 'y' ? '&#10003;' : cls === 'n' ? '&#10007;' : '&bull;'}</span><span>${html}</span></li>`);
+    const chip = (m) => `<span class="chip ${tag(m)}">${esc(m.san)} ${esc(m.eval)}</span>`;
+    const san = (u) => (P.their_moves || {})[u] || u;
+    const drewBest = cands.some(m => m.uci === best.uci), okMove = played && best.wp - played.wp <= 0.03;
+    if (played && played.uci === best.uci) row('y', `You found the best move, <b>${esc(best.san)}</b>.`);
+    else if (okMove) row('y', `<b>${esc(played.san)}</b> is as good as the engine's <b>${esc(best.san)}</b>.`);
+    else if (drewBest) row('n', `You considered <b>${esc(best.san)}</b>, the best move, but ${played ? `played <b>${esc(played.san)}</b>` : "didn't play it"} instead. You saw it, then chose something else.`);
+    else row('n', `The best move, <b>${esc(best.san)}</b>, wasn't one of the moves you considered${listening ? ' (so far: still listening to what you said)' : ''}.`);
+    if (cands.length >= 2) row('y', `You compared ${cands.length} moves before choosing.<div class="chips">${cands.map(chip).join('')}</div>`);
+    else if (cands.length === 1) row('n', `You considered only one move. Looking at two or three is how you catch the one you'd otherwise miss.<div class="chips">${cands.map(chip).join('')}</div>`);
+    else if (!listening) row('o', `You didn't draw or name any of your moves. Draw or say the ones you consider, and next time we can compare them with ${esc(D.short || 'the master')}'s.`);
+    if (P.threat) {
+      const tp = pct(P.threat.gain);
+      if (theirs.some(u => u.startsWith(P.threat.uci.slice(0, 4)))) row('y', `You checked what your opponent wanted: <b>${esc(P.threat.san)}</b>.`);
+      else if (theirs.length) row('n', `You looked at their ${theirs.map(u => '<b>' + esc(san(u)) + '</b>').join(', ')}, but their real threat was <b>${esc(P.threat.san)}</b> (worth about ${tp} to them if ignored).`);
+      else row('n', `You didn't draw or name what your opponent wanted. Their threat was <b>${esc(P.threat.san)}</b> (worth about ${tp} to them if ignored).`);
+    } else if (theirs.length) row('y', `You checked your opponent's ideas: ${theirs.map(u => '<b>' + esc(san(u)) + '</b>').join(', ')}.`);
+    const mc = (P.candidates || []).map(c => c.uci), who = esc(D.short || 'The master');
+    const both = cands.filter(m => mc.some(u => m.uci.startsWith(u))).map(m => m.san);
+    const onlyJb = (P.candidates || []).filter(c => !cands.some(m => m.uci.startsWith(c.uci))).map(c => c.san);
+    if (mc.length) row('o', (both.length ? `You and ${who} both looked at <b>${both.map(esc).join(', ')}</b>. ` : `You and ${who} looked at different moves. `)
+      + (onlyJb.length ? `${who} also looked at <b>${onlyJb.map(esc).join(', ')}</b>.` : ''));
+    const jbPlayed = P.moves.find(x => x.uci === P.move_uci);
+    if (played && jbPlayed) row('o', played.uci === jbPlayed.uci ? `You played the same move as ${who}.`
+      : `${who} played <b>${esc(jbPlayed.san)}</b> (${esc(jbPlayed.eval)}); you played <b>${esc(played.san)}</b> (${esc(played.eval)}).`);
+    if (listening) row('o', `Listening to what you said&hellip; ${st.voice.wait ? `about ${Math.round(st.voice.wait / 60) || 1} minute${Math.round(st.voice.wait / 60) > 1 ? 's' : ''} while a server starts` : 'a few seconds'}. This updates by itself.`);
+    else if (st.voice && st.voice.state === 'error') row('o', "We couldn't make out your recording this time, so this is from your arrows only.");
+    else if (voice) row('o', voice.transcript ? `What you said:<p class="said">“${esc(voice.transcript.slice(0, 400))}${voice.transcript.length > 400 ? '&hellip;' : ''}”</p>`
+      + ((voice.candidates || []).length + (voice.ideas || []).length ? '' : '<small>No moves we could pick out of it; try naming them, like "bishop e5" or "he wants g6".</small>')
+      : 'We heard nothing in your recording.');
+    const c = $('compare'); c.hidden = false;
+    c.innerHTML = `<h2>Your thinking vs ${who}'s</h2><ul class="checks">${rows.join('')}</ul>`
+      + (st.arrows.length ? `<p class="hint" style="margin-top:10px"><label><input type="checkbox" id="showmine"${st.showMine ? ' checked' : ''}> Show my arrows on the board</label></p>` : '');
+    const sm = $('showmine'); if (sm) sm.onchange = () => { st.showMine = sm.checked; render(); };
+    $('hint').hidden = true; document.querySelector('.tools').hidden = true;
+    document.querySelector('.drawtag').hidden = true; document.querySelector('.boardwrap').classList.remove('drawing');
+  }
+  function numbered(line) {  // 26... Be5 27. Qh5 g6 ...
+    let n = P.number, white = P.white; return line.map((m, i) => { const s = white ? `${n}. ${m}` : (i === 0 ? `${n}... ${m}` : m);
+      if (!white) n++; white = !white; return s; }).join(' ');
+  }
+  function reveal() {
+    st.revealed = true; $('giveup').hidden = true; $('retry').hidden = false;
+    const best = P.moves[0], played = P.moves.find(x => x.uci === P.move_uci) || { san: P.move, eval: '?', wp: P.played_wp };
+    const who = D.short || 'The master', found = P.move_uci === best.uci;
+    const cands = (P.candidates || []).map(c => `<li><b>${esc(c.san)}</b> <span class="muted">(${esc(c.how.replace('+', ' and '))}${c.when === 'opponent_time' ? ', on the opponent\'s time' : ''})</span></li>`).join('');
+    const ideas = (P.ideas || []).length ? `<p>${cap(HE)} also looked at what the opponent wanted: <b>${P.ideas.map(esc).join(', ')}</b>.</p>` : '';
+    const said = (P.said || []).slice(0, 3).map(s => `<p class="quote">“${esc(s)}”</p>`).join('');
+    const headline = found ? `${esc(who)} found it: <b>${esc(best.san)}</b>.`
+      : `${esc(who)} played <b>${esc(played.san)}</b> (${esc(played.eval)}, ${pct(played.wp)}). The best move was <b>${esc(best.san)}</b> (${esc(best.eval)}, ${pct(best.wp)}).`;
+    const r = $('reveal'); r.hidden = false;
+    r.innerHTML = `<h2>What ${esc(who)} was thinking</h2><p>${headline}</p>`
+      + (cands ? `<p>The moves ${HE} considered:</p><ul>${cands}</ul>` : '') + ideas
+      + (said ? `<p>What ${HE} said:</p>${said}` : '')
+      + `<p>Engine line: <span class="line">${esc(numbered(best.line))}</span></p>`
+      + `<div class="key"><span><i style="background:#1e8e3e"></i>Best move</span>${found ? '' : `<span><i style="background:#e8590c"></i>${cap(HE)} played</span>`}`
+      + `${(P.candidates || []).length ? `<span><i style="background:#9c36b5"></i>${cap(HE)} considered</span>` : ''}${st.answered && st.answered !== best.uci && st.answered !== P.move_uci ? '<span><i style="background:#2a78d6"></i>Your move</span>' : ''}</div>`
+      + (P.video ? `<p><a href="${esc(P.video)}" target="_blank" rel="noopener">Watch this moment in ${HIS} video &#9654;</a></p>` : '');
+    if (!st.answered) { done[P.id] = done[P.id] || { ok: false, uci: null }; save(); }
+  }
+
+  // ---------------------------------------------------------------- thinking out loud
+  let rec = null;  // the recording in progress
+  const MIC_MAX_MS = 180000;
+  function micLabel() {
+    const b = $('mic'); b.setAttribute('aria-pressed', String(!!rec));
+    b.innerHTML = rec ? 'Listening: play your move when ready' : '&#127897; Think out loud';
+  }
+  function micNote(html) { $('micnote').innerHTML = html; $('micnote').hidden = !html; }
+  async function micStart() {
+    if (!ME.signed_in) return micNote('<a href="/api/login?next=/puzzles/">Sign in with lichess</a> to think out loud: what you say is compared with the master too.');
+    if (!navigator.mediaDevices || !window.MediaRecorder) return micNote("This browser can't record here. Arrows still work.");
+    let stream; st.audio = null;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { return micNote('The microphone is blocked for this site. Allow it in the address bar, then try again.'); }
+    const mime = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg;codecs=opus'].find(m => MediaRecorder.isTypeSupported(m)) || '';
+    const mr = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : {});
+    rec = { mr, stream, chunks: [], mime: (mr.mimeType || mime || 'audio/webm') };
+    mr.ondataavailable = (e) => { if (e.data && e.data.size && rec) rec.chunks.push(e.data); };
+    mr.start(1000); rec.timer = setTimeout(() => micStop(true), MIC_MAX_MS);
+    micNote('Say what you see and what you would play, as you would over the board. Only you hear it; the audio is deleted once it\'s turned into text.');
+    micLabel();
+  }
+  function micStop(keep) {  // stop recording; keep: hold the audio for the move
+    if (!rec) return Promise.resolve(null);
+    const r = rec; rec = null; clearTimeout(r.timer); micLabel();
+    return new Promise((res) => {
+      r.mr.onstop = () => { r.stream.getTracks().forEach(t => t.stop());
+        const a = keep && r.chunks.length ? { blob: new Blob(r.chunks, { type: r.mime }), mime: r.mime.split(';')[0] === 'audio/webm' ? r.mime : r.mime.split(';')[0] } : null;
+        if (a) { st.audio = a; if (!st.answered) micNote('Recorded &#10003; It goes with your move. Press <b>Think out loud</b> again to start over.'); } res(a); };
+      try { r.mr.stop(); } catch (e) { res(null); }
+    });
+  }
+  async function sendVoice(uci) {
+    const a = rec ? await micStop(true) : st.audio; st.audio = null;
+    if (!a || !ME.signed_in) return;
+    const pid = P.id; st.voice = { state: 'sending' }; compare(uci);
+    const b64 = await new Promise((res) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1] || ''); fr.readAsDataURL(a.blob); });
+    const r = await fetch('/api/puzzles/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: pid, uci, arrows: st.arrows, audio: b64, mime: a.mime }) }).then(x => x.json()).catch(() => null);
+    if (!P || P.id !== pid) return;
+    if (!r || !r.job) { st.voice = { state: 'error' }; compare(uci); return; }
+    st.voice = { state: 'waiting', wait: r.wait_s }; compare(uci);
+    const t0 = Date.now();
+    const poll = async () => {
+      if (!P || P.id !== pid || !st.voice || st.voice.state !== 'waiting') return;
+      const v = await fetch('/api/puzzles/voice/' + r.job, { cache: 'no-store' }).then(x => x.json()).catch(() => ({ state: 'queued' }));
+      if (!P || P.id !== pid) return;
+      if (v.state === 'done' || v.state === 'error') { st.voice = v; compare(uci); return; }
+      if (Date.now() - t0 > 8 * 60000) { st.voice = { state: 'error' }; compare(uci); return; }
+      setTimeout(poll, 4000);
+    };
+    setTimeout(poll, 3000);
+  }
+  $('mic').onclick = () => { if (rec) micStop(true); else micStart(); };
+
+  // ---------------------------------------------------------------- input: tap tap, or drag
+  const sqAt = (e) => { const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 360, y = (e.clientY - r.top) / r.height * 360;
+    if (x < 0 || y < 0 || x >= 360 || y >= 360) return null; let f = Math.floor(x / S), rk = 7 - Math.floor(y / S);
+    if (st.flip) { f = 7 - f; rk = 7 - rk; } return { s: String.fromCharCode(97 + f) + (rk + 1), p: [x, y] }; };
+  const mine = (s) => { const ch = st.b[s]; return ch && (ch === ch.toUpperCase()) === P.white; };
+  let drag = null;
+  function tryMove(from, to) {
+    const base = from + to, opts = P.moves.filter(m => m.uci.startsWith(base));
+    if (!opts.length) return false;
+    if (opts.length > 1) return promote(base), true;
+    judge(opts[0].uci); return true;
+  }
+  function promote(base) {
+    const box = document.querySelector('.promo'), d = box.querySelector('div'); d.textContent = '';
+    for (const k of 'qrbn') { const b = document.createElement('button'), s = el('svg', { viewBox: '0 0 45 45' });
+      s.append(el('use', { href: '#p-' + (P.white ? 'white-' : 'black-') + PIECE[k] })); b.append(s); b.type = 'button'; b.setAttribute('aria-label', PIECE[k]);
+      b.onclick = () => { box.hidden = true; judge(base + k); }; d.append(b); }
+    box.hidden = false;
+  }
+  let pen = null;  // an arrow being drawn: right button, or anything in draw mode
+  svg.addEventListener('contextmenu', (e) => e.preventDefault());
+  function toggle(list, x) { const i = list.indexOf(x); if (i >= 0) list.splice(i, 1); else list.push(x); }
+  svg.addEventListener('pointerdown', (e) => {
+    if (st.answered || st.revealed) return; const h = sqAt(e); if (!h) return;
+    if (e.button === 2 || st.draw) { pen = { from: h.s }; st.sel = null; svg.setPointerCapture(e.pointerId); e.preventDefault(); return; }
+    if (st.sel && st.sel !== h.s && tryMove(st.sel, h.s)) return;
+    if (mine(h.s)) { st.sel = h.s; drag = { from: h.s, moved: false }; svg.setPointerCapture(e.pointerId); render(); }
+    else { st.sel = null; render(); }
+  });
+  svg.addEventListener('pointermove', (e) => {
+    if (pen) { const h = sqAt(e); const to = h && h.s !== pen.from ? h.s : null;
+      if (to !== pen.to) { pen.to = to; render({ preview: to ? pen.from + to : null }); } return; }
+    if (!drag) return; const h = sqAt(e) || { p: null }; drag.moved = true;
+    render({ drag: drag.from, dragAt: h.p });
+  });
+  svg.addEventListener('pointerup', (e) => {
+    if (pen) { const h = sqAt(e), from = pen.from; pen = null;
+      if (h && h.s !== from) toggle(st.arrows, from + h.s); else if (h) toggle(st.circles, from);
+      render(); return; }
+    if (!drag) return; const h = sqAt(e), d = drag; drag = null;
+    if (d.moved && h && h.s !== d.from && tryMove(d.from, h.s)) return;
+    render();
+  });
+
+  $('giveup').onclick = () => { micStop(); st.audio = null; reveal(); compare(null); render(); if (!st.answered) { $('verdict').hidden = true; $('verdict').className = 'verdict miss'; $('verdict').textContent = ''; rated(null); } };
+  $('retry').onclick = () => open(st.i);
+  function drawMode(on) {  // drawing, not moving: the button, a green frame round the board and a label say so
+    st.draw = on; const b = $('drawmode');
+    b.setAttribute('aria-pressed', String(on)); b.innerHTML = on ? '&#10003; Drawing arrows: tap to stop' : '&#9998; Draw arrows';
+    document.querySelector('.boardwrap').classList.toggle('drawing', on);
+    document.querySelector('.drawtag').hidden = !on;
+  }
+  $('drawmode').onclick = () => drawMode(!st.draw);
+  $('clear').onclick = () => { st.arrows = []; st.circles = []; render(); };
+  $('next').onclick = () => { location.hash = '#' + (((st.i + 1) % D.puzzles.length) + 1); };
+  function route() { const n = parseInt(location.hash.slice(1), 10); if (n >= 1 && D) open(n - 1); else if (D) list(); }
+  window.addEventListener('hashchange', route);
+  fetch('set/puzzles.json', { cache: 'no-cache' }).then(r => r.json()).then(d => {
+    D = d; HE = D.he || HE; HIS = D.his || HIS; if (D.credit) $('credit').innerHTML = D.credit;
+    fetch('/api/puzzles/me', { cache: 'no-store' }).then(r => r.json()).catch(() => ({ signed_in: false })).then(me => {
+      ME = me.signed_in ? me : { signed_in: false };
+      if (ME.signed_in) for (const [k, v] of Object.entries(ME.attempts || {})) done[k] = { ok: v.ok, uci: v.uci };
+      showRating(); route();
+    });
+  }).catch(() => { $('grid').innerHTML = '<li class="muted">The puzzles could not be loaded.</li>'; });
+})();
+</script>
+</body>
+</html>

@@ -84,6 +84,7 @@ def api(monkeypatch):
                  "TC_UPLOAD_KEY": "owner-secret-key-0123456789", "TC_OWNER": "LucidChess",
                  "TC_DOMAIN": "thoughtcoach.org"}.items():
         monkeypatch.setenv(k, v)
+    monkeypatch.syspath_prepend(str(HANDLER.parent))  # its own modules (glicko)
     spec = importlib.util.spec_from_file_location("tc_api_handler", HANDLER)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -353,3 +354,103 @@ def test_making_reviews_public_and_private_again(api):
     assert info["visibility"] == "public"
     api.handler(event("POST", "/api/sharing", body={"visibility": "private"}, cookies=mine), None)
     assert _page(api, "/u/lucidchess/")["statusCode"] == 403
+
+
+# ---------------------------------------------------------------- puzzles
+
+PUZZLE = {"id": "AbCd1234-52", "fen": "4r1k1/8/8/8/8/8/8/1K6 b - - 0 26", "moves": [
+    {"uci": "e8e1", "san": "Re1+", "wp": 0.9}, {"uci": "e8e2", "san": "Re2", "wp": 0.88}, {"uci": "g8f8", "san": "Kf8", "wp": 0.4}]}
+
+
+def _with_puzzles(api, monkeypatch, lichess_rating=None, perfs=None):
+    api._put_json("site", "puzzles/set/puzzles.json", {"puzzles": [PUZZLE]})
+    api._puzzles["t"] = 0
+    perfs = {"perfs": perfs or ({"puzzle": {"rating": lichess_rating, "rd": 80, "games": 500}} if lichess_rating else {})}
+    monkeypatch.setattr(api, "_lichess", lambda path, token=None, data=None, method=None: perfs)
+    return [f"tc_session={api.make_session('lucidchess')}"]
+
+
+def test_glicko_moves_the_right_way():
+    import glicko
+    p, q = {"r": 1500, "rd": 200, "vol": 0.06}, {"r": 1500, "rd": 200, "vol": 0.06}
+    win, loss = glicko.update(p, q, 1.0), glicko.update(p, q, 0.0)
+    assert win["r"] > 1500 > loss["r"] and win["rd"] < 200 and abs((win["r"] - 1500) - (1500 - loss["r"])) < 0.5
+    # beating a much stronger opponent is worth more than beating a weaker one
+    assert glicko.update(p, {"r": 1900, "rd": 100}, 1.0)["r"] - 1500 > glicko.update(p, {"r": 1100, "rd": 100}, 1.0)["r"] - 1500
+    # a day away makes the rating less certain
+    assert glicko.aged({"r": 1500, "rd": 60, "vol": 0.06, "t": 0}, 30 * 86400)["rd"] > 60
+
+
+def test_puzzle_attempt_is_rated_once_and_judged_on_the_server(api, monkeypatch):
+    jar = _with_puzzles(api, monkeypatch)
+    assert api.handler(event("POST", "/api/puzzles/attempt", {"id": PUZZLE["id"], "uci": "e8e1"}), None)["statusCode"] == 401
+    r = json.loads(api.handler(event("POST", "/api/puzzles/attempt", {"id": PUZZLE["id"], "uci": "e8e2"}, cookies=jar), None)["body"])
+    assert r["ok"] and r["rated"] and r["before"] == 1500 and r["rating"] > 1500 and r["puzzle_rating"] < 1500
+    again = json.loads(api.handler(event("POST", "/api/puzzles/attempt", {"id": PUZZLE["id"], "uci": "g8f8"}, cookies=jar), None)["body"])
+    assert not again["ok"] and not again["rated"] and again["rating"] == r["rating"]
+    me = json.loads(api.handler(event("GET", "/api/puzzles/me", cookies=jar), None)["body"])
+    assert me["signed_in"] and me["n"] == 1 and me["attempts"][PUZZLE["id"]]["ok"] and me["provisional"]
+
+
+def test_wrong_answer_or_giving_up_is_a_loss(api, monkeypatch):
+    jar = _with_puzzles(api, monkeypatch)
+    r = json.loads(api.handler(event("POST", "/api/puzzles/attempt", {"id": PUZZLE["id"], "uci": None}, cookies=jar), None)["body"])
+    assert not r["ok"] and r["rating"] < 1500 and r["puzzle_rating"] > 1500
+    bad = api.handler(event("POST", "/api/puzzles/attempt", {"id": "nope", "uci": "e8e1"}, cookies=jar), None)
+    assert bad["statusCode"] == 400
+    unknown = api.handler(event("POST", "/api/puzzles/attempt", {"id": "ZzZz9999-10", "uci": "e8e1"}, cookies=jar), None)
+    assert unknown["statusCode"] == 404
+
+
+def test_new_player_starts_from_their_lichess_puzzle_rating(api, monkeypatch):
+    jar = _with_puzzles(api, monkeypatch, lichess_rating=2400)
+    me = json.loads(api.handler(event("GET", "/api/puzzles/me", cookies=jar), None)["body"])
+    assert me["rating"] == 2400 and me["rd"] == 150 and me["n"] == 0
+
+
+def test_sign_in_can_return_to_the_puzzles(api):
+    r = api.handler(event("GET", "/api/login", query={"next": "/puzzles/"}), None)
+    assert r["cookies"][0].split(";")[0].endswith("./puzzles/")
+    r2 = api.handler(event("GET", "/api/login", query={"next": "https://evil.example/"}), None)
+    assert "evil" not in r2["cookies"][0]
+
+
+def test_new_player_starts_from_their_slowest_lichess_rating(api, monkeypatch):
+    jar = _with_puzzles(api, monkeypatch, perfs={"blitz": {"rating": 2350, "rd": 50, "games": 3000},
+                                                  "rapid": {"rating": 2280, "rd": 60, "games": 400},
+                                                  "classical": {"rating": 2500, "rd": 120, "games": 4, "prov": True},
+                                                  "puzzle": {"rating": 2700, "rd": 70, "games": 900}})
+    me = json.loads(api.handler(event("GET", "/api/puzzles/me", cookies=jar), None)["body"])
+    assert me["rating"] == 2280 and me["rd"] == 150  # rapid: classical is provisional (too few games)
+
+
+def test_puzzle_sharing_is_on_unless_switched_off(api, monkeypatch):
+    jar = _with_puzzles(api, monkeypatch)
+    api._put_json("data", "users/lucidchess.json", {"id": "lucidchess", "name": "LucidChess", "key": "k", "created": 1000.0})
+    assert json.loads(api.handler(event("GET", "/api/me", cookies=jar), None)["body"])["puzzles"] == {"on": True}
+    r = json.loads(api.handler(event("POST", "/api/puzzle-sharing", {"on": False}, cookies=jar), None)["body"])
+    assert r["puzzles"] == {"on": False}
+    assert api.handler(event("POST", "/api/puzzle-sharing", {"on": "yes"}, cookies=jar), None)["statusCode"] == 400
+    assert api.handler(event("POST", "/api/puzzle-sharing", {"on": True}), None)["statusCode"] == 401
+
+
+def test_puzzle_solved_out_loud_is_queued_for_the_worker_and_fetched_by_its_player(api, monkeypatch):
+    import base64
+    jar = _with_puzzles(api, monkeypatch)
+    monkeypatch.setattr(api, "wake_worker", lambda: 45)
+    audio = base64.b64encode(b"\x1aE\xdf\xa3 not really webm").decode()
+    body = {"id": PUZZLE["id"], "uci": "e8e1", "arrows": ["e8e1", "bad"], "audio": audio, "mime": "audio/webm;codecs=opus"}
+    assert api.handler(event("POST", "/api/puzzles/voice", body), None)["statusCode"] == 401
+    r = json.loads(api.handler(event("POST", "/api/puzzles/voice", body, cookies=jar), None)["body"])
+    jid = r["job"]
+    assert r["wait_s"] == 45 and jid.startswith(PUZZLE["id"] + "-")
+    stored = json.loads(api.fake_s3.get_object(Bucket="data", Key=f"puzzles/voice/lucidchess/{jid}.json")["Body"].read())
+    assert stored["fen"] == PUZZLE["fen"] and stored["arrows"] == ["e8e1"] and stored["audio"][0]["data_base64"] == audio
+    assert api.fake_other.sent[-1] == {"type": "puzzle_voice", "user": "lucidchess", "job": jid}
+    q = json.loads(api.handler(event("GET", f"/api/puzzles/voice/{jid}", cookies=jar), None)["body"])
+    assert q == {"state": "queued"}
+    api._put_json("data", f"puzzles/voice/lucidchess/{jid}.result.json", {"state": "done", "candidates": []})
+    assert json.loads(api.handler(event("GET", f"/api/puzzles/voice/{jid}", cookies=jar), None)["body"])["state"] == "done"
+    bad = dict(body, mime="text/html")
+    assert api.handler(event("POST", "/api/puzzles/voice", bad, cookies=jar), None)["statusCode"] == 400
+    assert api.handler(event("POST", "/api/puzzles/voice", dict(body, audio="!!"), cookies=jar), None)["statusCode"] == 400

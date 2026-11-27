@@ -264,6 +264,7 @@
     <span class="navlinks" id="navlinks">
     <a class="link" id="nav-games" href="/start" hidden>Your games</a>
     <a class="link" href="/sample/">Sample review</a>
+    <a class="link" href="/puzzles/">Puzzles</a>
     <a class="link" href="/questions">The four questions</a>
     <a class="link" href="/research">Research</a>
     <a class="link" href="/start">Get started</a></span>
@@ -278,9 +279,9 @@
         and decisions to uncover blind spots that traditional game review cannot see.</p>
       <div class="row" id="cta">
         <a class="btn primary" href="/sample/">Explore a sample review</a>
-        <a class="btn" href="/start" data-ev="get_started">Get started for free</a>
+        <a class="btn" href="/start" data-ev="get_started">Get started</a>
       </div>
-      <p class="trustline">Free · Open source · Post-game analysis only</p>
+      <p class="trustline">Completely free · Open source · Post-game analysis only</p>
       <p class="mobnote">Recording your games needs a desktop browser. On your phone, explore the sample review and the research.</p>
     </section>
     <section class="example">
@@ -436,7 +437,7 @@
       <li>Voice recording is optional</li><li>No move suggestions or engine help during games</li>
       <li>Best on a desktop browser</li><li>Not affiliated with or endorsed by lichess</li>
     </ul>
-    <div class="row" style="margin-top:18px"><a class="btn primary" href="/start" data-ev="get_started">Get started for free</a>
+    <div class="row" style="margin-top:18px"><a class="btn primary" href="/start" data-ev="get_started">Get started</a>
       <a class="btn" href="/play">Tips for your first games</a></div>
   </section>
 
@@ -457,10 +458,10 @@
 
   <section class="final">
     <h2>What would it find in your games?</h2>
-    <p>Look through a real review first, or set it up and play your next rapid game with it.</p>
+    <p>Look through a real review first, or set it up and play your next rapid game with it. It's completely free.</p>
     <div class="row">
       <a class="btn primary" href="/sample/">Explore a sample review</a>
-      <a class="btn" href="/start" data-ev="get_started">Get started for free</a>
+      <a class="btn" href="/start" data-ev="get_started">Get started</a>
     </div>
   </section>
 
@@ -471,7 +472,9 @@
     // (started in the head) phones get their own opening frame, so only one image is fetched
     (window.tcExample || Promise.reject())
       .then((h) => { if (matchMedia('(max-width:640px)').matches) h = h.replace(/poster="[^"]*" data-poster-m="([^"]*)"/, 'poster="$1"');
-        document.getElementById('example-card').innerHTML = h; })
+        const box = document.getElementById('example-card'); box.innerHTML = h;
+        // scripts added with innerHTML don't run: run the example's own (its playback order and sound)
+        box.querySelectorAll('script').forEach((old) => { const n = document.createElement('script'); n.textContent = old.textContent; old.replaceWith(n); }); })
       .catch(() => { document.querySelector('section.example').hidden = true; document.querySelector('.top2').classList.add('solo'); });
     // The tour: a topic list with one topic at a time on wide screens; on phones and tablets, a vertical accordion
     // with every topic heading visible (several can be open, so opening one never moves the others). A link to

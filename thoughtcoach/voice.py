@@ -39,7 +39,8 @@ def audio_files(recording: dict, folder: Path) -> list[tuple[int, Path]]:
     """Write the recording's audio segments to files: [(segment start ms, path)]."""
     files = []
     for i, seg in enumerate(recording.get("audio") or []):
-        ext = ".webm" if "webm" in (seg.get("mime") or "webm") else ".ogg"
+        mime = seg.get("mime") or "webm"
+        ext = ".webm" if "webm" in mime else ".m4a" if "mp4" in mime or "aac" in mime else ".ogg"  # Safari records mp4
         path = folder / f"{recording['game_id']}-{i}{ext}"
         path.write_bytes(base64.b64decode(seg["data_base64"]))
         files.append((seg["start_t"], path))
