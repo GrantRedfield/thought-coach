@@ -95,6 +95,7 @@
   .report { margin-top:16px; font-size:13.5px; } .report summary { cursor:pointer; color:var(--muted); }
   .report form { display:grid; gap:8px; margin-top:8px; } .report select, .report textarea { font:inherit; padding:6px 8px; border-radius:8px;
     border:1px solid var(--line); background:var(--bg); color:var(--fg); } .report textarea { min-height:60px; }
+  .gamecredit { font-size:13.5px; color:var(--muted); margin:-4px 0 10px; } .gamecredit a { white-space:nowrap; }
   [hidden] { display:none !important; }
   @media (max-width:480px) { nav.top a.hide-sm { display:none; } }
   @media (max-width:820px) { .pz { grid-template-columns:1fr; gap:16px; } .task { font-size:18px; } }
@@ -140,6 +141,7 @@
       <div class="side">
         <p class="task" id="task"></p>
         <p class="ctx" id="ctx"></p>
+        <p class="gamecredit" id="gamecredit" hidden></p>
         <p class="gate" id="gate" hidden></p>
         <p class="hint" id="hint">Think it through on the board first: draw arrows for the moves you're considering, and for what
           your opponent wants (right-click and drag, or switch on <b>Draw arrows</b>), and press <b>Think out loud</b> to say
@@ -299,6 +301,16 @@
       checks, captures, threats.`,
   };
   function stopReplay() { if (st.replayT) clearTimeout(st.replayT); st.replay = null; st.replayT = null; $('replaycap').hidden = true; }
+  // Whose game this is, with a link to it and to the master's channel (credited with their permission).
+  function gameCredit(x, linked) {  // linked: after the answer (the game link would show the move)
+    const g = $('gamecredit'); if (!D.name || !x.game_url) { g.hidden = true; return; }
+    const date = x.date && /^\d{4}-\d\d-\d\d$/.test(x.date) ? new Date(x.date + 'T12:00:00Z').toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
+    const players = x.white_name && x.black_name ? `${esc(x.white_name)} vs ${esc(x.black_name)}` : '';
+    g.innerHTML = `From ${esc(D.name)}'s game${players ? ': ' + players : ''}${date ? ', ' + esc(date) : ''}. `
+      + (linked ? `<a href="${esc(x.game_url)}" target="_blank" rel="noopener">See the game &#8599;</a>` : '')
+      + (D.channel ? `${linked ? ' · ' : ''}<a href="${esc(D.channel)}" target="_blank" rel="noopener">${cap(HIS)} channel &#8599;</a>` : '');
+    g.hidden = false;
+  }
   function frame(k, title) {  // the parts every position shares: where it is in the mode, the board's state, the panels
     if (st.replayT) clearTimeout(st.replayT);
     $('list').hidden = true; $('one').hidden = false; window.scrollTo(0, 0);
@@ -311,6 +323,7 @@
     P = D.puzzles[i]; DR = null; if (!P) return list();
     st = { i, k, b: parse(P.fen), sel: null, answered: null, revealed: false, flip: !P.white, legal: new Set(P.moves.map(m => m.uci)), arrows: [], circles: [], draw: (!st.drill && st.draw) || false };
     frame(k, `Puzzle ${i + 1}`);
+    gameCredit(P, false);
     const mode = MODE === 'mixed' ? 'master' : MODE;
     $('task').textContent = `${P.white ? 'White' : 'Black'} to play. ${TASK[mode] || TASK.master}`;
     $('hint').innerHTML = HINT[mode] || HINT.master;
@@ -473,6 +486,7 @@
       + ((P.candidates || []).length || (P.said || []).length ? `<p><button type="button" class="btn" id="replay">&#9654; Replay ${HIS} thinking</button></p>` : '')
       + reportForm(P.id);
     const rb = $('replay'); if (rb) rb.onclick = replay;
+    gameCredit(P, true);
     wireReport(P.id);
     if (!st.answered) { done[P.id] = done[P.id] || { ok: false, uci: null }; save(); }
   }
@@ -523,7 +537,7 @@
   function openDrill(d, k) {
     P = null; DR = d; if (!d) return list();
     st = { k, drill: true, b: parse(d.fen), flip: !d.white, arrows: [], circles: [], marks: [], draw: true, checked: false };
-    frame(k, d.kind === 'weakness' ? 'Weaknesses' : 'Worst piece');
+    frame(k, d.kind === 'weakness' ? 'Weaknesses' : 'Worst piece'); gameCredit(d, false);
     const side = d.white ? 'White' : 'Black';
     $('task').textContent = d.kind === 'weakness'
       ? `${side} to play. Where are the weaknesses? Tap the weak squares and pawns, for both sides. Then press Check.`
@@ -600,7 +614,7 @@
       + `<p>${cap(HE)} played <b>${esc(d.move)}</b> here.</p>`
       + (d.video ? `<p><a href="${esc(d.video)}" target="_blank" rel="noopener">Watch this moment in ${HIS} video &#9654;</a></p>` : '')
       + '<p class="muted">Drills are not rated: they train how you look at a position, not one right move.</p>' + reportForm(d.id);
-    wireReport(d.id);
+    wireReport(d.id); gameCredit(d, true);
     $('check').hidden = true; $('retry').hidden = false; $('hint').hidden = true; document.querySelector('.tools').hidden = true;
     document.querySelector('.boardwrap').classList.remove('drawing');
     render();
