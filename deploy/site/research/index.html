@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Research and methods · Thought Coach — Chess Thinking Analysis</title>
-<meta name="description" content="How Thought Coach measures chess thinking: the master benchmark dataset (591 rapid and classical games by strong players), how arrows and speech are matched to Stockfish, what the findings are, and their limits.">
+<meta name="description" content="How Thought Coach measures chess thinking: the master benchmark dataset (605 rapid and classical games by strong players), how arrows and speech are matched to Stockfish, what the findings are, and their limits.">
 <link rel="canonical" href="https://thoughtcoach.org/research">
 <meta property="og:title" content="How strong players think: Thought Coach research and methods">
-<meta property="og:description" content="591 rapid and classical games by strong players, recorded while they drew arrows and talked, put through the same review as yours.">
+<meta property="og:description" content="605 rapid and classical games by strong players, recorded while they drew arrows and talked, put through the same review as yours.">
 <meta property="og:image" content="https://thoughtcoach.org/apple-touch-icon.png">
 <script>try { var t = localStorage.getItem("tc-theme"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}</script>
 <link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -35,14 +35,14 @@
   <h1>How strong players think: data and methods</h1>
   <p class="lead">Thought Coach compares your thinking habits with strong players' on the same measures. This page says
     where those benchmarks come from, how they are measured, what they show, and where they fall short. Last updated
-    <span data-stat="updated_text">24 November 2026</span> (dataset version <span data-stat="version">2026-11-24-55ec00c</span>). The figures on every page come from
+    <span data-stat="updated_text">26 November 2026</span> (dataset version <span data-stat="version">2026-11-26-0cfb17c</span>). The figures on every page come from
     <a href="/research/stats.json">one published file</a>.</p>
 
   <div class="stats">
-    <div class="stat"><b data-stat="games">591</b><span>rapid and classical games</span></div>
+    <div class="stat"><b data-stat="games">605</b><span>rapid and classical games</span></div>
     <div class="stat"><b data-stat="players">7</b><span>players, <span data-stat="titled">6</span> of them GMs or IMs</span></div>
-    <div class="stat"><b data-stat="moves">14,202</b><span>moves reviewed</span></div>
-    <div class="stat"><b data-stat="arrows">26,065</b><span>arrows checked by Stockfish</span></div>
+    <div class="stat"><b data-stat="moves">14,555</b><span>moves reviewed</span></div>
+    <div class="stat"><b data-stat="arrows">27,354</b><span>arrows checked by Stockfish</span></div>
   </div>
 
   <nav class="toc" aria-label="On this page"><ol>
@@ -58,16 +58,16 @@
     <li><b>Players:</b> <span data-stat="players_word">seven</span> strong players, <span data-stat="titled_word">six</span> of them grandmasters or international masters. Each player needs at least 3 reviewed games, and counts equally however many games they have
       (<span data-stat="games_per_player">28 to 201</span> each), so no one prolific player stands for "masters". Benchmarks are only ever shown pooled: no names,
       games or quotes.</li>
-    <li><b>Games:</b> <span data-stat="games">591</span> rapid and classical games (lichess's rapid line and slower). <span data-stat="fast_excluded">202</span> blitz and bullet games were
+    <li><b>Games:</b> <span data-stat="games">605</span> rapid and classical games (lichess's rapid line and slower). <span data-stat="fast_excluded">217</span> blitz and bullet games were
       processed but are left out: at that speed players draw and say much less (for one player, arrows fell from 2.3 per
       move in rapid to 0.5 in 3-minute games and 0.1 in bullet), so the measures would mostly measure silence.</li>
-    <li><b>Ratings:</b> in the <span data-stat="rated_games">502</span> games with ratings in the game record, the players' online rating had a median of <span data-stat="rating_median">2,479</span>
-      (10th to 90th percentile: <span data-stat="rating_range">1,963 to 2,703</span>; the low end is fresh accounts climbing from scratch) and their opponents' a
-      median of <span data-stat="opponent_median">1,960</span> (<span data-stat="opponent_range">1,433 to 2,307</span>). Strong players often face much weaker opponents in these videos: see the limits.</li>
+    <li><b>Ratings:</b> in the <span data-stat="rated_games">516</span> games with ratings in the game record, the players' online rating had a median of <span data-stat="rating_median">2,484</span>
+      (10th to 90th percentile: <span data-stat="rating_range">1,968 to 2,703</span>; the low end is fresh accounts climbing from scratch) and their opponents' a
+      median of <span data-stat="opponent_median">1,960</span> (<span data-stat="opponent_range">1,427 to 2,307</span>). Strong players often face much weaker opponents in these videos: see the limits.</li>
     <li><b>Selection:</b> players who regularly draw arrows and think out loud in rapid or classical games, with videos
       where the board, arrows and speech can be read reliably. Speed-chess series, gimmick games, odds games and
       games that couldn't be matched to a game record are left out.</li>
-    <li><b>Moves:</b> <span data-stat="moves">14,202</span> of the players' own moves were reviewed; <span data-stat="moves_thinking">9,110</span> of them (<span data-stat="thinking_pct">64</span>%) had recorded thinking behind them
+    <li><b>Moves:</b> <span data-stat="moves">14,555</span> of the players' own moves were reviewed; <span data-stat="moves_thinking">9,389</span> of them (<span data-stat="thinking_pct">65</span>%) had recorded thinking behind them
       (an arrow, a circle or a spoken move).</li>
     <li><b>Titled Thought Coach players:</b> players with a lichess title who use Thought Coach are added to the
       benchmarks automatically, each as one more player, unless they switch it off (see <a href="/privacy#titled">privacy</a>).
@@ -146,7 +146,7 @@
     and highest player.</p>
   <table>
     <tr><th>Measure</th><th class="n">Masters</th><th class="n">Range</th></tr>
-    <!--stat:measures--><tr><td>Real threats left unstopped</td><td class="n">5%</td><td class="n">2–11%</td></tr><tr><td>Quiet threats named early</td><td class="n">13%</td><td class="n">6–18%</td></tr><tr><td>Weaknesses pointed at</td><td class="n">58%</td><td class="n">29–82%</td></tr><tr><td>Best move among their candidates</td><td class="n">59%</td><td class="n">50–65%</td></tr><tr><td>Least active piece brought into play</td><td class="n">30%</td><td class="n">19–42%</td></tr><tr><td>Good moves drawn, then dropped</td><td class="n">7%</td><td class="n">5–10%</td></tr><tr><td>Critical positions that went wrong</td><td class="n">14%</td><td class="n">7–24%</td></tr><tr><td>Moves in time trouble</td><td class="n">6%</td><td class="n">0–12%</td></tr><tr><td>Moves with an arrow or words</td><td class="n">72%</td><td class="n">46–87%</td></tr><tr><td>Accuracy (lichess formula)</td><td class="n">91%</td><td class="n">88–93%</td></tr><!--/stat:measures-->
+    <!--stat:measures--><tr><td>Real threats left unstopped</td><td class="n">5%</td><td class="n">2–11%</td></tr><tr><td>Quiet threats named early</td><td class="n">13%</td><td class="n">6–17%</td></tr><tr><td>Weaknesses pointed at</td><td class="n">59%</td><td class="n">29–82%</td></tr><tr><td>Best move among their candidates</td><td class="n">59%</td><td class="n">50–65%</td></tr><tr><td>Least active piece brought into play</td><td class="n">29%</td><td class="n">19–42%</td></tr><tr><td>Good moves drawn, then dropped</td><td class="n">7%</td><td class="n">5–10%</td></tr><tr><td>Critical positions that went wrong</td><td class="n">14%</td><td class="n">7–24%</td></tr><tr><td>Moves in time trouble</td><td class="n">6%</td><td class="n">0–12%</td></tr><tr><td>Moves with an arrow or words</td><td class="n">72%</td><td class="n">46–87%</td></tr><tr><td>Accuracy (lichess formula)</td><td class="n">91%</td><td class="n">88–93%</td></tr><!--/stat:measures-->
   </table>
 
   <h2 id="find">4. Findings</h2>

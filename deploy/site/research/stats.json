@@ -1,31 +1,31 @@
 {
- "updated": "2026-11-24",
- "updated_text": "24 November 2026",
+ "updated": "2026-11-26",
+ "updated_text": "26 November 2026",
  "titled": 6,
  "players_word": "seven",
  "titled_word": "six",
  "rating_range": [
-  1963,
+  1968,
   2703
  ],
  "opponent_range": [
-  1433,
+  1427,
   2307
  ],
  "quiet_pct": 13,
  "players": 7,
- "games": 591,
+ "games": 605,
  "games_per_player": [
   28,
   201
  ],
- "fast_excluded": 202,
- "moves": 14202,
- "moves_thinking": 9110,
- "thinking_pct": 64,
- "arrows": 26065,
- "rated_games": 502,
- "rating_median": 2479,
+ "fast_excluded": 217,
+ "moves": 14555,
+ "moves_thinking": 9389,
+ "thinking_pct": 65,
+ "arrows": 27354,
+ "rated_games": 516,
+ "rating_median": 2484,
  "opponent_median": 1960.0,
  "measures": [
   {
@@ -41,13 +41,13 @@
    "label": "Quiet threats named early",
    "rate": 13,
    "low": 6,
-   "high": 18,
+   "high": 17,
    "players": 7
   },
   {
    "key": "q1",
    "label": "Weaknesses pointed at",
-   "rate": 58,
+   "rate": 59,
    "low": 29,
    "high": 82,
    "players": 7
@@ -63,7 +63,7 @@
   {
    "key": "q2",
    "label": "Least active piece brought into play",
-   "rate": 30,
+   "rate": 29,
    "low": 19,
    "high": 42,
    "players": 7
@@ -114,5 +114,5 @@
  "threats_pct": 5,
  "critical_costly_pct": 14,
  "all_costly_pct": 5,
- "version": "2026-11-24-55ec00c"
+ "version": "2026-11-26-0cfb17c"
 }
