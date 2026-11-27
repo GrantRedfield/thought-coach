@@ -80,6 +80,21 @@
     margin-right:2px; animation:recpulse 1s ease-in-out infinite; }
   @keyframes recpulse { 50% { opacity:.25; } }
   .said { border-left:3px solid #15781b; padding:2px 0 2px 12px; margin:6px 0 0; color:var(--fg); font-style:italic; }
+  .modes { display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:12px; margin:6px 0 26px; padding:0; list-style:none; }
+  .modes a, .modes .soon { display:flex; flex-direction:column; gap:4px; height:100%; box-sizing:border-box; padding:14px 16px; border-radius:12px;
+    border:1px solid var(--line); background:var(--card); color:var(--fg); text-decoration:none; }
+  .modes a:hover { border-color:#15781b; }
+  .modes b { font-size:15.5px; } .modes .q { font-size:11.5px; letter-spacing:.05em; text-transform:uppercase; color:#15781b; font-weight:700; }
+  .modes .d { color:var(--muted); font-size:13.5px; line-height:1.4; } .modes .n { margin-top:auto; padding-top:6px; font-size:12.5px; color:var(--muted); }
+  .modes .soon { opacity:.65; }
+  h2.sec { font-size:18px; margin:6px 0 10px; }
+  .gate { margin:10px 0 0; padding:10px 12px; border-radius:10px; background:#e8590c1f; border:1px solid #e8590c; font-size:14.5px; color:var(--fg); }
+  .take { margin:14px 0 0; padding:12px 14px; border-radius:10px; background:#15781b1a; border-left:4px solid #15781b; font-size:15px; }
+  .replaycap { margin:10px 0 0; padding:10px 12px; border-radius:10px; background:var(--card); border:1px solid var(--line); font-size:14.5px; min-height:22px; }
+  .replaycap .quote { margin:6px 0 0; }
+  .report { margin-top:16px; font-size:13.5px; } .report summary { cursor:pointer; color:var(--muted); }
+  .report form { display:grid; gap:8px; margin-top:8px; } .report select, .report textarea { font:inherit; padding:6px 8px; border-radius:8px;
+    border:1px solid var(--line); background:var(--bg); color:var(--fg); } .report textarea { min-height:60px; }
   [hidden] { display:none !important; }
   @media (max-width:480px) { nav.top a.hide-sm { display:none; } }
   @media (max-width:820px) { .pz { grid-template-columns:1fr; gap:16px; } .task { font-size:18px; } }
@@ -99,11 +114,14 @@
       Sometimes they didn't.</p>
     <a class="daily" id="daily" href="#daily"><span class="dl">Today's puzzle</span><b id="dailyname"></b>
       <span id="dailynote"></span><span class="go">Solve &rarr;</span></a>
+    <h2 class="sec">Train one skill</h2>
+    <ul class="modes" id="modes"></ul>
+    <h2 class="sec">All master puzzles</h2>
     <ul class="pz-list" id="grid"></ul>
   </section>
 
   <section id="one" hidden>
-    <p class="crumbs"><a href="#">&larr; All puzzles</a> · <span id="pos"></span></p>
+    <p class="crumbs"><a href="#">&larr; All training</a> · <span id="pos"></span></p>
     <div class="pz">
       <div class="boardwrap">
         <svg class="board" viewBox="0 0 360 360" role="img" aria-label="Chess board: drag or tap a piece, then its square"></svg>
@@ -113,13 +131,16 @@
           <button type="button" class="btn" id="drawmode" aria-pressed="false">&#9998; Draw arrows</button>
           <button type="button" class="btn" id="undo" disabled aria-label="Undo the last arrow or circle">&#8630; Undo</button>
           <button type="button" class="btn" id="clear">Clear arrows</button>
+          <button type="button" class="btn primary" id="check" hidden>Check my answer</button>
         </div>
         <p class="hint" id="micnote" hidden style="margin-top:8px"></p>
         <div class="drawtag" hidden>&#9998; Drawing mode: drag for an arrow, tap a square to circle it. Pieces won't move until you stop.</div>
+        <div class="replaycap" id="replaycap" hidden aria-live="polite"></div>
       </div>
       <div class="side">
         <p class="task" id="task"></p>
         <p class="ctx" id="ctx"></p>
+        <p class="gate" id="gate" hidden></p>
         <p class="hint" id="hint">Think it through on the board first: draw arrows for the moves you're considering, and for what
           your opponent wants (right-click and drag, or switch on <b>Draw arrows</b>), and press <b>Think out loud</b> to say
           what you're thinking. Then play your move, and see how your thinking compares with the master's.</p>
@@ -129,7 +150,7 @@
         <div class="btns">
           <button type="button" class="btn" id="giveup">Show the answer</button>
           <button type="button" class="btn" id="retry" hidden>Try again</button>
-          <button type="button" class="btn primary" id="next">Next puzzle &rarr;</button>
+          <button type="button" class="btn primary" id="next">Next &rarr;</button>
         </div>
       </div>
     </div>
@@ -147,7 +168,29 @@
   const pct = (x) => Math.round(x * 100) + '%';
   const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
   let HE = 'they', HIS = 'their';
-  let D = null, P = null, st = {}, ME = { signed_in: false };
+  let D = null, P = null, DR = null, st = {}, ME = { signed_in: false }, MODE = 'master';
+  // The training modes: each trains one of the four questions, on the same master positions.
+  const MODES = [
+    { k: 'master', q: 'Every question', t: 'Think Like a Master', d: 'The whole process: mark what they want, draw your candidates, say what you think, play. Then compare your thinking with the master\'s.' },
+    { k: 'threats', q: 'Question 1', t: "Opponent's Resources", d: 'Before you move, mark what your opponent wants. You can\'t play until you have.' },
+    { k: 'weak', q: 'Question 2', t: 'Positional Weaknesses', d: 'Mark the weak squares and pawns, both sides. Then see how the engine uses them, and whether the master saw them.' },
+    { k: 'cands', q: 'Question 3', t: 'Candidate Moves', d: 'Draw at least two candidate moves before you play one. The best move is often the second you look at.' },
+    { k: 'piece', q: 'Question 4', t: 'Piece Improvement', d: 'Find your worst-placed piece and draw where it belongs.' },
+    { k: 'mixed', q: 'All four', t: 'Mixed Training', d: 'Puzzles and positional drills in a mixed order, the way positions come in a game.' },
+  ];
+  const drillsOf = (k) => (D.drills || []).filter(d => d.kind === (k === 'weak' ? 'weakness' : 'piece'));
+  const puzzlesFor = (k) => D.puzzles.map((p, i) => i).filter(i => k !== 'threats' || D.puzzles[i].threat);
+  let MIXED = null;
+  function mixedList() {  // a fixed shuffled order: the same "mixed" for everyone, so a link to #mixed/7 is stable
+    if (MIXED) return MIXED;
+    const items = D.puzzles.map((p, i) => ({ i })).concat((D.drills || []).map(d => ({ d })));
+    let seed = 20261127; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let j = items.length - 1; j > 0; j--) { const r = Math.floor(rnd() * (j + 1)); [items[j], items[r]] = [items[r], items[j]]; }
+    return (MIXED = items);
+  }
+  const modeLen = (k) => k === 'weak' || k === 'piece' ? drillsOf(k).length : k === 'mixed' ? mixedList().length : puzzlesFor(k).length;
+  const itemId = (k, j) => k === 'weak' || k === 'piece' ? drillsOf(k)[j].id : k === 'mixed' ? (mixedList()[j].d ? mixedList()[j].d.id : D.puzzles[mixedList()[j].i].id) : D.puzzles[puzzlesFor(k)[j]].id;
+  const modeOf = (k) => MODES.find(m => m.k === k) || MODES[0];
   const done = (() => { try { return JSON.parse(localStorage.getItem('tc-puzzles') || '{}'); } catch (e) { return {}; } })();
   const save = () => { try { localStorage.setItem('tc-puzzles', JSON.stringify(done)); } catch (e) {} };
 
@@ -186,6 +229,8 @@
     }
     for (const s of o.circles || []) { const [x, y] = xy(s, flip);
       svg.append(el('circle', { cx: x * S + S / 2, cy: y * S + S / 2, r: 20, fill: 'none', stroke: '#15781b', 'stroke-width': 3.5, opacity: .8 })); }
+    for (const r of o.rings || []) { const [x, y] = xy(r.s, flip);
+      svg.append(el('circle', { cx: x * S + S / 2, cy: y * S + S / 2, r: 20, fill: 'none', stroke: r.c, 'stroke-width': 4, 'stroke-dasharray': r.d || '', opacity: .9 })); }
     for (const s of o.hl || []) { const [x, y] = xy(s, flip); svg.append(el('rect', { x: x * S, y: y * S, width: S, height: S, fill: '#cdd26a', opacity: .6 })); }
     if (o.sel) { const [x, y] = xy(o.sel, flip); svg.append(el('rect', { x: x * S, y: y * S, width: S, height: S, fill: '#14551e', opacity: .45 })); }
     for (const s of o.dots || []) { const [x, y] = xy(s, flip);
@@ -208,12 +253,25 @@
     const grid = $('grid'); grid.textContent = '';
     D.puzzles.forEach((p, i) => {
       const li = document.createElement('li'), a = document.createElement('a'), svg = el('svg', { viewBox: '0 0 360 360' });
-      a.href = '#' + (i + 1); draw(svg, parse(p.fen), !p.white, { tag: 'l' + i });
+      a.href = '#master/' + (i + 1); draw(svg, parse(p.fen), !p.white, { tag: 'l' + i });
       const r = done[p.id], badge = r ? (r.ok ? "<span class='badge ok'>Solved</span>" : "<span class='badge no'>Missed</span>") : '';
       const meta = document.createElement('div'); meta.className = 'meta';
       meta.innerHTML = `<span>#${i + 1} · ${p.white ? 'White' : 'Black'} to play</span>${badge}`;
       a.append(svg, meta); li.append(a); grid.append(li);
     });
+    const ml = $('modes'); ml.textContent = '';
+    for (const m of MODES) {
+      const n = modeLen(m.k); if (!n) continue;
+      let tried = 0, first = -1;
+      for (let j = 0; j < n; j++) { const id = itemId(m.k, j); if (done[id]) tried++; else if (first < 0) first = j; }
+      const li = document.createElement('li');
+      li.innerHTML = `<a href="#${m.k}/${(first < 0 ? 0 : first) + 1}"><span class="q">${esc(m.q)}</span><b>${esc(m.t)}</b><span class="d">${esc(m.d)}</span>`
+        + `<span class="n">${tried ? `${tried} of ${n} done` : `${n} positions`}</span></a>`;
+      ml.append(li);
+    }
+    const mm = document.createElement('li');
+    mm.innerHTML = `<div class="soon"><span class="q">From your games</span><b>My Mistakes</b><span class="d">The positions from your own reviewed games where the thinking went wrong, to try again. Built from your reviews; coming next.</span></div>`;
+    ml.append(mm);
     const di = dailyIndex(), dp = D.puzzles[di], dr = done[dp.id];
     $('dailyname').textContent = `#${di + 1} · ${dp.white ? 'White' : 'Black'} to play`;
     $('dailynote').textContent = dr ? (dr.ok ? 'Solved today. A new one tomorrow.' : 'Tried. A new one tomorrow.') : 'The same position for everyone today.';
@@ -226,23 +284,47 @@
   const clock = (s) => s == null ? null : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
   const tc = (t) => { const m = /^(\d+)\+(\d+)$/.exec(t || ''); if (!m) return ''; const base = +m[1] / 60, inc = +m[2];
     const speed = +m[1] + 40 * inc >= 1500 ? 'classical' : 'rapid'; return `${base}+${inc} ${speed}`; };
-  function open(i) {
-    P = D.puzzles[i]; if (!P) return list();
-    st = { i, b: parse(P.fen), sel: null, answered: null, revealed: false, flip: !P.white, legal: new Set(P.moves.map(m => m.uci)), arrows: [], circles: [], draw: st.draw || false };
+  const TASK = {
+    master: 'Find the best move.',
+    threats: 'First mark what your opponent wants (an arrow from one of their pieces). Then find your move.',
+    cands: 'Draw at least two candidate moves (arrows from your pieces). Then play the best of them.',
+  };
+  const HINT = {
+    master: `Think it through on the board first: draw arrows for the moves you're considering, and for what your opponent wants
+      (right-click and drag, or switch on <b>Draw arrows</b>), and press <b>Think out loud</b> to say what you're thinking. Then play
+      your move, and see how your thinking compares with the master's.`,
+    threats: `Question 1, what does my opponent want? Look at their last move and their best piece. Draw an arrow for the move
+      they would play if it were their turn. Then play your move.`,
+    cands: `Question 3, what are my candidates? Draw two or three moves for yourself before you choose. Forcing moves first:
+      checks, captures, threats.`,
+  };
+  function stopReplay() { if (st.replayT) clearTimeout(st.replayT); st.replay = null; st.replayT = null; $('replaycap').hidden = true; }
+  function frame(k, title) {  // the parts every position shares: where it is in the mode, the board's state, the panels
+    if (st.replayT) clearTimeout(st.replayT);
     $('list').hidden = true; $('one').hidden = false; window.scrollTo(0, 0);
-    document.title = `Puzzle ${i + 1} · Master puzzles`;
-    $('pos').textContent = `Puzzle ${i + 1} of ${D.puzzles.length}`;
-    $('task').textContent = `${P.white ? 'White' : 'Black'} to play. Find the best move.`;
+    document.title = `${title} · Master puzzles`;
+    $('pos').textContent = `${modeOf(MODE).t} · ${k + 1} of ${modeLen(MODE)}`;
+    $('gate').hidden = true; $('replaycap').hidden = true;
+    $('verdict').hidden = true; $('reveal').hidden = true; $('retry').hidden = true; $('compare').hidden = true;
+  }
+  function open(i, k = i) {
+    P = D.puzzles[i]; DR = null; if (!P) return list();
+    st = { i, k, b: parse(P.fen), sel: null, answered: null, revealed: false, flip: !P.white, legal: new Set(P.moves.map(m => m.uci)), arrows: [], circles: [], draw: (!st.drill && st.draw) || false };
+    frame(k, `Puzzle ${i + 1}`);
+    const mode = MODE === 'mixed' ? 'master' : MODE;
+    $('task').textContent = `${P.white ? 'White' : 'Black'} to play. ${TASK[mode] || TASK.master}`;
+    $('hint').innerHTML = HINT[mode] || HINT.master;
+    $('check').hidden = true; $('mic').hidden = false; $('drawmode').hidden = false; $('clear').textContent = 'Clear arrows';
     const bits = [`Move ${P.number}`, tc(P.tc), clock(P.clock) && `${D.short || 'The master'} had ${clock(P.clock)} on the clock`,
       P.opening].filter(Boolean);
     $('ctx').textContent = bits.join(' · ') + '.';
-    $('verdict').hidden = true; $('reveal').hidden = true; $('retry').hidden = true; $('giveup').hidden = false;
-    $('compare').hidden = true; $('hint').hidden = false; drawMode(st.draw);
+    $('giveup').hidden = false; $('hint').hidden = false; drawMode(st.draw);
     document.querySelector('.tools').hidden = false; $('micnote').hidden = true; st.marks = []; undoState();
-    micStop(); st.audio = null; st.voice = null;
+    micStop(); st.audio = null; st.voice = null; st.replay = null;
     render();
   }
   function render(drag) {
+    if (st.drill) return renderDrill(drag);
     const o = { coords: true, sel: st.sel, hl: [], arrows: [], circles: st.answered || st.revealed ? [] : st.circles };
     const mineArrow = (u) => ({ u, c: kindOf(u) === 'theirs' ? '#c92a2a' : '#15781b', k: kindOf(u) === 'theirs' ? 'theirs' : 'mine' });
     if (!st.answered && !st.revealed) o.arrows = st.arrows.map(mineArrow);
@@ -256,6 +338,7 @@
       if (st.answered && st.answered !== P.moves[0].uci && st.answered !== P.move_uci) o.arrows.push({ u: st.answered, c: '#2a78d6', k: 'you', d: '2 4', w: 6 });
       o.arrows.push({ u: P.moves[0].uci, c: '#1e8e3e', k: 'best' });
       if (st.showMine) o.arrows = st.arrows.map(u => ({ ...mineArrow(u), w: 5, d: '3 4' })).concat(o.arrows);
+      if (st.replay) o.arrows = st.replay;
     }
     if (drag && drag.preview) o.arrows = o.arrows.concat([mineArrow(drag.preview)]);
     if (drag) Object.assign(o, drag);
@@ -300,7 +383,7 @@
   // what one of the solver's arrows is: one of their own moves, an opponent's move, or something else
   function kindOf(u) {
     const pc = (st.b || {})[u.slice(0, 2)]; if (!pc) return 'other';
-    return (pc === pc.toUpperCase()) === P.white ? 'mine' : 'theirs';
+    return (pc === pc.toUpperCase()) === (P || DR).white ? 'mine' : 'theirs';
   }
   function compare(uci) {
     const best = P.moves[0], tag = (m) => best.wp - m.wp <= 0.005 ? 'best' : best.wp - m.wp <= 0.03 ? 'good' : best.wp - m.wp <= 0.10 ? '' : 'bad';
@@ -311,7 +394,8 @@
     if (voice) { (voice.candidates || []).forEach(c => addMine(c.uci)); (voice.ideas || []).forEach(c => addTheirs(c.uci)); }
     const listening = st.voice && (st.voice.state === 'sending' || st.voice.state === 'waiting');
     const played = uci ? P.moves.find(x => x.uci === uci) : null, rows = [];
-    const row = (cls, html) => rows.push(`<li class="${cls}"><span>${cls === 'y' ? '&#10003;' : cls === 'n' ? '&#10007;' : '&bull;'}</span><span>${html}</span></li>`);
+    let key = 'move';
+    const row = (cls, html) => rows.push({ key, html: `<li class="${cls}"><span>${cls === 'y' ? '&#10003;' : cls === 'n' ? '&#10007;' : '&bull;'}</span><span>${html}</span></li>` });
     const chip = (m) => `<span class="chip ${tag(m)}">${esc(m.san)} ${esc(m.eval)}</span>`;
     const san = (u) => (P.their_moves || {})[u] || u;
     const drewBest = cands.some(m => m.uci === best.uci), okMove = played && best.wp - played.wp <= 0.03;
@@ -319,15 +403,19 @@
     else if (okMove) row('y', `<b>${esc(played.san)}</b> is as good as the engine's <b>${esc(best.san)}</b>.`);
     else if (drewBest) row('n', `You considered <b>${esc(best.san)}</b>, the best move, but ${played ? `played <b>${esc(played.san)}</b>` : "didn't play it"} instead. You saw it, then chose something else.`);
     else row('n', `The best move, <b>${esc(best.san)}</b>, wasn't one of the moves you considered${listening ? ' (so far: still listening to what you said)' : ''}.`);
+    key = 'cands';
     if (cands.length >= 2) row('y', `You compared ${cands.length} moves before choosing.<div class="chips">${cands.map(chip).join('')}</div>`);
     else if (cands.length === 1) row('n', `You considered only one move. Looking at two or three is how you catch the one you'd otherwise miss.<div class="chips">${cands.map(chip).join('')}</div>`);
     else if (!listening) row('o', `You didn't draw or name any of your moves. Draw or say the ones you consider, and next time we can compare them with ${esc(D.short || 'the master')}'s.`);
+    key = 'threat';
+    const sawThreat = P.threat && theirs.some(u => u.startsWith(P.threat.uci.slice(0, 4)));
     if (P.threat) {
       const tp = pct(P.threat.gain);
       if (theirs.some(u => u.startsWith(P.threat.uci.slice(0, 4)))) row('y', `You checked what your opponent wanted: <b>${esc(P.threat.san)}</b>.`);
       else if (theirs.length) row('n', `You looked at their ${theirs.map(u => '<b>' + esc(san(u)) + '</b>').join(', ')}, but their real threat was <b>${esc(P.threat.san)}</b> (worth about ${tp} to them if ignored).`);
       else row('n', `You didn't draw or name what your opponent wanted. Their threat was <b>${esc(P.threat.san)}</b> (worth about ${tp} to them if ignored).`);
     } else if (theirs.length) row('y', `You checked your opponent's ideas: ${theirs.map(u => '<b>' + esc(san(u)) + '</b>').join(', ')}.`);
+    key = 'master';
     const mc = (P.candidates || []).map(c => c.uci), who = esc(D.short || 'The master');
     const both = cands.filter(m => mc.some(u => m.uci.startsWith(u))).map(m => m.san);
     const onlyJb = (P.candidates || []).filter(c => !cands.some(m => m.uci.startsWith(c.uci))).map(c => c.san);
@@ -336,13 +424,26 @@
     const jbPlayed = P.moves.find(x => x.uci === P.move_uci);
     if (played && jbPlayed) row('o', played.uci === jbPlayed.uci ? `You played the same move as ${who}.`
       : `${who} played <b>${esc(jbPlayed.san)}</b> (${esc(jbPlayed.eval)}); you played <b>${esc(played.san)}</b> (${esc(played.eval)}).`);
+    key = 'voice';
     if (listening) row('o', `Listening to what you said&hellip; ${st.voice.wait ? `about ${Math.round(st.voice.wait / 60) || 1} minute${Math.round(st.voice.wait / 60) > 1 ? 's' : ''} while a server starts` : 'a few seconds'}. This updates by itself.`);
     else if (st.voice && st.voice.state === 'error') row('o', "We couldn't make out your recording this time, so this is from your arrows only.");
     else if (voice) row('o', voice.transcript ? `What you said:<p class="said">“${esc(voice.transcript.slice(0, 400))}${voice.transcript.length > 400 ? '&hellip;' : ''}”</p>`
       + ((voice.candidates || []).length + (voice.ideas || []).length ? '' : '<small>No moves we could pick out of it; try naming them, like "bishop e5" or "he wants g6".</small>')
       : 'We heard nothing in your recording.');
+    // the mode's own question first
+    const first = { threats: 'threat', cands: 'cands' }[MODE];
+    if (first) rows.sort((a, b) => (b.key === first) - (a.key === first));
+    // one thing to take into the next game
+    let take;
+    if (P.threat && !sawThreat && !okMove) take = `Before choosing, ask what their last move wants. One arrow for their best idea would have shown <b>${esc(P.threat.san)}</b>.`;
+    else if (drewBest && !okMove) take = 'You had the best move in view. Before dropping a strong candidate, check their best reply to it once more.';
+    else if (!okMove && cands.length < 2) take = 'Draw two or three candidates before you move: the best one is often the second you look at.';
+    else if (!okMove) take = 'Your candidates missed it. Look at forcing moves first (checks, captures, threats), even ones that look odd.';
+    else if (P.threat && !sawThreat) take = "Your move worked, but you didn't mark their threat. In a harder position, that habit is what saves the game.";
+    else if (cands.length < 2) take = 'Found it. Next time draw a second candidate too: it costs seconds, and it is the habit that finds the move when the first idea fails.';
+    else take = 'That is the process to repeat in your games: their idea, two or three candidates, then the move.';
     const c = $('compare'); c.hidden = false;
-    c.innerHTML = `<h2>Your thinking vs ${who}'s</h2><ul class="checks">${rows.join('')}</ul>`
+    c.innerHTML = `<h2>Your thinking vs ${who}'s</h2><ul class="checks">${rows.map(r => r.html).join('')}</ul><p class="take"><b>Takeaway:</b> ${take}</p>`
       + (st.arrows.length ? `<p class="hint" style="margin-top:10px"><label><input type="checkbox" id="showmine"${st.showMine ? ' checked' : ''}> Show my arrows on the board</label></p>` : '');
     const sm = $('showmine'); if (sm) sm.onchange = () => { st.showMine = sm.checked; render(); };
     $('hint').hidden = true; document.querySelector('.tools').hidden = true;
@@ -368,9 +469,143 @@
       + `<p>Engine line: <span class="line">${esc(numbered(best.line))}</span></p>`
       + `<div class="key"><span><i style="background:#1e8e3e"></i>Best move</span>${found ? '' : `<span><i style="background:#e8590c"></i>${cap(HE)} played</span>`}`
       + `${(P.candidates || []).length ? `<span><i style="background:#9c36b5"></i>${cap(HE)} considered</span>` : ''}${st.answered && st.answered !== best.uci && st.answered !== P.move_uci ? '<span><i style="background:#2a78d6"></i>Your move</span>' : ''}</div>`
-      + (P.video ? `<p><a href="${esc(P.video)}" target="_blank" rel="noopener">Watch this moment in ${HIS} video &#9654;</a></p>` : '');
+      + (P.video ? `<p><a href="${esc(P.video)}" target="_blank" rel="noopener">Watch this moment in ${HIS} video &#9654;</a></p>` : '')
+      + ((P.candidates || []).length || (P.said || []).length ? `<p><button type="button" class="btn" id="replay">&#9654; Replay ${HIS} thinking</button></p>` : '')
+      + reportForm(P.id);
+    const rb = $('replay'); if (rb) rb.onclick = replay;
+    wireReport(P.id);
     if (!st.answered) { done[P.id] = done[P.id] || { ok: false, uci: null }; save(); }
   }
+
+  // The master's thinking, step by step on the board: each move they drew or said, in the order they did, then the move.
+  function replay() {
+    stopReplay();
+    const best = P.moves[0], who = D.short || 'The master', said = (P.said || []).slice(0, 3), used = new Set();
+    // a sentence goes with the move whose square it names ("rook takes b2" with Rxb2+); the rest get their own step
+    const quoteFor = (c) => { const sq = c.uci.slice(2, 4), j = said.findIndex((x, k) => !used.has(k) && x.toLowerCase().replace(/\s+/g, '').includes(sq));
+      if (j < 0) return ''; used.add(j); return `<p class="quote">“${esc(said[j])}”</p>`; };
+    const steps = (P.candidates || []).map((c) => {
+      const how = c.how.includes('arrow') && c.how.includes('said') ? 'drew and said' : c.how.includes('said') ? 'said' : 'drew';
+      return { arrows: [{ u: c.uci, c: '#9c36b5', k: 'cand' }], cap: `${cap(HE)} ${how} <b>${esc(c.san)}</b>${c.when === 'opponent_time' ? ", while the opponent was still thinking" : ''}.` + quoteFor(c) };
+    });
+    said.forEach((x, k) => { if (!used.has(k)) steps.push({ arrows: [], cap: `<p class="quote">“${esc(x)}”</p>` }); });
+    if ((P.ideas || []).length) steps.push({ arrows: [], cap: `${cap(HE)} checked what the opponent wanted: <b>${P.ideas.map(esc).join(', ')}</b>.` });
+    const found = P.move_uci === best.uci, played = P.moves.find(x => x.uci === P.move_uci);
+    steps.push({ arrows: (found ? [] : [{ u: P.move_uci, c: '#e8590c', k: 'played' }]).concat([{ u: best.uci, c: '#1e8e3e', k: 'best' }]),
+      cap: found ? `${esc(who)} played <b>${esc(best.san)}</b>, the best move.` : `${esc(who)} played <b>${esc(played ? played.san : P.move)}</b>. The engine's best was <b>${esc(best.san)}</b>.` });
+    let j = 0;
+    const step = () => {
+      if (j >= steps.length) { st.replay = null; render(); $('replaycap').innerHTML += ' <small class="muted">(end of replay)</small>'; return; }
+      const s = steps[j++]; st.replay = s.arrows; $('replaycap').innerHTML = `<small class="muted">${j} / ${steps.length}</small> ${s.cap}`; $('replaycap').hidden = false;
+      render(); st.replayT = setTimeout(step, s.cap.includes('quote') ? 4200 : 2400);
+    };
+    step();
+  }
+
+  // Report a problem with a puzzle: kept privately to check the set (no name unless signed in).
+  function reportForm(id) {
+    return `<details class="report"><summary>Report a problem with this ${id.match(/-[wp]$/) ? 'drill' : 'puzzle'}</summary><form id="repf">
+      <select name="reason"><option value="wrong_answer">The answer is wrong</option><option value="two_answers">Another move is just as good</option>
+      <option value="unclear">The task is unclear</option><option value="bad_quote">The master's words don't fit</option><option value="good">It's a great one</option>
+      <option value="other">Something else</option></select><textarea name="comment" maxlength="1000" placeholder="Tell us more (optional)"></textarea>
+      <button type="submit" class="btn">Send</button><p class="hint" id="repdone" hidden>Thanks: every report is read.</p></form></details>`;
+  }
+  function wireReport(id) {
+    const f = $('repf'); if (!f) return;
+    f.onsubmit = (e) => { e.preventDefault();
+      fetch('/api/feedback', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'puzzle', id, reason: f.reason.value, comment: f.comment.value }) }).catch(() => {});
+      f.querySelector('button').disabled = true; $('repdone').hidden = false; };
+  }
+
+  // ---------------------------------------------------------------- positional drills (questions 2 and 3)
+  const KIND_WORD = { 'hole': 'hole', 'isolated pawn': 'isolated pawn', 'backward pawn': 'backward pawn', 'doubled pawn': 'doubled pawns' };
+  function openDrill(d, k) {
+    P = null; DR = d; if (!d) return list();
+    st = { k, drill: true, b: parse(d.fen), flip: !d.white, arrows: [], circles: [], marks: [], draw: true, checked: false };
+    frame(k, d.kind === 'weakness' ? 'Weaknesses' : 'Worst piece');
+    const side = d.white ? 'White' : 'Black';
+    $('task').textContent = d.kind === 'weakness'
+      ? `${side} to play. Where are the weaknesses? Tap the weak squares and pawns, for both sides. Then press Check.`
+      : `${side} to play. Which of your pieces is worst placed? Tap it, and draw an arrow to where it belongs. Then press Check.`;
+    $('ctx').textContent = [`Move ${d.number}`, tc(d.tc), clock(d.clock) && `${D.short || 'The master'} had ${clock(d.clock)} on the clock`, d.opening].filter(Boolean).join(' · ') + '.';
+    $('hint').innerHTML = d.kind === 'weakness'
+      ? 'A weakness is something that can be attacked or used: a <b>hole</b> (a square no pawn can guard any more), an <b>isolated</b>, <b>backward</b> or <b>doubled</b> pawn. Tap a square to circle it; tap again to take it back.'
+      : 'Look for the piece with the fewest useful squares: hemmed in by its own pawns, or with nothing to do. Tap it to circle it, then drag from it to the square it should head for.';
+    $('hint').hidden = false; $('check').hidden = false; $('giveup').hidden = true; $('mic').hidden = true; $('drawmode').hidden = true;
+    $('clear').textContent = 'Clear marks';
+    document.querySelector('.tools').hidden = false; $('micnote').hidden = true; undoState();
+    drawMode(true); document.querySelector('.drawtag').hidden = true;
+    render();
+  }
+  function renderDrill(drag) {
+    const d = DR, o = { coords: true, hl: [], arrows: [], circles: [], rings: [] };
+    const my = (u) => ({ u, c: '#2a78d6', k: 'you', w: 6 });
+    if (!st.checked) { o.circles = st.circles; o.arrows = st.arrows.map(my); }
+    else if (d.kind === 'weakness') {
+      for (const w of d.weaknesses) o.rings.push({ s: w.square, c: st.circles.includes(w.square) ? '#1e8e3e' : '#c92a2a' });
+      for (const s of st.circles) if (!d.weaknesses.some(w => w.square === s)) o.rings.push({ s, c: '#2a78d6', d: '4 4' });
+    } else {
+      o.rings.push({ s: d.worst.square, c: st.circles.includes(d.worst.square) ? '#1e8e3e' : '#c92a2a' });
+      if (d.worst.to) o.arrows.push({ u: d.worst.square + d.worst.to, c: '#1e8e3e', k: 'best' });
+      for (const u of st.arrows) o.arrows.push({ ...my(u), d: '3 4', w: 5 });
+      for (const s of st.circles) if (s !== d.worst.square) o.rings.push({ s, c: '#2a78d6', d: '4 4' });
+    }
+    if (drag && drag.preview) o.arrows = o.arrows.concat([my(drag.preview)]);
+    draw(svg, st.b, st.flip, o);
+  }
+  function numberedFrom(line) { return esc(line || ''); }
+  function checkDrill() {
+    const d = DR, who = esc(D.short || 'The master'), rows = [];
+    const row = (cls, html) => rows.push(`<li class="${cls}"><span>${cls === 'y' ? '&#10003;' : cls === 'n' ? '&#10007;' : '&bull;'}</span><span>${html}</span></li>`);
+    st.checked = true; let ok;
+    if (d.kind === 'weakness') {
+      const got = d.weaknesses.filter(w => st.circles.includes(w.square));
+      for (const w of d.weaknesses) {
+        const whose = w.side === 'yours' ? 'your' : 'their';
+        const what = `${whose} ${KIND_WORD[w.kind] || w.kind} on <b>${w.square}</b>`;
+        row(st.circles.includes(w.square) ? 'y' : 'n', (st.circles.includes(w.square) ? `You marked ${what}.` : `You didn't mark ${what}.`)
+          + (w.line ? ` <small>How the engine would use it: <span class="line">${esc(w.line)}</span></small>` : ''));
+      }
+      const extra = st.circles.filter(s => !d.weaknesses.some(w => w.square === s));
+      if (extra.length) row('o', `You also marked ${extra.map(s => '<b>' + s + '</b>').join(', ')}: ${extra.length > 1 ? 'not weaknesses' : 'not a weakness'} the review measures here (it may still have been a fair idea).`);
+      ok = got.length > 0 && got.length * 2 >= d.weaknesses.length;
+      const marked = d.weaknesses.filter(w => w.marked);
+      row('o', marked.length ? `${who} marked ${marked.map(w => '<b>' + w.square + '</b>').join(', ')} during the game.` : `${who} didn't mark ${d.weaknesses.length > 1 ? 'these' : 'it'} during the game.`);
+    } else {
+      const w = d.worst, pieceAt = `${PIECE[(st.b[w.square] || 'p').toLowerCase()] || w.piece} on <b>${w.square}</b>`;
+      const hit = st.circles.includes(w.square) || st.arrows.some(u => u.startsWith(w.square));
+      const toOk = w.to && st.arrows.some(u => u.startsWith(w.square) && u.endsWith(w.to));
+      row(hit ? 'y' : 'n', hit ? `You picked the ${pieceAt}: the review's worst-placed piece${w.activity != null ? ` (it reached ${pct(w.activity)} of its squares in the moves that followed)` : ''}.`
+        : `The review's worst-placed piece was the ${pieceAt}${w.activity != null ? ` (it reached ${pct(w.activity)} of its squares in the moves that followed)` : ''}.`);
+      if (w.to) row(toOk ? 'y' : 'o', (toOk ? `And you sent it where the engine does: <b>${w.to}</b>.` : `The engine brings it to <b>${w.to}</b>.`)
+        + (w.line ? ` <small>The engine's way: <span class="line">${esc(w.line)}</span></small>` : ''));
+      ok = hit;
+      const how = { 'moved it in a candidate': `${who} had a move with it among ${HIS} candidates.`, 'named': `${who} named it out loud.` }[w.how];
+      row('o', how || `${who} didn't mark it during the game.`);
+    }
+    done[d.id] = done[d.id] || { ok }; save();
+    const said = (d.said || []).map(s => `<p class="quote">“${esc(s)}”</p>`).join('');
+    const take = d.kind === 'weakness'
+      ? (ok ? 'Good eye for the structure. In your games, name the weakness out loud before you look for moves: plans come from it.'
+            : 'Before looking for moves, scan the pawns: which squares can no pawn guard any more? Those are where pieces want to go.')
+      : (ok ? 'You found the piece. In your games, ask this whenever there is no tactic: which piece is doing least, and where should it be?'
+            : 'When there is no tactic, ask which piece does least. A piece behind its own pawns, or with no squares, is usually the one.');
+    $('compare').hidden = false;
+    $('compare').innerHTML = `<h2>Your answer</h2><ul class="checks">${rows.join('')}</ul><p class="take"><b>Takeaway:</b> ${take}</p>`
+      + '<div class="key"><span><i style="background:#1e8e3e"></i>Found</span><span><i style="background:#c92a2a"></i>Missed</span><span><i style="background:#2a78d6"></i>Your other marks</span></div>';
+    const r = $('reveal'); r.hidden = false;
+    r.innerHTML = `<h2>What ${who} was thinking</h2>`
+      + (said ? `<p>What ${HE} said about it:</p>${said}` : `<p class="muted">${cap(HE)} said nothing about ${d.kind === 'weakness' ? (d.weaknesses.length > 1 ? 'these squares' : 'this square') : 'this piece'} at this point.</p>`)
+      + `<p>${cap(HE)} played <b>${esc(d.move)}</b> here.</p>`
+      + (d.video ? `<p><a href="${esc(d.video)}" target="_blank" rel="noopener">Watch this moment in ${HIS} video &#9654;</a></p>` : '')
+      + '<p class="muted">Drills are not rated: they train how you look at a position, not one right move.</p>' + reportForm(d.id);
+    wireReport(d.id);
+    $('check').hidden = true; $('retry').hidden = false; $('hint').hidden = true; document.querySelector('.tools').hidden = true;
+    document.querySelector('.boardwrap').classList.remove('drawing');
+    render();
+  }
+  $('check').onclick = checkDrill;
 
   // ---------------------------------------------------------------- thinking out loud
   let rec = null;  // the recording in progress
@@ -431,11 +666,20 @@
   const sqAt = (e) => { const r = svg.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 360, y = (e.clientY - r.top) / r.height * 360;
     if (x < 0 || y < 0 || x >= 360 || y >= 360) return null; let f = Math.floor(x / S), rk = 7 - Math.floor(y / S);
     if (st.flip) { f = 7 - f; rk = 7 - rk; } return { s: String.fromCharCode(97 + f) + (rk + 1), p: [x, y] }; };
-  const mine = (s) => { const ch = st.b[s]; return ch && (ch === ch.toUpperCase()) === P.white; };
+  const mine = (s) => { const ch = st.b[s]; return ch && (ch === ch.toUpperCase()) === (P || DR).white; };
   let drag = null;
+  function gate() {  // what the mode asks for before the move, if it's missing
+    if (MODE === 'threats' && !st.arrows.some(u => kindOf(u) === 'theirs'))
+      return 'First mark what your opponent wants: an arrow from one of <b>their</b> pieces (switch on <b>Draw arrows</b>, or right-click and drag). Then play your move.';
+    if (MODE === 'cands' && st.arrows.filter(u => kindOf(u) === 'mine').length < 2)
+      return `Draw at least two candidate moves first: arrows from <b>your</b> pieces (${st.arrows.filter(u => kindOf(u) === 'mine').length} so far). Then play one.`;
+    return '';
+  }
   function tryMove(from, to) {
     const base = from + to, opts = P.moves.filter(m => m.uci.startsWith(base));
     if (!opts.length) return false;
+    const g = gate(); if (g) { $('gate').innerHTML = g; $('gate').hidden = false; st.sel = null; render(); return true; }
+    $('gate').hidden = true;
     if (opts.length > 1) return promote(base), true;
     judge(opts[0].uci); return true;
   }
@@ -452,16 +696,16 @@
     const i = list.indexOf(x); if (i >= 0) list.splice(i, 1); else list.push(x);
     (st.marks = st.marks || []).push({ list, x, added: i < 0 }); undoState();
   }
-  function undoState() { $('undo').disabled = !(st.marks && st.marks.length) || !!(st.answered || st.revealed); }
+  function undoState() { $('undo').disabled = !(st.marks && st.marks.length) || !!(st.answered || st.revealed || st.checked); }
   function undo() {
-    const m = st.marks && st.marks.pop(); if (!m || st.answered || st.revealed) return undoState();
+    const m = st.marks && st.marks.pop(); if (!m || st.answered || st.revealed || st.checked) return undoState();
     if (m.added) { const i = m.list.lastIndexOf(m.x); if (i >= 0) m.list.splice(i, 1); } else m.list.push(m.x);
     undoState(); render();
   }
   $('undo').onclick = undo;
-  document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'z' && P && !$('one').hidden) { e.preventDefault(); undo(); } });
+  document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'z' && (P || DR) && !$('one').hidden) { e.preventDefault(); undo(); } });
   svg.addEventListener('pointerdown', (e) => {
-    if (st.answered || st.revealed) return; const h = sqAt(e); if (!h) return;
+    if (st.answered || st.revealed || st.checked) return; const h = sqAt(e); if (!h) return;
     if (e.button === 2 || st.draw) { pen = { from: h.s }; st.sel = null; svg.setPointerCapture(e.pointerId); e.preventDefault(); return; }
     if (st.sel && st.sel !== h.s && tryMove(st.sel, h.s)) return;
     if (mine(h.s)) { st.sel = h.s; drag = { from: h.s, moved: false }; svg.setPointerCapture(e.pointerId); render(); }
@@ -483,7 +727,7 @@
   });
 
   $('giveup').onclick = () => { micStop(); st.audio = null; reveal(); compare(null); render(); if (!st.answered) { $('verdict').hidden = true; $('verdict').className = 'verdict miss'; $('verdict').textContent = ''; rated(null); } };
-  $('retry').onclick = () => open(st.i);
+  $('retry').onclick = () => DR ? openDrill(DR, st.k) : open(st.i, st.k);
   function drawMode(on) {  // drawing, not moving: the button, a green frame round the board and a label say so
     st.draw = on; const b = $('drawmode');
     b.setAttribute('aria-pressed', String(on)); b.innerHTML = on ? '&#10003; Drawing arrows: tap to stop' : '&#9998; Draw arrows';
@@ -492,7 +736,7 @@
   }
   $('drawmode').onclick = () => drawMode(!st.draw);
   $('clear').onclick = () => { st.arrows = []; st.circles = []; st.marks = []; undoState(); render(); };
-  $('next').onclick = () => { location.hash = '#' + (((st.i + 1) % D.puzzles.length) + 1); };
+  $('next').onclick = () => { location.hash = '#' + MODE + '/' + (((st.k + 1) % modeLen(MODE)) + 1); };
   // The daily puzzle: the same for everyone on a UTC day, stepping through the set in a fixed shuffled order.
   function dailyIndex() {
     const day = Math.floor(Date.now() / 86400000), n = D.puzzles.length;
@@ -500,8 +744,19 @@
     return ((day * step) % n + n) % n;
   }
   function route() {
-    if (location.hash === '#daily' && D) return open(dailyIndex());
-    const n = parseInt(location.hash.slice(1), 10); if (n >= 1 && D) open(n - 1); else if (D) list();
+    if (!D) return;
+    stopReplay();
+    const h = location.hash.slice(1);
+    if (h === 'daily') { MODE = 'master'; const i = dailyIndex(); return open(i, i); }
+    const m = /^(master|threats|cands|mixed|weak|piece)\/(\d+)$/.exec(h);
+    if (m) {
+      MODE = m[1]; const k = Math.max(0, Math.min(+m[2] - 1, modeLen(MODE) - 1));
+      if (MODE === 'weak' || MODE === 'piece') return openDrill(drillsOf(MODE)[k], k);
+      if (MODE === 'mixed') { const it = mixedList()[k]; return it.d ? openDrill(it.d, k) : open(it.i, k); }
+      const i = puzzlesFor(MODE)[k]; return i == null ? list() : open(i, k);
+    }
+    const n = parseInt(h, 10); MODE = 'master';
+    if (n >= 1) open(n - 1, n - 1); else list();
   }
   window.addEventListener('hashchange', route);
   fetch('set/puzzles.json', { cache: 'no-cache' }).then(r => r.json()).then(d => {

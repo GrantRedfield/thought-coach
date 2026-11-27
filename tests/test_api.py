@@ -454,3 +454,12 @@ def test_puzzle_solved_out_loud_is_queued_for_the_worker_and_fetched_by_its_play
     bad = dict(body, mime="text/html")
     assert api.handler(event("POST", "/api/puzzles/voice", bad, cookies=jar), None)["statusCode"] == 400
     assert api.handler(event("POST", "/api/puzzles/voice", dict(body, audio="!!"), cookies=jar), None)["statusCode"] == 400
+
+
+def test_a_puzzle_problem_report_is_kept_for_published_puzzles_only(api, monkeypatch):
+    _with_puzzles(api, monkeypatch)
+    ok = api.handler(event("POST", "/api/feedback", {"kind": "puzzle", "id": PUZZLE["id"], "reason": "two_answers", "comment": "Qh5 too"}), None)
+    assert ok["statusCode"] == 201
+    bad = api.handler(event("POST", "/api/feedback", {"kind": "puzzle", "id": "nope-1", "reason": "two_answers"}), None)
+    assert bad["statusCode"] == 400
+    assert api.handler(event("POST", "/api/feedback", {"kind": "puzzle", "id": PUZZLE["id"], "reason": "spam"}), None)["statusCode"] == 400

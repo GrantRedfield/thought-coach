@@ -212,6 +212,7 @@ def _cookie(name: str, value: str, path: str, max_age: int) -> str:
 # "unrecorded" (they considered it but didn't draw or say it) and "misread" are the ones that test the coaching.
 FEEDBACK_REASONS = {"accurate", "helpful", "unrecorded", "misread", "wrong", "confusing", "other"}
 GENERAL_REASONS = {"bug", "idea", "beta", "other"}  # the site-wide feedback form
+PUZZLE_REASONS = {"wrong_answer", "two_answers", "unclear", "bad_quote", "good", "other"}  # a puzzle or drill
 PLAYER = re.compile(r"^[a-z0-9_-]{2,30}$")
 
 
@@ -226,6 +227,8 @@ def feedback(event: dict) -> dict:
         f = json.loads(raw)
         if isinstance(f, dict) and f.get("kind") == "general":
             return general_feedback(event, f)
+        if isinstance(f, dict) and f.get("kind") == "puzzle":
+            return puzzle_feedback(event, f)
         owner, gid, reason = str(f.get("owner", "")).lower(), str(f.get("game_id", "")), f.get("reason")
         if not PLAYER.match(owner) or not GAME_ID.match(gid) or reason not in FEEDBACK_REASONS:
             raise ValueError
@@ -244,6 +247,17 @@ def feedback(event: dict) -> dict:
                  "title": str(card.get("title") or "")[:200], "text": str(card.get("text") or "")[:1500]},
     }
     _put_json(DATA, f"feedback/{time.strftime('%Y-%m-%d', time.gmtime())}/{owner}-{gid}-{uuid.uuid4().hex[:8]}.json", record)
+    return reply(201, {"ok": True})
+
+
+def puzzle_feedback(event: dict, f: dict) -> dict:
+    """'The answer is wrong' (or 'a great one') about a published puzzle or drill: kept privately to check the set."""
+    pid, reason = str(f.get("id") or ""), f.get("reason")
+    if reason not in PUZZLE_REASONS or pid not in puzzle_ids():
+        return reply(400, {"error": "bad report"})
+    record = {"at": time.time(), "kind": "puzzle", "id": pid, "reason": reason, "comment": str(f.get("comment") or "")[:1000],
+              "by": signed_in(event) or "anonymous"}
+    _put_json(DATA, f"feedback/{time.strftime('%Y-%m-%d', time.gmtime())}/puzzle-{pid}-{uuid.uuid4().hex[:8]}.json", record)
     return reply(201, {"ok": True})
 
 
@@ -786,8 +800,14 @@ def puzzle_set() -> dict:
     if time.time() - _puzzles["t"] > 60:
         data = _get_json(SITE, PUZZLE_SET) or {}
         _puzzles["by_id"] = {p["id"]: p for p in data.get("puzzles") or []}
+        _puzzles["drills"] = {d["id"] for d in data.get("drills") or [] if isinstance(d, dict) and d.get("id")}
         _puzzles["t"] = time.time()
     return _puzzles["by_id"]
+
+
+def puzzle_ids() -> set:
+    """Every published puzzle and drill id."""
+    return set(puzzle_set()) | _puzzles.get("drills", set())
 
 
 def judge(puzzle: dict, uci: str | None) -> bool:
