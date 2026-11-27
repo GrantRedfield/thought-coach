@@ -94,7 +94,12 @@ def summary(report: dict, analysis: dict) -> dict:
     rejected = [c for c in costly if c["gap"] == "wrongly_rejected"]
     unrecorded_threat = [c for c in costly if c["gap"] == "opponent_idea"]
     not_found = [c for c in costly if c["gap"] in ("missed_candidate", "no_thoughts")]
-    k, n = s.get("q4_best_considered", 0), s.get("q4_positions", 0)
+    # The same count as the four questions (questions.best_move): positions outside time trouble where a candidate was
+    # drawn or said, and the engine's best move was one of them (or the move played).
+    from .questions import best_move
+
+    bm = best_move([{"id": report["game"].get("id"), "report": report}]) if report.get("moves") else {}
+    k, n = bm.get("found", 0), bm.get("total", 0)
 
     def names(cs):
         return ", ".join(c["label"] for c in cs[:2])
@@ -186,9 +191,27 @@ def summary(report: dict, analysis: dict) -> dict:
             "well": well[:2], "stats": stats, "decisions": decisions}
 
 
-THIRD = [(r"\byou'd\b", "he'd"), (r"\byou're\b", "he's"), (r"\byou've\b", "he's"), (r"\bYou\b", "He"), (r"\byou\b", "he"),
+# "you" as an object ("had you at 43%", "took you from", "for you") is "him", not "he".
+_OBJ = ("at|to|for|from|with|against|than|of|on|by|about|before|behind|toward|towards|into|onto|"
+        "had|took|cost|costs|gave|give|gives|put|puts|left|leaves|let|lets|kept|keeps|helps|"
+        "helped|shows|showed|told|tells|gets|got|makes|made|asks|asked|caught|catches|"
+        "surprised|surprises|hurt|hurts|warns|warned|beat|beats|saved|saves|hit|hits|forced|forces")
+_SUBJ_NEXT = ("had|have|has|were|are|was|played|play|drew|draw|said|say|thought|think|took|take|saw|see|found|find|chose|"
+              "choose|missed|miss|could|can|would|will|should|might|did|do|didn't|don't|needed|need|went|spent|made|make|"
+              "gave|got|felt|feel|considered|consider|named|name|predicted|kept|knew|know|looked|look|reached|lost|won|"
+              "struck|spoke|talked|moved|move|play")
+THIRD = [(r"\byou'd\b", "he'd"), (r"\byou're\b", "he's"), (r"\byou've\b", "he's"), (r"\byou'll\b", "he'll"),
+         (r"\bYou'll\b", "He'll"), (r"\bYou'd\b", "He'd"), (r"\bYou're\b", "He's"), (r"\bYou've\b", "He's"),
+         (r"\byourself\b", "himself"), (r"\bYourself\b", "Himself"),
+         (r"\b(" + _OBJ + r") you\b(?! (?:" + _SUBJ_NEXT + r")\b)", r"\1 him"),
+         (r"\bYou\b", "He"), (r"\byou\b", "he"),
          (r"\byours\b", "his"), (r"\bYour\b", "His"), (r"\byour\b", "his"), (r"\bhe were\b", "he was"), (r"\bhe have\b", "he has"),
-         (r"\bhe are\b", "he is"), (r"\bhe don't\b", "he doesn't"), (r"\bHe were\b", "He was"), (r"\bHe have\b", "He has")]
+         (r"\bhe are\b", "he is"), (r"\bhe don't\b", "he doesn't"), (r"\bHe were\b", "He was"), (r"\bHe have\b", "He has"),
+         (r"\bHe are\b", "He is"), (r"\bHe don't\b", "He doesn't"),
+         (r"\bhe do\b", "he does"), (r"\bhe need\b", "he needs"), (r"\bhe want\b", "he wants"), (r"\bhe tend\b", "he tends"),
+         (r"\bhe spend\b", "he spends"), (r"\bhe think\b", "he thinks"), (r"\bhe see\b", "he sees"), (r"\bhe draw\b", "he draws"),
+         (r"\bhe play\b", "he plays"), (r"\bhe find\b", "he finds"), (r"\bhe know\b", "he knows"), (r"\bhe say\b", "he says"),
+         (r"\bhe look\b", "he looks"), (r"\bhe take\b", "he takes"), (r"\bhe make\b", "he makes"), (r"\bhe get\b", "he gets")]
 
 
 def third(text: str) -> str:
@@ -196,5 +219,36 @@ def third(text: str) -> str:
     import re
 
     for a, b in THIRD:
-        text = re.sub(a, b, text)
+        text = re.sub(a.replace("'", "['’]"), b, text)
     return text
+
+
+def third_html(page: str, keep: tuple[str, ...] = ("habit",)) -> str:
+    """third() over a page's visible words (text, titles and labels), leaving scripts, styles and advice to the reader
+    (elements whose class is in `keep`, like the practice habit) as they are."""
+    import re
+
+    out, i, skip, depth = [], 0, None, 0  # skip: the tag whose matching end closes the part left alone
+    for m in re.finditer(r"<(script|style|textarea)\b.*?</\1>|<[^>]+>", page, re.S):
+        text = page[i:m.start()]
+        out.append(text if skip else third(text))
+        tag = m.group(0)
+        if m.group(1):
+            pass
+        elif skip:
+            if re.match(rf"<{skip}\b", tag):
+                depth += 1
+            elif tag.lower() == f"</{skip}>":
+                depth -= 1
+                if depth == 0:
+                    skip = None
+        else:
+            tag = re.sub(r"""((?:title|aria-label|alt)=)(['"])(.*?)\2""",
+                         lambda a: a.group(1) + a.group(2) + third(a.group(3)) + a.group(2), tag)
+            k = re.match(r"""<(\w+)[^>]*\bclass=['"]([^'"]*)['"]""", tag)
+            if k and set(k.group(2).split()) & set(keep) and not tag.endswith("/>"):
+                skip, depth = k.group(1), 1
+        out.append(tag)
+        i = m.end()
+    out.append(page[i:] if skip else third(page[i:]))
+    return "".join(out)

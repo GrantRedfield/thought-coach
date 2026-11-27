@@ -1143,7 +1143,8 @@ VOICE_HINT = ("<p class='body' style='opacity:.75;font-size:.9em'>Voice was off 
               "thinking.</p>")
 
 
-def render(story: dict) -> str:
+def render(story: dict, player: str | None = None) -> str:
+    """`player`: whose game this is when it isn't the reader's own (the public sample): told in the third person."""
     slides = []
     o = story["orientation"]
     curve = {p: v for p, v in story["curve"]}
@@ -1174,7 +1175,7 @@ def render(story: dict) -> str:
         stat = f"<div class='stat'>{_e(b['stat'])}</div>" if b.get("stat") else ""
         inside = board if b.get("frames") else f"<div class='board'>{board}</div>{_key(b)}" if board else ""
         visual = f"<div class='visual'>{inside}</div>" if inside else ""
-        quote = f"<blockquote>“{_e(b['quote'])}”<cite>you, during the game</cite></blockquote>" if b.get("quote") else ""
+        quote = f"<blockquote>“{_e(b['quote'])}”<cite>{'he said, during the game' if player else 'you, during the game'}</cite></blockquote>" if b.get("quote") else ""
         slides.append((b["kind"], meta + f"""<p class='eyebrow'><span class='n'>{i}</span>{_e(b['eyebrow'])}</p>
 <h2>{_e(b['title'])}</h2>{stat}{visual}
 <p class='body'>{_link_moves(_e(b['body']), story)}</p>{quote}{f"<p class='note'>{_e(b['note'])}</p>" if b.get('note') else ''}{_study(b)}"""))
@@ -1200,7 +1201,7 @@ def render(story: dict) -> str:
     bars = "".join("<i><b></b></i>" for _ in slides)
     # Built outside the f-string: a backslash inside its braces needs Python 3.12 (the worker runs 3.11).
     plies_json = json.dumps({"plies": story.get("plies") or [], "white": story.get("color") != "black"}).replace("</", "<\\/")
-    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
+    page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex">
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Your game · {_e(story['id'])}</title>
 <style>{CSS}</style></head><body><main class="story" aria-live="polite">
 <div class="bars">{bars}</div><button class="close" type="button" onclick="location.href='{_e(game_url(story['id']))}'" aria-label="Close">×</button>
@@ -1222,6 +1223,10 @@ def render(story: dict) -> str:
 <script type="application/json" id="plies">{plies_json}</script>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">{PIECE_DEFS}</svg>
 <script>{JS}{MOVES_JS}</script></body></html>"""
+    if player:
+        from .coach import third_html
+        page = third_html(page)
+    return page
 
 
 PIECE_DEFS = re.search(r"<defs>.*?</defs>", chess.svg.board(chess.Board(), coordinates=False), re.S).group(0)

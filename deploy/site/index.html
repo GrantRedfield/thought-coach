@@ -34,6 +34,12 @@
   .hero .sub2 { font-size:clamp(16px, 1.45vw, 19px); color:var(--fg2); margin:0 0 22px; max-width:46ch; }
   .hero .row .btn { padding:12px 20px; }
   .hero .trustline { color:var(--muted); font-size:13.5px; margin:16px 0 0; letter-spacing:.02em; }
+  .pzcta { display:flex; align-items:center; gap:14px; margin:20px 0 0; padding:14px 16px; border:1px solid var(--line);
+    border-radius:12px; background:var(--card); color:var(--fg); text-decoration:none; max-width:520px; }
+  .pzcta:hover { border-color:var(--accent); }
+  .pzcta .ic { flex:none; width:40px; height:40px; border-radius:10px; display:grid; place-items:center; background:#15781b; color:#fff; font-size:22px; }
+  .pzcta span { color:var(--muted); font-size:13.5px; line-height:1.4; } .pzcta b { display:block; font-size:15.5px; color:var(--fg); }
+  .pzcta .go { margin-left:auto; flex:none; font-weight:700; color:var(--accent); white-space:nowrap; }
   .exlabel { font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; text-align:center; }
   .top2.solo { grid-template-columns:1fr; }
   .novideo { display:flex; gap:7px; align-items:center; justify-content:center; margin:10px 0 0; font-size:13.5px; color:var(--fg2); }
@@ -282,7 +288,10 @@
         <a class="btn" href="/start" data-ev="get_started">Get started</a>
       </div>
       <p class="trustline">Completely free · Open source · Post-game analysis only</p>
-      <p class="mobnote">Recording your games needs a desktop browser. On your phone, explore the sample review and the research.</p>
+      <a class="pzcta" href="/puzzles/#daily" data-ev="daily_puzzle"><span class="ic" aria-hidden="true">&#9822;</span>
+        <span><b>Today's thinking puzzle</b><span>A position from a real master game. Find the move, then compare your
+        thinking with the master's.</span></span><span class="go">Solve &rarr;</span></a>
+      <p class="mobnote">Recording your games needs a desktop browser. On your phone, try the puzzles and explore the sample review and the research.</p>
     </section>
     <section class="example">
       <p class="exlabel">Two real moments, reviewed</p>

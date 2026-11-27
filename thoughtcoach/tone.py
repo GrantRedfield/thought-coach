@@ -111,6 +111,10 @@ GAP = 0.08      # costly-move rates this far apart count as a difference
 ROSY_BELOW, GLOOMY_ABOVE = 0.40, 0.65
 
 
+DESCRIPTIVE = {"good", "great", "nice", "bad", "ugly", "solid", "easy", "awkward", "dangerous", "terrible", "beautiful", "perfect"}
+FEELING_NOUNS = {"position", "game", "sign", "feeling", "day", "start", "result", "one"}
+
+
 def _words(text: str) -> str:
     return " " + re.sub(r"[^a-z' ]+", " ", text.lower().replace("’", "'")) + " "
 
@@ -132,6 +136,10 @@ def score(text: str) -> tuple[int, list[str]]:
                 continue
             used |= span
             before = low[:at].split()[-3:]
+            after = low[at + len(phrase) + 1:].split()[:1]
+            if phrase in DESCRIPTIVE and before[-1:] in (["a"], ["an"], ["the"], ["that"], ["this"]) and after \
+                    and after[0] not in FEELING_NOUNS:
+                continue  # "a good portion of the center", "the bad bishop": describing the board, not a feeling
             s = sign
             if set(before) & NEGATIONS and not phrase.startswith(("not ", "no ")):
                 s = -s  # "isn't good", "no danger"

@@ -945,7 +945,7 @@ def _list(bucket: str, prefix: str, limit: int = 2000) -> list[dict]:
 
 
 EVENTS = {"home", "sample_open", "sample_story", "sample_review", "sample_end", "get_started", "start_page",
-          "store_click", "profile_view", "practice_open", "practice_reveal"}
+          "store_click", "profile_view", "practice_open", "practice_reveal", "daily_puzzle"}
 
 
 def count_event(event: dict) -> dict:
@@ -1073,7 +1073,7 @@ def admin(event: dict) -> dict:
         if r.get("kind") != "general":
             said[r.get("reason")] = said.get(r.get("reason"), 0) + 1
     said_txt = " · ".join(f"{k}: {v}" for k, v in sorted(said.items(), key=lambda x: -x[1])) or "none yet"
-    cols = ["home", "sample_open", "sample_story", "sample_review", "sample_end", "get_started", "start_page", "store_click"]
+    cols = ["home", "sample_open", "sample_story", "sample_review", "sample_end", "get_started", "start_page", "store_click", "daily_puzzle"]
     rows_e = "".join(
         f"<tr><td>{d}</td>" + "".join(f"<td>{c.get(k, '') or ''}</td>" for k in cols)
         + f"<td>{sum(1 for u in users if u.get('created') and ymd(u['created']) == d) or ''}</td>"

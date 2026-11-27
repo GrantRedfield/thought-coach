@@ -9,6 +9,11 @@
 <link rel="icon" type="image/svg+xml" href="/icon.svg"><link rel="icon" href="/favicon.png"><link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="stylesheet" href="/site.css">
 <style>
+  .daily { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin:14px 0 18px; padding:14px 16px; border-radius:12px;
+    border:2px solid #15781b; background:var(--card); color:var(--fg); text-decoration:none; }
+  .daily .dl { background:#15781b; color:#fff; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:700;
+    letter-spacing:.04em; text-transform:uppercase; }
+  .daily #dailynote { color:var(--muted); font-size:14px; } .daily .go { margin-left:auto; font-weight:700; color:#15781b; }
   .pz-head { display:flex; flex-wrap:wrap; align-items:baseline; gap:8px 16px; margin-bottom:6px; }
   .pz-head h1 { margin:0; }
   .credit { color:var(--fg2); font-size:15px; margin:4px 0 8px; }
@@ -54,6 +59,7 @@
   .crumbs { font-size:14px; margin:0 0 12px; } .crumbs a { text-decoration:none; }
   .tools { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
   .tools .btn { min-height:40px; padding:6px 12px; font-size:14px; } .tools .btn[aria-pressed="true"] { border-color:#2f9e44; background:#2f9e44; color:#fff; box-shadow:0 0 0 3px #2f9e4455; }
+  .tools .btn:disabled { opacity:.45; cursor:default; }
   .boardwrap.drawing svg.board { box-shadow:0 0 0 4px #2f9e44, 0 6px 20px #0005; }
   .drawtag { margin:10px 0 0; background:#2f9e4422; border:1px solid #2f9e44; color:var(--fg); font-size:14px; font-weight:600;
     padding:7px 12px; border-radius:10px; text-align:center; }
@@ -91,6 +97,8 @@
     <p class="lead">Positions from real master games, with the clock as it was. Find the move, then see what the master was
       thinking: the moves they considered, what they said out loud, and what the engine says. Sometimes they found it.
       Sometimes they didn't.</p>
+    <a class="daily" id="daily" href="#daily"><span class="dl">Today's puzzle</span><b id="dailyname"></b>
+      <span id="dailynote"></span><span class="go">Solve &rarr;</span></a>
     <ul class="pz-list" id="grid"></ul>
   </section>
 
@@ -103,6 +111,7 @@
         <div class="tools">
           <button type="button" class="btn" id="mic" aria-pressed="false">&#127897; Think out loud</button>
           <button type="button" class="btn" id="drawmode" aria-pressed="false">&#9998; Draw arrows</button>
+          <button type="button" class="btn" id="undo" disabled aria-label="Undo the last arrow or circle">&#8630; Undo</button>
           <button type="button" class="btn" id="clear">Clear arrows</button>
         </div>
         <p class="hint" id="micnote" hidden style="margin-top:8px"></p>
@@ -205,6 +214,9 @@
       meta.innerHTML = `<span>#${i + 1} · ${p.white ? 'White' : 'Black'} to play</span>${badge}`;
       a.append(svg, meta); li.append(a); grid.append(li);
     });
+    const di = dailyIndex(), dp = D.puzzles[di], dr = done[dp.id];
+    $('dailyname').textContent = `#${di + 1} · ${dp.white ? 'White' : 'Black'} to play`;
+    $('dailynote').textContent = dr ? (dr.ok ? 'Solved today. A new one tomorrow.' : 'Tried. A new one tomorrow.') : 'The same position for everyone today.';
     const tried = D.puzzles.filter(p => done[p.id]), ok = tried.filter(p => done[p.id].ok);
     $('score').textContent = tried.length ? `${ok.length} of ${tried.length} solved` : `${D.puzzles.length} puzzles`;
   }
@@ -226,7 +238,7 @@
     $('ctx').textContent = bits.join(' · ') + '.';
     $('verdict').hidden = true; $('reveal').hidden = true; $('retry').hidden = true; $('giveup').hidden = false;
     $('compare').hidden = true; $('hint').hidden = false; drawMode(st.draw);
-    document.querySelector('.tools').hidden = false; $('micnote').hidden = true;
+    document.querySelector('.tools').hidden = false; $('micnote').hidden = true; st.marks = []; undoState();
     micStop(); st.audio = null; st.voice = null;
     render();
   }
@@ -436,7 +448,18 @@
   }
   let pen = null;  // an arrow being drawn: right button, or anything in draw mode
   svg.addEventListener('contextmenu', (e) => e.preventDefault());
-  function toggle(list, x) { const i = list.indexOf(x); if (i >= 0) list.splice(i, 1); else list.push(x); }
+  function toggle(list, x) {
+    const i = list.indexOf(x); if (i >= 0) list.splice(i, 1); else list.push(x);
+    (st.marks = st.marks || []).push({ list, x, added: i < 0 }); undoState();
+  }
+  function undoState() { $('undo').disabled = !(st.marks && st.marks.length) || !!(st.answered || st.revealed); }
+  function undo() {
+    const m = st.marks && st.marks.pop(); if (!m || st.answered || st.revealed) return undoState();
+    if (m.added) { const i = m.list.lastIndexOf(m.x); if (i >= 0) m.list.splice(i, 1); } else m.list.push(m.x);
+    undoState(); render();
+  }
+  $('undo').onclick = undo;
+  document.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'z' && P && !$('one').hidden) { e.preventDefault(); undo(); } });
   svg.addEventListener('pointerdown', (e) => {
     if (st.answered || st.revealed) return; const h = sqAt(e); if (!h) return;
     if (e.button === 2 || st.draw) { pen = { from: h.s }; st.sel = null; svg.setPointerCapture(e.pointerId); e.preventDefault(); return; }
@@ -468,9 +491,18 @@
     document.querySelector('.drawtag').hidden = !on;
   }
   $('drawmode').onclick = () => drawMode(!st.draw);
-  $('clear').onclick = () => { st.arrows = []; st.circles = []; render(); };
+  $('clear').onclick = () => { st.arrows = []; st.circles = []; st.marks = []; undoState(); render(); };
   $('next').onclick = () => { location.hash = '#' + (((st.i + 1) % D.puzzles.length) + 1); };
-  function route() { const n = parseInt(location.hash.slice(1), 10); if (n >= 1 && D) open(n - 1); else if (D) list(); }
+  // The daily puzzle: the same for everyone on a UTC day, stepping through the set in a fixed shuffled order.
+  function dailyIndex() {
+    const day = Math.floor(Date.now() / 86400000), n = D.puzzles.length;
+    let step = 7; while (n % step === 0 || step >= n && n > 1) step = step === 7 ? 11 : step + 2;
+    return ((day * step) % n + n) % n;
+  }
+  function route() {
+    if (location.hash === '#daily' && D) return open(dailyIndex());
+    const n = parseInt(location.hash.slice(1), 10); if (n >= 1 && D) open(n - 1); else if (D) list();
+  }
   window.addEventListener('hashchange', route);
   fetch('set/puzzles.json', { cache: 'no-cache' }).then(r => r.json()).then(d => {
     D = d; HE = D.he || HE; HIS = D.his || HIS; if (D.credit) $('credit').innerHTML = D.credit;

@@ -200,11 +200,14 @@ def thinking_report(report: dict, analysis: dict, decisions: dict, white: bool) 
     out.append(_report_section("threats", "Opponent threats", f"recorded {coach.ratio(rec_n, len(real))} · held {coach.ratio(held, len(real))}",
                                rows, "Two separate questions: was their threat in your arrows or words, and did the move you played deal with it?"))
     # Candidates.
-    k, n = s.get("q4_best_considered", 0), s.get("q4_positions", 0)
+    from .questions import best_move  # the same count as the summary and the four questions
+
+    bm = best_move([{"id": report["game"].get("id"), "report": report}])
+    k, n = bm["found"], bm["total"]
     rej = [m for m in moves if m.get("mistake") and m.get("gap") == "wrongly_rejected"]
     rows = [(m["ply"] - 1, f"<b>{_e(lab(m))}</b>: the engine's best ({_e(', '.join(m['q4']['wrongly_rejected'][:2]))}) was among your "
                            f"candidates, and the move played cost {pct(m['wp_loss'])}") for m in rej]
-    rows += [(m["ply"] - 1, f"<b>{_e(lab(m))}</b>: best move {_e(m['best_move_san'])}, among your {len(decisions[m['ply'] - 1]['drawn'])} candidates")
+    rows += [(m["ply"] - 1, f"<b>{_e(lab(m))}</b>: best move {_e(m['best_move_san'])}, " + (lambda c: f"your only candidate" if c == 1 else f"among your {c} candidates")(len(decisions[m['ply'] - 1]['drawn'])))
              for m in moves if m["ply"] - 1 in decisions and m["best_move_san"] in decisions[m["ply"] - 1]["drawn"]
              and not m.get("mistake")][:4]
     out.append(_report_section("cands", "Candidate moves", f"best among yours {coach.ratio(k, n)}" + (f" · rejected {len(rej)}" if rej else ""), rows))
@@ -321,7 +324,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
                                sub="Every position where the engine found something to see, and whether it is in your recorded thinking.")
     story_url = game_url(g["id"], story=True)
 
-    return f"""<!doctype html>
+    page = f"""<!doctype html>
 <html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="robots" content="noindex"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Thought Coach · {_e(g['white'])} vs {_e(g['black'])}</title>{THEME_HEAD}<style>{DASH_CSS}{questions.CSS}{sharing.CSS}{CSS}</style></head><body>{THEME_BUTTON}
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>{pieces}
@@ -383,7 +386,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
     <details class="rs" open><summary><span class="rt">The game, move by move</span><span class="rv">win chance, clocks, think time</span></summary>
       <div class="rb chartbox">{chart}</div></details>
     <details class="rs"><summary><span class="rt">Time where it mattered</span><span class="rv">median think time</span></summary><div class="rb">{time_card(report, analysis) if analysis.get("moves") else ""}</div></details>
-    <details class="rs"><summary><span class="rt">The four questions, position by position</span><span class="rv">boards from this game</span></summary><div class="rb">{aagaard}</div></details>
+    <details class="rs"><summary><span class="rt">The four questions, position by position</span><span class="rv">boards from this game</span></summary><div class="rb">{coach.third_html(aagaard) if player else aagaard}</div></details>
     <details class="rs"><summary><span class="rt">How the numbers are made</span><span class="rv">methodology</span></summary><div class="rb method">{METHOD}</div></details>
   </section>
   <section class="practice"><p class="k">{'What to take from his game' if player else 'Before your next game'}</p><p><b>{_e(f['title'])}.</b> {_e(f['habit'])}</p></section>
@@ -392,6 +395,7 @@ def render(report: dict, analysis: dict, thinking: dict | None, n: int = 3, line
 <script type="application/json" id="rvdata">{blob}</script>
 <script>{DASH_JS}</script><script>{JS}</script>{'' if player else f"<script>{sharing.JS}</script>"}
 </body></html>"""
+    return coach.third_html(page, keep=("habit", "method", "practice")) if player else page
 
 
 CSS = """

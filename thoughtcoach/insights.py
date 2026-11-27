@@ -34,8 +34,8 @@ REACTIONS = {
                   "beautiful", "perfect", "love it", "that's mate"],
     "regret": ["should have", "should've", "shouldn't have", "why did i", "i knew it"],
     "clock": ["on time", "enough time", "no time", "seconds", "the clock", "time is", "hustling me", "low on time",
-              "short on time", "flag", "flagging"],
-    "unsure": ["not sure", "i don't know", "pretty close", "hmm", "confusing", "tricky", "no idea"],
+              "short on time", "flag", "flagging", "played faster", "play faster", "moved faster", "move faster"],
+    "unsure": ["not sure", "i don't know", "pretty close", "confusing", "tricky", "no idea"],
 }
 
 FOLLOW_MOVES = 3  # how many of your moves after a reaction to look at
